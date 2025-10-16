@@ -195,12 +195,18 @@
                 <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input type="number" id="input-fontsize-serial"></div>
                 <div class="form-group"><label>Serial Nr. Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-serial" step="0.0001"><input type="number" id="input-y-serial" step="0.0001"><button onclick="centerElement('serial')" title="Centrera horisontellt">🎯</button></div></div><hr>
                 <div class="form-group"><label>Logo Position & Size (X, Y, Width)</label><div class="coord-group"><input type="number" id="input-x-logo"><input type="number" id="input-y-logo"><input type="number" id="input-w-logo"></div></div>
-                <button id="btn-reset-positions" class="secondary-button">Reset All Positions</button>
+                <button id="btn-reset-all" class="secondary-button">Reset All Positions</button>
             </div></details>
 
             <details><summary><strong>4. Export Options</strong></summary><div class="details-content">
                 <div class="form-group"><label for="input-dpi">DPI</label><select id="input-dpi"><option value="150">150</option><option value="300" selected>300</option></select></div>
-                <div class="form-group"><label for="security-mode">Security Mode</label><select id="security-mode"><option value="fast">Fast Mode (LSB Watermark)</option><option value="robust" disabled>Robust Mode (DCT - Future)</option></select></div><hr>
+                <div class="form-group"><label for="qr-mode">QR Code</label><select id="qr-mode"><option value="with_qr">With QR Code</option><option value="no_qr">No QR Code</option></select></div>
+                <div id="qr-controls">
+                    <div class="form-group"><label>QR Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-qr"><input type="number" id="input-y-qr"></div></div>
+                    <div class="form-group"><label>QR Transparency</label><input type="range" id="input-alpha-qr" min="0" max="1" step="0.05"></div>
+                    <button id="btn-reset-qr" class="secondary-button">Reset QR Position</button>
+                </div>
+                <hr>
                 <div class="form-group"><label for="csv-upload">Batch Generate from CSV</label><input type="file" id="csv-upload" accept=".csv"><small>CSV format: name,amount,date,type</small></div>
                 <button id="btn-batch-export" class="secondary-button">📄 Generate Batch from CSV</button><hr>
                 <button id="btn-export-pdf">🔒 Generate Single PDF</button>
@@ -238,6 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = canvas.getContext('2d');
     const bgImage = new Image();
     const logoImage = new Image();
+    let qrImage = new Image();
     let bgImageLoaded = false;
     let logoImageLoaded = false;
     let zoomLevel = 1.0;
@@ -256,10 +263,11 @@ document.addEventListener('DOMContentLoaded', () => {
         xSerial: document.getElementById('input-x-serial'), ySerial: document.getElementById('input-y-serial'),
         xLogo: document.getElementById('input-x-logo'), yLogo: document.getElementById('input-y-logo'),
         wLogo: document.getElementById('input-w-logo'),
+        qrMode: document.getElementById('qr-mode'), xQr: document.getElementById('input-x-qr'),
+        yQr: document.getElementById('input-y-qr'), alphaQr: document.getElementById('input-alpha-qr'),
     };
 
-    let textElements = {};
-    let logoElement = {};
+    let textElements = {}, logoElement = {}, qrCodeElement = {};
 
     // --- INITIALIZATION ---
     async function init() {
@@ -289,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.width = width;
         canvas.height = height;
         document.getElementById('canvas-dimensions').textContent = `${width} x ${height} px`;
-        resetPositions();
+        resetAllPositions();
         fitCanvasToView();
     }
 
@@ -313,7 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         document.getElementById('image-upload').addEventListener('change', handleImageUpload);
         document.getElementById('logo-upload').addEventListener('change', handleLogoUpload);
-        document.getElementById('btn-reset-positions').addEventListener('click', resetPositions);
+        document.getElementById('btn-reset-all').addEventListener('click', resetAllPositions);
+        document.getElementById('btn-reset-qr').addEventListener('click', resetQrPosition);
         document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
         document.getElementById('btn-generate-serial').addEventListener('click', generateNewSerial);
         document.getElementById('btn-align-x').addEventListener('click', alignXValues);
@@ -326,15 +335,17 @@ document.addEventListener('DOMContentLoaded', () => {
         let dragging = false, selectedKey = null, offset = { x: 0, y: 0 };
         canvas.addEventListener('mousedown', e => {
             const pos = getCanvasMousePos(e);
-            const elements = {...textElements, logo: logoElement };
+            const elements = {...textElements, logo: logoElement, qr: qrCodeElement };
             const keys = Object.keys(elements).reverse();
             for (const key of keys) {
                 const el = elements[key];
                 if (el && el.draggable) {
                     ctx.font = `${el.fontSize}px '${el.font}'`;
-                    const width = key === 'logo' ? el.width : ctx.measureText(el.text).width;
-                    const height = key === 'logo' ? el.height : el.fontSize;
-                    if (pos.x >= el.x - width/2 && pos.x <= el.x + width/2 && pos.y >= el.y && pos.y <= el.y + height) {
+                    const width = key === 'logo' ? el.width : (key === 'qr' ? el.size : ctx.measureText(el.text).width);
+                    const height = key === 'logo' ? el.height : (key === 'qr' ? el.size : el.fontSize);
+                    const x_origin = key === 'logo' || key === 'qr' ? el.x : el.x - width / 2;
+                    const y_origin = key === 'logo' || key === 'qr' ? el.y : el.y;
+                    if (pos.x >= x_origin && pos.x <= x_origin + width && pos.y >= y_origin && pos.y <= y_origin + height) {
                         dragging = true; selectedKey = key;
                         offset = { x: pos.x - el.x, y: pos.y - el.y };
                         canvas.style.cursor = 'grabbing'; return;
@@ -345,7 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.addEventListener('mousemove', e => {
             if (dragging && selectedKey) {
                 const pos = getCanvasMousePos(e);
-                const element = selectedKey === 'logo' ? logoElement : textElements[selectedKey];
+                const element = selectedKey === 'logo' ? logoElement : (selectedKey === 'qr' ? qrCodeElement : textElements[selectedKey]);
                 element.x = pos.x - offset.x;
                 element.y = pos.y - offset.y;
                 updateCoordsFromCanvas(selectedKey);
@@ -370,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawCanvas() {
-        ctx.textBaseline = 'top'; // CRITICAL for centered positioning
+        ctx.textBaseline = 'top';
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (bgImageLoaded) ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
         else {
@@ -386,6 +397,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillStyle = textColor;
             ctx.fillText(el.text, el.x - textWidth / 2, el.y);
         });
+
+        if (inputs.qrMode.value === 'with_qr' && qrImage.src) {
+            ctx.globalAlpha = qrCodeElement.alpha;
+            ctx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size);
+            ctx.globalAlpha = 1.0;
+        }
     }
 
     function updateElementsFromInputs() {
@@ -404,20 +421,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 draggable: true
             };
         }
+        qrCodeElement = {
+            x: parseFloat(inputs.xQr.value), y: parseFloat(inputs.yQr.value),
+            alpha: parseFloat(inputs.alphaQr.value), size: 150, draggable: true
+        };
+        generateQrImage();
     }
 
-    function resetPositions() {
+    function resetAllPositions() {
         const defaultValues = {
-            fontSizeName: 100, xName: 534.2118, yName: 1036.9692,
-            fontSizeOther: 33, xAmount: 329.5282, yAmount: 1562.3762,
-            xDate: 980.0274, yDate: 1555.8482,
-            xType: 244.1294, yType: 1708.8119,
+            fontSizeName: 100, xName: 705.6404, yName: 1005.7899,
+            fontSizeOther: 33, xAmount: 359.1387, yAmount: 1531.1968,
+            xDate: 1068.8586, yDate: 1527.7868,
+            xType: 359.1387, yType: 1676.0735,
             fontSizeSerial: 22, xSerial: 335.0223, ySerial: 1962.0316,
             xLogo: 50, yLogo: 50, wLogo: 200
         };
         for (const key in defaultValues) {
             inputs[key].value = defaultValues[key];
         }
+        resetQrPosition();
+        requestRedraw();
+    }
+
+    function resetQrPosition() {
+        const margin = 50;
+        const size = 150;
+        inputs.xQr.value = canvas.width - size - margin;
+        inputs.yQr.value = canvas.height - size - margin;
+        inputs.alphaQr.value = 0.8;
         requestRedraw();
     }
 
@@ -430,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateCoordsFromCanvas(key) {
-        const el = key === 'logo' ? logoElement : textElements[key];
+        const el = key === 'logo' ? logoElement : (key === 'qr' ? qrCodeElement : textElements[key]);
         document.getElementById(`input-x-${key.toLowerCase()}`).value = el.x.toFixed(4);
         document.getElementById(`input-y-${key.toLowerCase()}`).value = el.y.toFixed(4);
     }
@@ -459,10 +491,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     window.centerElement = (key) => {
-        const el = textElements[key];
-        if (!el) return;
-        ctx.font = `${el.fontSize}px '${el.font}'`;
-        const textWidth = ctx.measureText(el.text).width;
         inputs[`x${key.charAt(0).toUpperCase() + key.slice(1)}`].value = (canvas.width / 2).toFixed(4);
         requestRedraw();
     }
@@ -475,10 +503,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function fitCanvasToView() {
         const area = document.getElementById('preview-area');
         const frame = document.getElementById('preview-frame');
-        const areaRatio = area.clientWidth / area.clientHeight;
-        const canvasRatio = canvas.width / canvas.height;
-        let scale = (areaRatio > canvasRatio) ? (area.clientHeight - 60) / frame.offsetHeight : (area.clientWidth - 60) / frame.offsetWidth;
-        zoomLevel = Math.min(scale, 1.0);
+        const scale = Math.min((area.clientHeight - 60) / frame.offsetHeight, (area.clientWidth - 60) / frame.offsetWidth, 1.0);
+        zoomLevel = scale;
         updateZoom(0);
     }
 
@@ -497,6 +523,16 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('verify-serial-prefill').style.display = 'block';
             document.getElementById('verify-prompt').textContent = `Ready to verify serial: ${serialToVerify}. Please upload the corresponding PDF.`;
         }
+    }
+
+    function generateQrImage() {
+        if (inputs.qrMode.value !== 'with_qr') {
+            qrImage.src = '';
+            return;
+        }
+        const qrValue = `https://nomsams.github.io/carbonara/?verify=${inputs.serial.value}`;
+        const qr = new QRious({ value: qrValue, size: 512 }); // High-res for quality
+        qrImage.src = qr.toDataURL();
     }
 
     // --- CRYPTOGRAPHY & PAYLOAD ---
@@ -521,6 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `posDate:${payload.posDate.x},${payload.posDate.y}`, `posType:${payload.posType.x},${payload.posType.y}`,
             `posSerial:${payload.posSerial.x},${payload.posSerial.y}`, `posLogo:${payload.posLogo.x},${payload.posLogo.y},${payload.posLogo.w}`,
             `fontName:${payload.fontName}`, `fontOther:${payload.fontOther}`, `fontSerial:${payload.fontSerial}`,
+            `qrMode:${payload.qrMode}`, `qrPos:${payload.qrPos.x},${payload.qrPos.y}`, `qrAlpha:${payload.qrAlpha}`,
             `canvas:${payload.canvas}`, `app:${payload.app}`
         ].join('|');
     }
@@ -594,11 +631,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     cleanCtx.fillStyle = '#000'; 
                     cleanCtx.fillText(el.text, el.x - textWidth / 2, el.y); 
                 });
+                if (inputs.qrMode.value === 'with_qr' && qrImage.src) {
+                    cleanCtx.globalAlpha = qrCodeElement.alpha;
+                    cleanCtx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size);
+                    cleanCtx.globalAlpha = 1.0;
+                }
             };
             originalDraw();
 
             status.textContent = "Step 2/5: Calculating original hash..."; bar.style.width = "20%";
-            await new Promise(r => setTimeout(r, 50));
             const imageHashOriginal = await sha256(cleanCtx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
 
             const payload = {
@@ -611,7 +652,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 posSerial: { x: textElements.serial.x.toFixed(4), y: textElements.serial.y.toFixed(4) },
                 posLogo: { x: (logoElement.x||0).toFixed(4), y: (logoElement.y||0).toFixed(4), w: (logoElement.width||0).toFixed(4) },
                 fontName: `GreatVibes-${textElements.name.fontSize}px`, fontOther: `Montserrat-${textElements.amount.fontSize}px`, fontSerial: `Montserrat-${textElements.serial.fontSize}px`,
-                canvas: `${canvas.width}x${canvas.height}@${inputs.dpi.value}`, app: "CarbonCert-3.0.0"
+                qrMode: inputs.qrMode.value, qrPos: { x: qrCodeElement.x.toFixed(4), y: qrCodeElement.y.toFixed(4) }, qrAlpha: qrCodeElement.alpha.toFixed(2),
+                canvas: `${canvas.width}x${canvas.height}@${inputs.dpi.value}`, app: "CarbonCert-4.0.0"
             };
 
             status.textContent = "Step 3/5: Generating cryptographic signature..."; bar.style.width = "50%";
@@ -623,14 +665,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const imageHashWatermarked = await sha256(cleanCtx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
             payload.imageHashWatermarked = imageHashWatermarked;
             
-            canonicalString = getCanonicalString(payload); // Re-sign with final hash
+            canonicalString = getCanonicalString(payload);
             const final_tag_b64 = await generateTag(canonicalString);
             const finalPayload = { ...payload, tag_b64: final_tag_b64 };
 
             const watermarkedImageURI = cleanCanvas.toDataURL('image/png');
-            const qrValue = `https://nomsams.github.io/carbonara?verify=${payload.serial}`;
-            const qr = new QRious({ value: qrValue, size: 150 });
-
+            
             status.textContent = "Step 5/5: Assembling final PDF..."; bar.style.width = "90%";
             const { PDFDocument } = window.PDFLib;
             const pdfDoc = await PDFDocument.create();
@@ -638,9 +678,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const pngImageBytes = await fetch(watermarkedImageURI).then(res => res.arrayBuffer());
             const pngImage = await pdfDoc.embedPng(pngImageBytes);
             page.drawImage(pngImage, { x: 0, y: 0, width: canvas.width, height: canvas.height });
-            const qrImageBytes = await fetch(qr.toDataURL()).then(res => res.arrayBuffer());
-            const qrImage = await pdfDoc.embedPng(qrImageBytes);
-            page.drawImage(qrImage, { x: page.getWidth() - 170, y: 20, width: 150, height: 150 });
             
             pdfDoc.setKeywords(['carboncert', JSON.stringify(finalPayload)]);
 
@@ -686,15 +723,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const pdfImages = await pdfDoc.getPages()[0].extractImages();
             if (Object.keys(pdfImages).length === 0) throw new Error("No image found in PDF.");
-            const mainImageRef = Object.keys(pdfImages)[0]; // Assume first/largest image
+            const mainImageRef = Object.keys(pdfImages)[0];
             const mainImage = pdfImages[mainImageRef];
             
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = mainImage.width; tempCanvas.height = mainImage.height;
             const tempCtx = tempCanvas.getContext('2d');
             
-            const imageBytes = await mainImage.embed();
-            const imageBlob = new Blob([imageBytes.data], { type: imageBytes.mimeType });
+            const imageBlob = new Blob([mainImage.data], { type: mainImage.mimeType });
             const imageUrl = URL.createObjectURL(imageBlob);
             const img = new Image();
             img.src = imageUrl;
