@@ -96,6 +96,8 @@
 
         .form-group { margin-bottom: 18px; }
         label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 12px; text-transform: uppercase; color: var(--text-light-color); }
+        .label-group { display: flex; justify-content: space-between; align-items: center; }
+        .label-group small { font-size: 11px; font-weight: normal; text-transform: none; }
         input, select {
             width: 100%; padding: 10px; box-sizing: border-box; background-color: var(--bg-color);
             border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);
@@ -147,13 +149,6 @@
         .progress-content { background: var(--fg-color); padding: 30px; border-radius: 8px; text-align: center; width: 400px; }
         #progress-bar { width: 100%; height: 10px; background: var(--border-color); border-radius: 5px; overflow: hidden; margin-top: 15px; }
         #progress-bar-inner { width: 0%; height: 100%; background: var(--primary-color); transition: width 0.3s; }
-
-        @keyframes pulse-highlight {
-            0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-color) 30%, transparent); }
-            70% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary-color) 0%, transparent); }
-            100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-color) 0%, transparent); }
-        }
-        .highlight-pulse { animation: pulse-highlight 1.5s; }
     </style>
 </head>
 <body>
@@ -177,7 +172,7 @@
 
         <div id="pane-generate" class="tab-content active">
             <details open><summary><strong>1. Setup & Branding</strong></summary><div class="details-content">
-                <div class="form-group"><label for="image-upload">Background Image</label><input type="file" id="image-upload" accept="image/png, image/jpeg"></div>
+                <div class="form-group"><div class="label-group"><label for="image-upload">Background Image</label><small id="bg-image-status"></small></div><input type="file" id="image-upload" accept="image/png, image/jpeg"></div>
                 <div class="form-group"><label for="logo-upload">Branding Logo (Optional)</label><input type="file" id="logo-upload" accept="image/png, image/jpeg"></div>
             </div></details>
             
@@ -191,13 +186,14 @@
 
             <details><summary><strong>3. Layout & Style</strong></summary><div class="details-content">
                 <div class="form-group"><label for="input-fontsize-name">Name Font Size (px)</label><input type="number" id="input-fontsize-name"></div>
-                <div class="form-group"><label>Name Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-name" step="0.0001"><input type="number" id="input-y-name" step="0.0001"><button id="btn-center-name" title="Centrera namnet horisontellt">🎯</button></div></div><hr>
+                <div class="form-group"><label>Name Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-name" step="0.0001"><input type="number" id="input-y-name" step="0.0001"><button onclick="centerElement('name')" title="Centrera namnet horisontellt">🎯</button></div></div><hr>
                 <div class="form-group"><label for="input-fontsize-other">Data Font Size (px)</label><input type="number" id="input-fontsize-other"></div>
-                <div class="form-group"><label>Amount Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-amount" step="0.0001"><input type="number" id="input-y-amount" step="0.0001"></div></div>
-                <div class="form-group"><label>Date Position (X, Y)</label><div class="coord-group"><input type="number"id="input-x-date" step="0.0001"><input type="number" id="input-y-date" step="0.0001"></div></div>
-                <div class="form-group"><label>Type Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-type" step="0.0001"><input type="number" id="input-y-type" step="0.0001"></div></div><hr>
+                <div class="form-group"><label>Amount Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-amount" step="0.0001"><input type="number" id="input-y-amount" step="0.0001"><button onclick="centerElement('amount')" title="Centrera horisontellt">🎯</button></div></div>
+                <div class="form-group"><label>Date Position (X, Y)</label><div class="coord-group"><input type="number"id="input-x-date" step="0.0001"><input type="number" id="input-y-date" step="0.0001"><button onclick="centerElement('date')" title="Centrera horisontellt">🎯</button></div></div>
+                <div class="form-group"><label>Type Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-type" step="0.0001"><input type="number" id="input-y-type" step="0.0001"><button onclick="centerElement('type')" title="Centrera horisontellt">🎯</button></div></div>
+                <button id="btn-align-x" class="secondary-button" style="margin-bottom: 1rem;">Align X for Amount & Type</button><hr>
                 <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input type="number" id="input-fontsize-serial"></div>
-                <div class="form-group"><label>Serial Nr. Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-serial" step="0.0001"><input type="number" id="input-y-serial" step="0.0001"></div></div><hr>
+                <div class="form-group"><label>Serial Nr. Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-serial" step="0.0001"><input type="number" id="input-y-serial" step="0.0001"><button onclick="centerElement('serial')" title="Centrera horisontellt">🎯</button></div></div><hr>
                 <div class="form-group"><label>Logo Position & Size (X, Y, Width)</label><div class="coord-group"><input type="number" id="input-x-logo"><input type="number" id="input-y-logo"><input type="number" id="input-w-logo"></div></div>
                 <button id="btn-reset-positions" class="secondary-button">Reset All Positions</button>
             </div></details>
@@ -213,7 +209,7 @@
 
         <div id="pane-verify" class="tab-content">
             <div id="verify-container">
-                <div id="verify-idle" class="active"><div class="verification-icon">🛡️</div><h3>Secure Verification</h3><p>Upload a CarbonAra PDF to verify its authenticity.</p><input type="file" id="file-upload-verify" accept=".pdf" style="display: none;"><button onclick="document.getElementById('file-upload-verify').click();">Select PDF to Verify</button></div>
+                <div id="verify-idle" class="active"><div class="verification-icon">🛡️</div><h3>Secure Verification</h3><p id="verify-prompt">Upload a CarbonAra PDF to verify its authenticity.</p><input type="text" id="verify-serial-prefill" style="display:none;" disabled><input type="file" id="file-upload-verify" accept=".pdf" style="display: none;"><button onclick="document.getElementById('file-upload-verify').click();">Select PDF to Verify</button></div>
                 <div id="verify-loading"><div class="verification-icon">⏳</div><h3>Analyzing Certificate...</h3><p>Extracting cryptographic signatures and metadata. Please wait.</p></div>
                 <div id="verify-result"><div id="auth-animation"></div><h3 id="auth-prob"></h3><div id="result-card-details" class="result-card"></div></div>
             </div><hr>
@@ -271,19 +267,22 @@ document.addEventListener('DOMContentLoaded', () => {
         generateNewSerial();
         addEventListeners();
 
-        // CRITICAL: Wait for fonts to be ready before the first draw.
         await document.fonts.ready;
 
         bgImage.crossOrigin = "Anonymous";
         bgImage.src = 'image.png';
         bgImage.onload = () => {
             bgImageLoaded = true;
+            document.getElementById('bg-image-status').textContent = '✅ image.png loaded';
             setupCanvas(bgImage.naturalWidth, bgImage.naturalHeight);
         };
         bgImage.onerror = () => {
             console.warn('image.png not found. Please upload an image.');
-            setupCanvas(2480, 3508); // Default to A4 @ 300 DPI
+            document.getElementById('bg-image-status').textContent = '⚠️ No image.png';
+            setupCanvas(2480, 3508);
         };
+
+        handleUrlParams();
     }
 
     function setupCanvas(width, height) {
@@ -305,21 +304,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', newTheme);
         document.getElementById('theme-toggle').textContent = newTheme === 'dark' ? '☀️' : '🌙';
-        drawCanvas();
+        requestRedraw();
     });
 
     // --- EVENT LISTENERS ---
     function addEventListeners() {
-        for (const key in inputs) {
-            inputs[key].addEventListener('input', () => requestRedraw());
-        }
+        Object.values(inputs).forEach(input => input.addEventListener('input', requestRedraw));
         
         document.getElementById('image-upload').addEventListener('change', handleImageUpload);
         document.getElementById('logo-upload').addEventListener('change', handleLogoUpload);
         document.getElementById('btn-reset-positions').addEventListener('click', resetPositions);
         document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
         document.getElementById('btn-generate-serial').addEventListener('click', generateNewSerial);
-        document.getElementById('btn-center-name').addEventListener('click', centerName);
+        document.getElementById('btn-align-x').addEventListener('click', alignXValues);
         document.getElementById('file-upload-verify').addEventListener('change', handleVerifyUpload);
         document.getElementById('zoom-in').addEventListener('click', () => updateZoom(0.2));
         document.getElementById('zoom-out').addEventListener('click', () => updateZoom(-0.2));
@@ -337,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ctx.font = `${el.fontSize}px '${el.font}'`;
                     const width = key === 'logo' ? el.width : ctx.measureText(el.text).width;
                     const height = key === 'logo' ? el.height : el.fontSize;
-                    if (pos.x >= el.x && pos.x <= el.x + width && pos.y >= el.y - (key === 'logo' ? 0 : height) && pos.y <= el.y + (key === 'logo' ? height : 0)) {
+                    if (pos.x >= el.x - width/2 && pos.x <= el.x + width/2 && pos.y >= el.y && pos.y <= el.y + height) {
                         dragging = true; selectedKey = key;
                         offset = { x: pos.x - el.x, y: pos.y - el.y };
                         canvas.style.cursor = 'grabbing'; return;
@@ -373,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawCanvas() {
+        ctx.textBaseline = 'top'; // CRITICAL for centered positioning
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (bgImageLoaded) ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
         else {
@@ -384,8 +382,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const textColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#e0e0e0' : '#212529';
         Object.values(textElements).forEach(el => {
             ctx.font = `${el.fontSize}px '${el.font}'`;
+            const textWidth = ctx.measureText(el.text).width;
             ctx.fillStyle = textColor;
-            ctx.fillText(el.text, el.x, el.y);
+            ctx.fillText(el.text, el.x - textWidth / 2, el.y);
         });
     }
 
@@ -440,7 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = event.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = e => { bgImage.src = e.target.result; bgImage.onload = () => { bgImageLoaded = true; setupCanvas(bgImage.naturalWidth, bgImage.naturalHeight); } };
+            reader.onload = e => { bgImage.src = e.target.result; bgImage.onload = () => { bgImageLoaded = true; document.getElementById('bg-image-status').textContent = `✅ ${file.name} loaded`; setupCanvas(bgImage.naturalWidth, bgImage.naturalHeight); } };
             reader.readAsDataURL(file);
         }
     }
@@ -459,11 +458,17 @@ document.addEventListener('DOMContentLoaded', () => {
         requestRedraw();
     }
     
-    function centerName() {
-        const el = textElements.name;
+    window.centerElement = (key) => {
+        const el = textElements[key];
+        if (!el) return;
         ctx.font = `${el.fontSize}px '${el.font}'`;
         const textWidth = ctx.measureText(el.text).width;
-        inputs.xName.value = ((canvas.width / 2) - (textWidth / 2)).toFixed(4);
+        inputs[`x${key.charAt(0).toUpperCase() + key.slice(1)}`].value = (canvas.width / 2).toFixed(4);
+        requestRedraw();
+    }
+
+    function alignXValues() {
+        inputs.xType.value = inputs.xAmount.value;
         requestRedraw();
     }
 
@@ -472,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const frame = document.getElementById('preview-frame');
         const areaRatio = area.clientWidth / area.clientHeight;
         const canvasRatio = canvas.width / canvas.height;
-        let scale = (areaRatio > canvasRatio) ? area.clientHeight / (frame.offsetHeight) : area.clientWidth / (frame.offsetWidth);
+        let scale = (areaRatio > canvasRatio) ? (area.clientHeight - 60) / frame.offsetHeight : (area.clientWidth - 60) / frame.offsetWidth;
         zoomLevel = Math.min(scale, 1.0);
         updateZoom(0);
     }
@@ -483,14 +488,23 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('zoom-level').textContent = `${Math.round(zoomLevel * 100)}%`;
     }
 
+    function handleUrlParams() {
+        const params = new URLSearchParams(window.location.search);
+        const serialToVerify = params.get('verify');
+        if (serialToVerify) {
+            showTab('verify');
+            document.getElementById('verify-serial-prefill').value = serialToVerify;
+            document.getElementById('verify-serial-prefill').style.display = 'block';
+            document.getElementById('verify-prompt').textContent = `Ready to verify serial: ${serialToVerify}. Please upload the corresponding PDF.`;
+        }
+    }
+
     // --- CRYPTOGRAPHY & PAYLOAD ---
     const masterKeySalt = "CarbonCertSaltV1";
     const pbkdf2Iterations = 100000;
 
     async function reconstructMasterKey() {
-        // This is an obfuscation, not true security. In a real high-security app,
-        // the key would never be on the client. But we follow the spec.
-        const fragments = ['fragA', 'fragB', 'fragC', 'fragD']; // Dummy fragments
+        const fragments = ['fragA', 'fragB', 'fragC', 'fragD'];
         const concatenated = fragments.join('') + "a-very-secret-pepper";
         const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(concatenated), { name: "PBKDF2" }, false, ["deriveKey"]);
         return await crypto.subtle.deriveKey(
@@ -544,9 +558,15 @@ document.addEventListener('DOMContentLoaded', () => {
             bitStream += (data[i + 2] & 1);
         }
         let byteStream = bitStream.match(/.{1,8}/g) || [];
-        let extractedStr = byteStream.map(byte => String.fromCharCode(parseInt(byte, 2))).join('');
-        const terminatorIndex = extractedStr.indexOf("::END::");
-        return terminatorIndex !== -1 ? extractedStr.substring(0, terminatorIndex) : null;
+        let extractedStr = '';
+        for(const byte of byteStream) {
+            if (byte.length < 8) continue;
+            extractedStr += String.fromCharCode(parseInt(byte, 2));
+            if (extractedStr.endsWith("::END::")) {
+                return extractedStr.slice(0, -7);
+            }
+        }
+        return null;
     }
 
     // --- PDF EXPORT (FULL IMPLEMENTATION) ---
@@ -562,12 +582,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const cleanCanvas = document.createElement('canvas');
             cleanCanvas.width = canvas.width; cleanCanvas.height = canvas.height;
             const cleanCtx = cleanCanvas.getContext('2d');
-            updateElementsFromInputs(); // Ensure elements are current
-            // Draw on clean canvas without highlights
+            updateElementsFromInputs();
+            
             const originalDraw = () => {
+                cleanCtx.textBaseline = 'top';
                 if (bgImageLoaded) cleanCtx.drawImage(bgImage, 0, 0); else { cleanCtx.fillStyle = '#FFF'; cleanCtx.fillRect(0, 0, canvas.width, canvas.height); }
                 if (logoImageLoaded) cleanCtx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
-                Object.values(textElements).forEach(el => { cleanCtx.font = `${el.fontSize}px '${el.font}'`; cleanCtx.fillStyle = '#000'; cleanCtx.fillText(el.text, el.x, el.y); });
+                Object.values(textElements).forEach(el => { 
+                    cleanCtx.font = `${el.fontSize}px '${el.font}'`; 
+                    const textWidth = cleanCtx.measureText(el.text).width;
+                    cleanCtx.fillStyle = '#000'; 
+                    cleanCtx.fillText(el.text, el.x - textWidth / 2, el.y); 
+                });
             };
             originalDraw();
 
@@ -577,7 +603,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const payload = {
                 v: 1, serial: inputs.serial.value, name: inputs.name.value.normalize('NFC'), amount: inputs.amount.value, date: inputs.date.value, type: inputs.type.value.normalize('NFC'),
-                imageHashOriginal: imageHashOriginal, imageHashWatermarked: '0'.repeat(64), // Placeholder
+                imageHashOriginal: imageHashOriginal, imageHashWatermarked: '0'.repeat(64),
                 posName: { x: textElements.name.x.toFixed(4), y: textElements.name.y.toFixed(4) },
                 posAmount: { x: textElements.amount.x.toFixed(4), y: textElements.amount.y.toFixed(4) },
                 posDate: { x: textElements.date.x.toFixed(4), y: textElements.date.y.toFixed(4) },
@@ -585,28 +611,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 posSerial: { x: textElements.serial.x.toFixed(4), y: textElements.serial.y.toFixed(4) },
                 posLogo: { x: (logoElement.x||0).toFixed(4), y: (logoElement.y||0).toFixed(4), w: (logoElement.width||0).toFixed(4) },
                 fontName: `GreatVibes-${textElements.name.fontSize}px`, fontOther: `Montserrat-${textElements.amount.fontSize}px`, fontSerial: `Montserrat-${textElements.serial.fontSize}px`,
-                canvas: `${canvas.width}x${canvas.height}@${inputs.dpi.value}`, app: "CarbonCert-2.0.0"
+                canvas: `${canvas.width}x${canvas.height}@${inputs.dpi.value}`, app: "CarbonCert-3.0.0"
             };
 
             status.textContent = "Step 3/5: Generating cryptographic signature..."; bar.style.width = "50%";
-            await new Promise(r => setTimeout(r, 50));
-            const canonicalString = getCanonicalString(payload);
+            let canonicalString = getCanonicalString(payload);
             const tag_b64 = await generateTag(canonicalString);
 
             status.textContent = "Step 4/5: Applying secure watermark..."; bar.style.width = "75%";
-            await new Promise(r => setTimeout(r, 50));
             embedData(cleanCtx, tag_b64);
             const imageHashWatermarked = await sha256(cleanCtx.getImageData(0, 0, canvas.width, canvas.height).data.buffer);
             payload.imageHashWatermarked = imageHashWatermarked;
-            const finalPayload = { ...payload, tag_b64 };
+            
+            canonicalString = getCanonicalString(payload); // Re-sign with final hash
+            const final_tag_b64 = await generateTag(canonicalString);
+            const finalPayload = { ...payload, tag_b64: final_tag_b64 };
 
             const watermarkedImageURI = cleanCanvas.toDataURL('image/png');
-            const shortTag = tag_b64.substring(0, 12);
-            const qrValue = `https://your-gh-pages/carboncert.html?quick=1&serial=${payload.serial}&t=${shortTag}&v=2.0.0`;
+            const qrValue = `https://nomsams.github.io/carbonara?verify=${payload.serial}`;
             const qr = new QRious({ value: qrValue, size: 150 });
 
             status.textContent = "Step 5/5: Assembling final PDF..."; bar.style.width = "90%";
-            await new Promise(r => setTimeout(r, 50));
             const { PDFDocument } = window.PDFLib;
             const pdfDoc = await PDFDocument.create();
             const page = pdfDoc.addPage([canvas.width, canvas.height]);
@@ -655,47 +680,53 @@ document.addEventListener('DOMContentLoaded', () => {
             const pdfDoc = await PDFDocument.load(pdfBytes);
             
             const keywords = pdfDoc.getKeywords();
-            if (!keywords || !keywords.startsWith('carboncert,')) throw new Error("Not a valid CarbonAra certificate (missing keyword).");
+            if (!keywords || !keywords.startsWith('carboncert,')) throw new Error("Not a valid CarbonAra certificate (missing metadata keyword).");
             
             const payload = JSON.parse(keywords.substring('carboncert,'.length));
             
-            const page = pdfDoc.getPages()[0];
-            const { width, height } = page.getSize();
+            const pdfImages = await pdfDoc.getPages()[0].extractImages();
+            if (Object.keys(pdfImages).length === 0) throw new Error("No image found in PDF.");
+            const mainImageRef = Object.keys(pdfImages)[0]; // Assume first/largest image
+            const mainImage = pdfImages[mainImageRef];
+            
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = width; tempCanvas.height = height;
+            tempCanvas.width = mainImage.width; tempCanvas.height = mainImage.height;
             const tempCtx = tempCanvas.getContext('2d');
-
-            // This is a simplification. Real PDF rendering to canvas is complex.
-            // We assume the first image on the page is our certificate.
-            const image = (await pdfDoc.embedPng((await pdfDoc.copyPages(pdfDoc, [0])).getPages()[0].drawImage(pngImage, {x:0, y:0})))[0];
-            const imageBytes = await image.copy();
-            const imageBlob = new Blob([imageBytes], { type: 'image/png' });
+            
+            const imageBytes = await mainImage.embed();
+            const imageBlob = new Blob([imageBytes.data], { type: imageBytes.mimeType });
             const imageUrl = URL.createObjectURL(imageBlob);
             const img = new Image();
             img.src = imageUrl;
-            await new Promise(r => img.onload = r);
+            await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             tempCtx.drawImage(img, 0, 0);
 
-            const tag_extracted = extractData(tempCtx);
-            if (!tag_extracted) throw new Error("Watermark could not be extracted.");
+            const tag_extracted_from_watermark = extractData(tempCtx);
+            if (!tag_extracted_from_watermark) throw new Error("Watermark could not be extracted or is corrupted.");
 
             const tag_from_meta = payload.tag_b64;
-            if (tag_extracted !== tag_from_meta) throw new Error("Watermark tag does not match metadata tag.");
+            
+            const hash_of_watermarked_image = await sha256(tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data.buffer);
 
             const canonical_rebuilt = getCanonicalString(payload);
             const tag_expected = await generateTag(canonical_rebuilt);
 
-            let result = { status: 'LOW', meta: 'FAIL', water: 'FAIL', crypto: 'FAIL' };
-            if (tag_from_meta === tag_expected) {
+            let result = { status: 'LOW', meta: 'FAIL', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL' };
+            if (tag_from_meta === tag_expected) result.crypto = 'OK';
+            if (tag_extracted_from_watermark === tag_from_meta) result.water = 'OK';
+            if (hash_of_watermarked_image === payload.imageHashWatermarked) result.hash = 'OK';
+            
+            if (result.crypto === 'OK' && result.water === 'OK' && result.hash === 'OK') {
                 result.status = 'HIGH';
-                result.meta = 'OK'; result.water = 'OK'; result.crypto = 'OK';
+            } else if (result.crypto === 'OK') {
+                result.status = 'MEDIUM';
             }
             
             displayVerificationResult(result, payload);
 
         } catch (error) {
             console.error("Verification Failed:", error);
-            displayVerificationResult({ status: 'LOW', meta: 'FAIL', water: 'FAIL', crypto: 'FAIL', error: error.message });
+            displayVerificationResult({ status: 'LOW', meta: 'FAIL', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL', error: error.message });
         }
     }
 
@@ -710,11 +741,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         prob.textContent = `Authenticity: ${result.status}`;
         details.className = `result-card ${result.status.toLowerCase()}`;
-        details.innerHTML = `<h4>${result.status === 'HIGH' ? '✓' : '✗'} Verification ${result.status === 'HIGH' ? 'Successful' : 'Failed'}</h4>
+        details.innerHTML = `<h4>${result.status === 'HIGH' ? '✓' : (result.status === 'MEDIUM' ? '⚠️' : '✗')} Verification ${result.status}</h4>
             <ul class="verification-breakdown">
-                <li><span class="icon ${result.meta === 'OK' ? 'ok' : 'fail'}">${result.meta === 'OK' ? '✓' : '✗'}</span> Metadata Check: <strong>${result.meta}</strong></li>
-                <li><span class="icon ${result.water === 'OK' ? 'ok' : 'fail'}">${result.water === 'OK' ? '✓' : '✗'}</span> Watermark Integrity: <strong>${result.water}</strong></li>
                 <li><span class="icon ${result.crypto === 'OK' ? 'ok' : 'fail'}">${result.crypto === 'OK' ? '✓' : '✗'}</span> Cryptographic Signature: <strong>${result.crypto === 'OK' ? 'Valid' : 'Invalid'}</strong></li>
+                <li><span class="icon ${result.water === 'OK' ? 'ok' : 'fail'}">${result.water === 'OK' ? '✓' : '✗'}</span> Watermark Integrity: <strong>${result.water === 'OK' ? 'Matched' : 'Mismatch/Missing'}</strong></li>
+                <li><span class="icon ${result.hash === 'OK' ? 'ok' : 'fail'}">${result.hash === 'OK' ? '✓' : '✗'}</span> Image Hash Consistency: <strong>${result.hash === 'OK' ? 'Matched' : 'Mismatch'}</strong></li>
             </ul>
             ${payload.serial ? `<p><strong>Serial:</strong> ${payload.serial}</p>` : ''}
             ${result.error ? `<p><strong>Error:</strong> ${result.error}</p>` : ''}`;
