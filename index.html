@@ -32,7 +32,7 @@
         body {
             font-family: var(--font-main); margin: 0; background-color: var(--bg-color);
             color: var(--text-color); transition: background-color 0.3s, color 0.3s; font-size: 14px;
-            -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+            -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow: hidden;
         }
 
         .header {
@@ -55,19 +55,19 @@
 
         .main-container { display: flex; height: calc(100vh - 65px); }
         .sidebar {
-            width: 400px; padding: 20px; background-color: var(--fg-color);
+            width: 400px; min-width: 400px; padding: 20px; background-color: var(--fg-color);
             border-right: 1px solid var(--border-color); overflow-y: auto;
         }
         .preview-area {
-            flex-grow: 1; padding: 30px; display: flex; flex-direction: column;
+            flex-grow: 1; padding: 30px; display: flex;
             justify-content: center; align-items: center; overflow: auto; background-color: var(--bg-color);
         }
         .preview-frame {
             padding: 20px; background: var(--fg-color); border-radius: 8px;
-            box-shadow: 0 10px 30px var(--shadow-color); transition: transform 0.3s;
+            box-shadow: 0 10px 30px var(--shadow-color); transform-origin: center center;
         }
         #previewCanvas {
-            border: 1px solid var(--border-color); max-width: 100%; max-height: 100%;
+            border: 1px solid var(--border-color);
             object-fit: contain; cursor: grab;
         }
         #previewCanvas:active { cursor: grabbing; }
@@ -100,7 +100,8 @@
             width: 100%; padding: 10px; box-sizing: border-box; background-color: var(--bg-color);
             border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);
         }
-        .coord-group { display: flex; gap: 10px; }
+        input:focus { border-color: var(--primary-color); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent); }
+        .coord-group { display: flex; gap: 10px; align-items: center; }
         .input-group { display: flex; gap: 10px; align-items: center; }
         .input-group input { flex-grow: 1; }
         .input-group button { width: auto; padding: 8px; font-size: 16px; }
@@ -125,6 +126,11 @@
         .result-card.high { border: 1px solid var(--success-color); background-color: rgba(25, 135, 84, 0.1); }
         .result-card.medium { border: 1px solid var(--warning-color); background-color: rgba(255, 193, 7, 0.1); }
         .result-card.low { border: 1px solid var(--danger-color); background-color: rgba(220, 53, 69, 0.1); }
+        .verification-breakdown { list-style: none; padding: 0; }
+        .verification-breakdown li { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .verification-breakdown .icon { font-size: 20px; }
+        .verification-breakdown .icon.ok { color: var(--success-color); }
+        .verification-breakdown .icon.fail { color: var(--danger-color); }
 
         #diagnostics {
             background: var(--bg-color); padding: 15px; border-radius: 4px; text-align: left;
@@ -141,6 +147,15 @@
         .progress-content { background: var(--fg-color); padding: 30px; border-radius: 8px; text-align: center; width: 400px; }
         #progress-bar { width: 100%; height: 10px; background: var(--border-color); border-radius: 5px; overflow: hidden; margin-top: 15px; }
         #progress-bar-inner { width: 0%; height: 100%; background: var(--primary-color); transition: width 0.3s; }
+
+        @keyframes pulse-highlight {
+            0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-color) 30%, transparent); }
+            70% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary-color) 0%, transparent); }
+            100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary-color) 0%, transparent); }
+        }
+        .highlight-pulse {
+            animation: pulse-highlight 1.5s;
+        }
     </style>
 </head>
 <body>
@@ -164,14 +179,8 @@
 
         <div id="pane-generate" class="tab-content active">
             <details open><summary><strong>1. Setup & Branding</strong></summary><div class="details-content">
-                <div class="form-group">
-                    <label for="image-upload">Background Image</label>
-                    <input type="file" id="image-upload" accept="image/png, image/jpeg">
-                </div>
-                <div class="form-group">
-                    <label for="logo-upload">Branding Logo (Optional)</label>
-                    <input type="file" id="logo-upload" accept="image/png, image/jpeg">
-                </div>
+                <div class="form-group"><label for="image-upload">Background Image</label><input type="file" id="image-upload" accept="image/png, image/jpeg"></div>
+                <div class="form-group"><label for="logo-upload">Branding Logo (Optional)</label><input type="file" id="logo-upload" accept="image/png, image/jpeg"></div>
             </div></details>
             
             <details open><summary><strong>2. Certificate Data</strong></summary><div class="details-content">
@@ -183,15 +192,15 @@
             </div></details>
 
             <details><summary><strong>3. Layout & Style</strong></summary><div class="details-content">
-                <div class="form-group"><label for="input-fontsize-name">Name Font Size (px)</label><input type="number" id="input-fontsize-name" value="50"></div>
-                <div class="form-group"><label>Name Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-name"> <input type="number" id="input-y-name"></div></div><hr>
-                <div class="form-group"><label for="input-fontsize-other">Data Font Size (px)</label><input type="number" id="input-fontsize-other" value="36"></div>
-                <div class="form-group"><label>Amount Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-amount"> <input type="number" id="input-y-amount"></div></div>
-                <div class="form-group"><label>Date Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-date"> <input type="number" id="input-y-date"></div></div>
-                <div class="form-group"><label>Type Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-type"> <input type="number" id="input-y-type"></div></div><hr>
-                <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input type="number" id="input-fontsize-serial" value="24"></div>
-                <div class="form-group"><label>Serial Nr. Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-serial"> <input type="number" id="input-y-serial"></div></div><hr>
-                <div class="form-group"><label>Logo Position & Size (X, Y, Width)</label><div class="coord-group"><input type="number" id="input-x-logo" value="50"><input type="number" id="input-y-logo" value="50"><input type="number" id="input-w-logo" value="200"></div></div>
+                <div class="form-group"><label for="input-fontsize-name">Name Font Size (px)</label><input type="number" id="input-fontsize-name"></div>
+                <div class="form-group"><label>Name Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-name"><input type="number" id="input-y-name"><button id="btn-center-name" title="Centrera namnet horisontellt">🎯</button></div></div><hr>
+                <div class="form-group"><label for="input-fontsize-other">Data Font Size (px)</label><input type="number" id="input-fontsize-other"></div>
+                <div class="form-group"><label>Amount Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-amount"><input type="number" id="input-y-amount"></div></div>
+                <div class="form-group"><label>Date Position (X, Y)</label><div class="coord-group"><input type="number"id="input-x-date"><input type="number" id="input-y-date"></div></div>
+                <div class="form-group"><label>Type Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-type"><input type="number" id="input-y-type"></div></div><hr>
+                <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input type="number" id="input-fontsize-serial"></div>
+                <div class="form-group"><label>Serial Nr. Position (X, Y)</label><div class="coord-group"><input type="number" id="input-x-serial"><input type="number" id="input-y-serial"></div></div><hr>
+                <div class="form-group"><label>Logo Position & Size (X, Y, Width)</label><div class="coord-group"><input type="number" id="input-x-logo"><input type="number" id="input-y-logo"><input type="number" id="input-w-logo"></div></div>
                 <button id="btn-reset-positions" class="secondary-button">Reset All Positions</button>
             </div></details>
 
@@ -215,7 +224,7 @@
         </div>
     </aside>
 
-    <section class="preview-area">
+    <section class="preview-area" id="preview-area">
         <div class="preview-frame" id="preview-frame">
             <canvas id="previewCanvas"></canvas>
             <div class="preview-controls">
@@ -226,7 +235,7 @@
     </section>
 </main>
 
-<div id="progress-modal" style="display: none;"><div class="progress-content"><h3 id="progress-title">Generating Batch...</h3><p id="progress-status">Processing 1 of 10...</p><div id="progress-bar"><div id="progress-bar-inner"></div></div></div></div>
+<div id="progress-modal"><div class="progress-content"><h3 id="progress-title">Generating PDF...</h3><p id="progress-status">Initializing secure processes...</p><div id="progress-bar"><div id="progress-bar-inner"></div></div></div></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -238,6 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let bgImageLoaded = false;
     let logoImageLoaded = false;
     let zoomLevel = 1.0;
+    let highlightTimeout;
 
     const inputs = {
         name: document.getElementById('input-name'), amount: document.getElementById('input-amount'),
@@ -263,13 +273,14 @@ document.addEventListener('DOMContentLoaded', () => {
         generateNewSerial();
         addEventListeners();
 
+        bgImage.crossOrigin = "Anonymous";
         bgImage.src = 'image.png';
         bgImage.onload = () => {
             bgImageLoaded = true;
             setupCanvas(bgImage.naturalWidth, bgImage.naturalHeight);
         };
         bgImage.onerror = () => {
-            console.warn('image.png not found. Please upload an image or use a blank canvas.');
+            console.warn('image.png not found. Please upload an image.');
             setupCanvas(2480, 3508); // Default to A4 @ 300 DPI
         };
     }
@@ -279,6 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.height = height;
         document.getElementById('canvas-dimensions').textContent = `${width} x ${height} px`;
         resetPositions();
+        fitCanvasToView();
     }
 
     // --- UI & THEME ---
@@ -297,15 +309,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS ---
     function addEventListeners() {
-        Object.values(inputs).forEach(input => input.addEventListener('input', updateAndDraw));
+        for (const key in inputs) {
+            inputs[key].addEventListener('input', updateAndDraw);
+            inputs[key].addEventListener('focus', () => highlightElementOnCanvas(key.replace(/^(x|y|w|fontSize)/, '').toLowerCase()));
+        }
+        
         document.getElementById('image-upload').addEventListener('change', handleImageUpload);
         document.getElementById('logo-upload').addEventListener('change', handleLogoUpload);
         document.getElementById('btn-reset-positions').addEventListener('click', resetPositions);
         document.getElementById('btn-export-pdf').addEventListener('click', () => exportPdf());
         document.getElementById('btn-generate-serial').addEventListener('click', generateNewSerial);
+        document.getElementById('btn-center-name').addEventListener('click', centerName);
         document.getElementById('file-upload-verify').addEventListener('change', handleVerifyUpload);
-        document.getElementById('zoom-in').addEventListener('click', () => updateZoom(0.1));
-        document.getElementById('zoom-out').addEventListener('click', () => updateZoom(-0.1));
+        document.getElementById('zoom-in').addEventListener('click', () => updateZoom(0.2));
+        document.getElementById('zoom-out').addEventListener('click', () => updateZoom(-0.2));
+        window.addEventListener('resize', fitCanvasToView);
 
         // Dragging logic
         let dragging = false, selectedKey = null, offset = { x: 0, y: 0 };
@@ -344,11 +362,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CANVAS & DRAWING ---
     function updateAndDraw() {
-        updateElements();
+        updateElementsFromInputs();
         drawCanvas();
     }
 
-    function drawCanvas() {
+    function drawCanvas(highlightKey = null) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (bgImageLoaded) {
             ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
@@ -356,18 +374,32 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillStyle = document.documentElement.getAttribute('data-theme') === 'dark' ? '#1e1e1e' : '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
-        if (logoImageLoaded) {
+        if (logoImageLoaded && logoElement.width > 0) {
             ctx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
         }
         const textColor = document.documentElement.getAttribute('data-theme') === 'dark' ? '#e0e0e0' : '#212529';
-        Object.values(textElements).forEach(el => {
+        Object.entries(textElements).forEach(([key, el]) => {
             ctx.font = `${el.fontSize}px '${el.font}'`;
             ctx.fillStyle = textColor;
             ctx.fillText(el.text, el.x, el.y);
         });
+
+        if (highlightKey) {
+            const el = highlightKey === 'logo' ? logoElement : textElements[highlightKey];
+            if (!el) return;
+            ctx.strokeStyle = 'rgba(0, 123, 255, 0.7)';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            const width = highlightKey === 'logo' ? el.width : ctx.measureText(el.text).width;
+            const height = highlightKey === 'logo' ? el.height : el.fontSize;
+            ctx.rect(el.x - 5, el.y - height, width + 10, height + 10);
+            ctx.stroke();
+            ctx.canvas.classList.add('highlight-pulse');
+            setTimeout(() => ctx.canvas.classList.remove('highlight-pulse'), 1500);
+        }
     }
 
-    function updateElements() {
+    function updateElementsFromInputs() {
         const commonFontSize = parseFloat(inputs.fontSizeOther.value);
         textElements = {
             name: { text: inputs.name.value.normalize('NFC'), x: parseFloat(inputs.xName.value), y: parseFloat(inputs.yName.value), font: 'Great Vibes', fontSize: parseFloat(inputs.fontSizeName.value), draggable: true },
@@ -376,27 +408,26 @@ document.addEventListener('DOMContentLoaded', () => {
             type: { text: inputs.type.value.normalize('NFC'), x: parseFloat(inputs.xType.value), y: parseFloat(inputs.yType.value), font: 'Montserrat', fontSize: commonFontSize, draggable: true },
             serial: { text: inputs.serial.value, x: parseFloat(inputs.xSerial.value), y: parseFloat(inputs.ySerial.value), font: 'Montserrat', fontSize: parseFloat(inputs.fontSizeSerial.value), draggable: true }
         };
-        logoElement = {
-            x: parseFloat(inputs.xLogo.value), y: parseFloat(inputs.yLogo.value),
-            width: parseFloat(inputs.wLogo.value), height: logoImage.height * (parseFloat(inputs.wLogo.value) / logoImage.width) || 0,
-            draggable: true
-        };
+        if (logoImageLoaded) {
+            logoElement = {
+                x: parseFloat(inputs.xLogo.value), y: parseFloat(inputs.yLogo.value),
+                width: parseFloat(inputs.wLogo.value), height: logoImage.height * (parseFloat(inputs.wLogo.value) / logoImage.width),
+                draggable: true
+            };
+        }
     }
 
     function resetPositions() {
-        Object.assign(inputs, {
-            xName: {value: 612.1200}, yName: {value: 1000.0000},
-            xAmount: {value: 316.5435}, yAmount: {value: 1562.3762},
-            xDate: {value: 1020.9791}, yDate: {value: 1556.8474},
-            xType: {value: 309.0529}, yType: {value: 1708.8119},
-            xSerial: {value: 309.0529}, ySerial: {value: 2000.0000},
-            xLogo: {value: 50}, yLogo: {value: 50}, wLogo: {value: 200}
-        });
-        // This is a bit of a hack to assign values back to the actual input elements
-        for(const key in inputs) {
-            if(document.getElementById(`input-${key.toLowerCase()}`)) {
-                document.getElementById(`input-${key.toLowerCase()}`).value = inputs[key].value;
-            }
+        const defaultValues = {
+            fontSizeName: 100, xName: 534.2118, yName: 1036.9692,
+            fontSizeOther: 33, xAmount: 329.5282, yAmount: 1562.3762,
+            xDate: 980.0274, yDate: 1555.8482,
+            xType: 244.1294, yType: 1708.8119,
+            fontSizeSerial: 22, xSerial: 335.0223, ySerial: 1962.0316,
+            xLogo: 50, yLogo: 50, wLogo: 200
+        };
+        for (const key in defaultValues) {
+            inputs[key].value = defaultValues[key];
         }
         updateAndDraw();
     }
@@ -439,17 +470,56 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAndDraw();
     }
     
+    function centerName() {
+        const el = textElements.name;
+        ctx.font = `${el.fontSize}px '${el.font}'`;
+        const textWidth = ctx.measureText(el.text).width;
+        inputs.xName.value = ((canvas.width / 2) - (textWidth / 2)).toFixed(4);
+        updateAndDraw();
+    }
+
+    function highlightElementOnCanvas(key) {
+        clearTimeout(highlightTimeout);
+        drawCanvas(key.replace('logo', 'logo').replace(/amount|date|type/, 'other').replace('serial', 'serial').replace('name', 'name'));
+        highlightTimeout = setTimeout(() => drawCanvas(), 1500);
+    }
+
+    function fitCanvasToView() {
+        const area = document.getElementById('preview-area');
+        const frame = document.getElementById('preview-frame');
+        const areaRatio = area.clientWidth / area.clientHeight;
+        const canvasRatio = canvas.width / canvas.height;
+        let scale;
+        if (areaRatio > canvasRatio) {
+            scale = area.clientHeight / (frame.clientHeight - 40); // 40 for padding
+        } else {
+            scale = area.clientWidth / (frame.clientWidth - 40);
+        }
+        zoomLevel = Math.min(scale, 1.0); // Don't zoom larger than 100% initially
+        frame.style.transform = `scale(${zoomLevel})`;
+        document.getElementById('zoom-level').textContent = `${Math.round(zoomLevel * 100)}%`;
+    }
+
     function updateZoom(amount) {
         zoomLevel = Math.max(0.1, Math.min(3, zoomLevel + amount));
         document.getElementById('preview-frame').style.transform = `scale(${zoomLevel})`;
         document.getElementById('zoom-level').textContent = `${Math.round(zoomLevel * 100)}%`;
     }
 
-    // --- PDF EXPORT & VERIFICATION (Placeholders for brevity) ---
+    // --- PDF EXPORT & VERIFICATION (Simulated for Demo) ---
     async function exportPdf() {
-        alert("Simulating PDF Generation...\n\nFull implementation would include cryptographic signing, steganography, and PDF creation as per the spec sheet.");
+        const modal = document.getElementById('progress-modal');
+        modal.style.display = 'flex';
+        // Simulate a complex process
+        setTimeout(() => {
+            modal.style.display = 'none';
+            alert("PDF Generation Complete (Simulated)\n\nFull implementation would include cryptographic signing, steganography, and PDF creation as per the spec sheet.");
+        }, 2500);
     }
-    async function handleVerifyUpload() {
+    async function handleVerifyUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
         const verifyContainer = document.getElementById('verify-container');
         verifyContainer.querySelector('#verify-idle').classList.remove('active');
         verifyContainer.querySelector('#verify-loading').classList.add('active');
@@ -465,10 +535,11 @@ document.addEventListener('DOMContentLoaded', () => {
             prob.textContent = "Authenticity: High";
             details.className = 'result-card high';
             details.innerHTML = `<h4>✓ Verification Successful</h4>
-                <p><strong>Serial:</strong> ${inputs.serial.value}<br>
-                <strong>Signature:</strong> Valid (HMAC-SHA256)<br>
-                <strong>Watermark:</strong> Detected & Matched</p>`;
-
+                <ul class="verification-breakdown">
+                    <li><span class="icon ok">✓</span> Metadata Check: <strong>Passed</strong></li>
+                    <li><span class="icon ok">✓</span> Watermark Integrity: <strong>Passed</strong></li>
+                    <li><span class="icon ok">✓</span> Cryptographic Signature: <strong>Valid</strong></li>
+                </ul>`;
         }, 2000);
     }
 
@@ -478,4 +549,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 </body>
-</html>
+</html>```
