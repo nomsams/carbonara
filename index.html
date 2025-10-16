@@ -134,6 +134,7 @@
         .verification-breakdown .icon.ok { color: var(--success-color); }
         .verification-breakdown .icon.fail { color: var(--danger-color); }
         #quick-scan-info { border: 1px dashed var(--primary-color); padding: 15px; margin-bottom: 20px; border-radius: 5px; text-align: left; }
+        #quick-scan-info p { margin: 5px 0; }
 
         #diagnostics {
             background: var(--bg-color); padding: 15px; border-radius: 4px; text-align: left;
@@ -143,13 +144,14 @@
         
         hr { border: none; border-top: 1px solid var(--border-color); margin: 20px 0; }
         
-        #progress-modal {
+        #progress-modal, #error-modal {
             display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
             background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center;
         }
-        .progress-content { background: var(--fg-color); padding: 30px; border-radius: 8px; text-align: center; width: 400px; }
+        .modal-content { background: var(--fg-color); padding: 30px; border-radius: 8px; text-align: center; width: 90%; max-width: 450px; }
         #progress-bar { width: 100%; height: 10px; background: var(--border-color); border-radius: 5px; overflow: hidden; margin-top: 15px; }
         #progress-bar-inner { width: 0%; height: 100%; background: var(--primary-color); transition: width 0.3s; }
+        #error-details { max-height: 200px; overflow-y: auto; background: var(--bg-color); border: 1px solid var(--border-color); padding: 10px; margin-top: 15px; text-align: left; font-family: monospace; font-size: 12px; }
 
         /* Mobile Responsiveness */
         @media (max-width: 900px) {
@@ -251,7 +253,8 @@
     </section>
 </main>
 
-<div id="progress-modal"><div class="progress-content"><h3 id="progress-title">Generating PDF...</h3><p id="progress-status">Initializing secure processes...</p><div id="progress-bar"><div id="progress-bar-inner"></div></div></div></div>
+<div id="progress-modal"><div class="modal-content"><h3 id="progress-title">Generating PDF...</h3><p id="progress-status">Initializing secure processes...</p><div id="progress-bar"><div id="progress-bar-inner"></div></div></div></div>
+<div id="error-modal"><div class="modal-content"><h3>An Error Occurred</h3><p id="error-message"></p><pre id="error-details"></pre><button id="error-close-btn">Close</button></div></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -345,6 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('file-upload-verify').addEventListener('change', handleVerifyUpload);
         document.getElementById('zoom-in').addEventListener('click', () => updateZoom(0.2));
         document.getElementById('zoom-out').addEventListener('click', () => updateZoom(-0.2));
+        document.getElementById('error-close-btn').addEventListener('click', () => document.getElementById('error-modal').style.display = 'none');
         window.addEventListener('resize', fitCanvasToView);
 
         // Dragging logic
@@ -450,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fontSizeOther: 33, xAmount: 359.1387, yAmount: 1531.1968,
             xDate: 1068.8586, yDate: 1527.7868,
             xType: 359.1387, yType: 1676.0735,
-            fontSizeSerial: 22, xSerial: 335.0223, ySerial: 1962.0316,
+            fontSizeSerial: 22, xSerial: 516.0143, ySerial: 1943.9245,
             xLogo: 50, yLogo: 50, wLogo: 200
         };
         for (const key in defaultValues) {
@@ -532,15 +536,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleUrlParams() {
         const params = new URLSearchParams(window.location.search);
-        const serialToVerify = params.get('verify');
-        if (serialToVerify) {
-            showTab('verify');
-            const quickScanInfo = document.getElementById('quick-scan-info');
-            quickScanInfo.style.display = 'block';
-            quickScanInfo.innerHTML = `<h4>Quick Scan Information</h4>
-                <p><strong>Serial:</strong> ${serialToVerify}<br>
-                <em>Upload the corresponding PDF for full cryptographic verification.</em></p>`;
-            document.getElementById('verify-prompt').textContent = `Ready to verify serial: ${serialToVerify}.`;
+        const encodedData = params.get('verify');
+        if (encodedData) {
+            try {
+                const decodedStr = atob(encodedData.replace(/-/g, '+').replace(/_/g, '/'));
+                const qrData = JSON.parse(decodedStr);
+                showTab('verify');
+                const quickScanInfo = document.getElementById('quick-scan-info');
+                quickScanInfo.style.display = 'block';
+                quickScanInfo.innerHTML = `<h4>Quick Scan Information</h4>
+                    <p><strong>Serial:</strong> ${qrData.s || 'N/A'}</p>
+                    <p><strong>Name:</strong> ${qrData.n || 'N/A'}</p>
+                    <p><strong>Amount:</strong> ${qrData.a || 'N/A'}</p>
+                    <p><strong>Date:</strong> ${qrData.d || 'N/A'}</p>
+                    <p><strong>Type:</strong> ${qrData.t || 'N/A'}</p>
+                    <p><em>Upload the corresponding PDF for full cryptographic verification.</em></p>`;
+                document.getElementById('verify-prompt').textContent = `Ready to verify serial: ${qrData.s}.`;
+            } catch (e) {
+                console.error("Failed to decode QR data from URL", e);
+                showError("Invalid QR Code Link", "The data in the verification link is corrupted or invalid.");
+            }
         }
     }
 
@@ -550,10 +565,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const qrData = {
-            s: inputs.serial.value,
-            n: inputs.name.value,
-            a: inputs.amount.value,
-            d: inputs.date.value
+            s: inputs.serial.value, n: inputs.name.value, a: inputs.amount.value,
+            d: inputs.date.value, t: inputs.type.value
         };
         const encodedData = btoa(JSON.stringify(qrData)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
         const qrValue = `https://nomsams.github.io/carbonara/?verify=${encodedData}`;
@@ -713,8 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => modal.style.display = 'none', 500);
 
         } catch (error) {
-            console.error("PDF Generation Failed:", error);
-            alert("An error occurred during PDF generation. Check the console for details.");
+            showError("PDF Generation Failed", error.message);
             modal.style.display = 'none';
         }
     }
@@ -738,7 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         verifyContainer.querySelector('#verify-loading').classList.add('active');
         
         try {
-            const { PDFDocument } = window.PDFLib;
+            const { PDFDocument, PDFName } = window.PDFLib;
             const pdfBytes = await file.arrayBuffer();
             const pdfDoc = await PDFDocument.load(pdfBytes);
             
@@ -748,25 +760,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const payload = JSON.parse(keywords.substring('carboncert,'.length));
             
             const page = pdfDoc.getPage(0);
-            const xObjects = page.node.Resources().get(window.PDFLib.PDFName.of('XObject'));
-            let imageName;
-            if (xObjects && xObjects.keys) {
-                imageName = xObjects.keys()[0];
-            } else {
-                throw new Error("No image found in PDF resources.");
-            }
+            const xObjects = page.node.Resources().get(PDFName.of('XObject'));
+            const imageRef = xObjects.keys()[0];
+            if (!imageRef) throw new Error("No image found in PDF resources.");
 
-            const imageStream = pdfDoc.context.lookup(xObjects.get(imageName));
-            const { width, height, bitsPerComponent, colorSpace, data } = imageStream.dict.dict;
-            
+            const imageStream = pdfDoc.context.lookup(imageRef);
+            const imageBytes = imageStream.getContents();
+
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = width.number; tempCanvas.height = height.number;
+            tempCanvas.width = payload.canvas.split('@')[0].split('x')[0];
+            tempCanvas.height = payload.canvas.split('@')[0].split('x')[1];
             const tempCtx = tempCanvas.getContext('2d');
             
-            // This part is complex and assumes PNG data. A full renderer would be needed for other formats.
-            // We'll assume the embedded image is PNG, as our generator creates PNGs.
             const img = new Image();
-            const blob = new Blob([data], { type: 'image/png' });
+            const blob = new Blob([imageBytes], { type: 'image/png' });
             img.src = URL.createObjectURL(blob);
             await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             tempCtx.drawImage(img, 0, 0);
@@ -819,6 +826,12 @@ document.addEventListener('DOMContentLoaded', () => {
             </ul>
             ${payload.serial ? `<p><strong>Serial:</strong> ${payload.serial}</p>` : ''}
             ${result.error ? `<p><strong>Error:</strong> ${result.error}</p>` : ''}`;
+    }
+
+    function showError(message, details) {
+        document.getElementById('error-message').textContent = message;
+        document.getElementById('error-details').textContent = details;
+        document.getElementById('error-modal').style.display = 'flex';
     }
 
     // --- START THE APP ---
