@@ -133,6 +133,7 @@
         .verification-breakdown .icon { font-size: 20px; }
         .verification-breakdown .icon.ok { color: var(--success-color); }
         .verification-breakdown .icon.fail { color: var(--danger-color); }
+        #quick-scan-info { border: 1px dashed var(--primary-color); padding: 15px; margin-bottom: 20px; border-radius: 5px; text-align: left; }
 
         #diagnostics {
             background: var(--bg-color); padding: 15px; border-radius: 4px; text-align: left;
@@ -149,6 +150,17 @@
         .progress-content { background: var(--fg-color); padding: 30px; border-radius: 8px; text-align: center; width: 400px; }
         #progress-bar { width: 100%; height: 10px; background: var(--border-color); border-radius: 5px; overflow: hidden; margin-top: 15px; }
         #progress-bar-inner { width: 0%; height: 100%; background: var(--primary-color); transition: width 0.3s; }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 900px) {
+            body { overflow: auto; }
+            .main-container { flex-direction: column; height: auto; }
+            .sidebar { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid var(--border-color); }
+            .preview-area { padding: 15px; }
+            .preview-frame { padding: 10px; }
+            .header h1 { font-size: 18px; }
+            .logo svg { width: 24px; height: 24px; }
+        }
     </style>
 </head>
 <body>
@@ -207,19 +219,23 @@
                     <button id="btn-reset-qr" class="secondary-button">Reset QR Position</button>
                 </div>
                 <hr>
-                <div class="form-group"><label for="csv-upload">Batch Generate from CSV</label><input type="file" id="csv-upload" accept=".csv"><small>CSV format: name,amount,date,type</small></div>
-                <button id="btn-batch-export" class="secondary-button">📄 Generate Batch from CSV</button><hr>
                 <button id="btn-export-pdf">🔒 Generate Single PDF</button>
             </div></details>
         </div>
 
         <div id="pane-verify" class="tab-content">
             <div id="verify-container">
-                <div id="verify-idle" class="active"><div class="verification-icon">🛡️</div><h3>Secure Verification</h3><p id="verify-prompt">Upload a CarbonAra PDF to verify its authenticity.</p><input type="text" id="verify-serial-prefill" style="display:none;" disabled><input type="file" id="file-upload-verify" accept=".pdf" style="display: none;"><button onclick="document.getElementById('file-upload-verify').click();">Select PDF to Verify</button></div>
+                <div id="verify-idle" class="active">
+                    <div id="quick-scan-info" style="display: none;"></div>
+                    <div class="verification-icon">🛡️</div>
+                    <h3>Secure Verification</h3>
+                    <p id="verify-prompt">Upload a CarbonAra PDF to verify its authenticity.</p>
+                    <input type="file" id="file-upload-verify" accept=".pdf" style="display: none;">
+                    <button onclick="document.getElementById('file-upload-verify').click();">Select PDF to Verify</button>
+                </div>
                 <div id="verify-loading"><div class="verification-icon">⏳</div><h3>Analyzing Certificate...</h3><p>Extracting cryptographic signatures and metadata. Please wait.</p></div>
                 <div id="verify-result"><div id="auth-animation"></div><h3 id="auth-prob"></h3><div id="result-card-details" class="result-card"></div></div>
             </div><hr>
-            <details><summary><strong>Verification History (Audit Trail)</strong></summary><div class="details-content"><table id="verify-history" style="width: 100%; text-align: left;"><thead><tr><th>File</th><th>Status</th><th>Date</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center; color: var(--text-light-color);">No files verified yet.</td></tr></tbody></table></div></details>
             <details><summary><strong>Expert Diagnostics</strong></summary><div class="details-content"><div id="diagnostics">No data available.</div><button id="copy-diag-report" class="secondary-button" style="margin-top: 10px;">Copy Report</button></div></details>
         </div>
     </aside>
@@ -519,9 +535,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const serialToVerify = params.get('verify');
         if (serialToVerify) {
             showTab('verify');
-            document.getElementById('verify-serial-prefill').value = serialToVerify;
-            document.getElementById('verify-serial-prefill').style.display = 'block';
-            document.getElementById('verify-prompt').textContent = `Ready to verify serial: ${serialToVerify}. Please upload the corresponding PDF.`;
+            const quickScanInfo = document.getElementById('quick-scan-info');
+            quickScanInfo.style.display = 'block';
+            quickScanInfo.innerHTML = `<h4>Quick Scan Information</h4>
+                <p><strong>Serial:</strong> ${serialToVerify}<br>
+                <em>Upload the corresponding PDF for full cryptographic verification.</em></p>`;
+            document.getElementById('verify-prompt').textContent = `Ready to verify serial: ${serialToVerify}.`;
         }
     }
 
@@ -530,8 +549,15 @@ document.addEventListener('DOMContentLoaded', () => {
             qrImage.src = '';
             return;
         }
-        const qrValue = `https://nomsams.github.io/carbonara/?verify=${inputs.serial.value}`;
-        const qr = new QRious({ value: qrValue, size: 512 }); // High-res for quality
+        const qrData = {
+            s: inputs.serial.value,
+            n: inputs.name.value,
+            a: inputs.amount.value,
+            d: inputs.date.value
+        };
+        const encodedData = btoa(JSON.stringify(qrData)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        const qrValue = `https://nomsams.github.io/carbonara/?verify=${encodedData}`;
+        const qr = new QRious({ value: qrValue, size: 512 });
         qrImage.src = qr.toDataURL();
     }
 
@@ -653,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 posLogo: { x: (logoElement.x||0).toFixed(4), y: (logoElement.y||0).toFixed(4), w: (logoElement.width||0).toFixed(4) },
                 fontName: `GreatVibes-${textElements.name.fontSize}px`, fontOther: `Montserrat-${textElements.amount.fontSize}px`, fontSerial: `Montserrat-${textElements.serial.fontSize}px`,
                 qrMode: inputs.qrMode.value, qrPos: { x: qrCodeElement.x.toFixed(4), y: qrCodeElement.y.toFixed(4) }, qrAlpha: qrCodeElement.alpha.toFixed(2),
-                canvas: `${canvas.width}x${canvas.height}@${inputs.dpi.value}`, app: "CarbonCert-4.0.0"
+                canvas: `${canvas.width}x${canvas.height}@${inputs.dpi.value}`, app: "CarbonCert-5.0.0"
             };
 
             status.textContent = "Step 3/5: Generating cryptographic signature..."; bar.style.width = "50%";
@@ -679,7 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pngImage = await pdfDoc.embedPng(pngImageBytes);
             page.drawImage(pngImage, { x: 0, y: 0, width: canvas.width, height: canvas.height });
             
-            pdfDoc.setKeywords(['carboncert', JSON.stringify(finalPayload)]);
+            pdfDoc.setKeywords(`carboncert,${JSON.stringify(finalPayload)}`);
 
             const pdfBytes = await pdfDoc.save();
             download(pdfBytes, `CarbonCert-${payload.serial}.pdf`, 'application/pdf');
@@ -721,19 +747,27 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const payload = JSON.parse(keywords.substring('carboncert,'.length));
             
-            const pdfImages = await pdfDoc.getPages()[0].extractImages();
-            if (Object.keys(pdfImages).length === 0) throw new Error("No image found in PDF.");
-            const mainImageRef = Object.keys(pdfImages)[0];
-            const mainImage = pdfImages[mainImageRef];
+            const page = pdfDoc.getPage(0);
+            const xObjects = page.node.Resources().get(window.PDFLib.PDFName.of('XObject'));
+            let imageName;
+            if (xObjects && xObjects.keys) {
+                imageName = xObjects.keys()[0];
+            } else {
+                throw new Error("No image found in PDF resources.");
+            }
+
+            const imageStream = pdfDoc.context.lookup(xObjects.get(imageName));
+            const { width, height, bitsPerComponent, colorSpace, data } = imageStream.dict.dict;
             
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = mainImage.width; tempCanvas.height = mainImage.height;
+            tempCanvas.width = width.number; tempCanvas.height = height.number;
             const tempCtx = tempCanvas.getContext('2d');
             
-            const imageBlob = new Blob([mainImage.data], { type: mainImage.mimeType });
-            const imageUrl = URL.createObjectURL(imageBlob);
+            // This part is complex and assumes PNG data. A full renderer would be needed for other formats.
+            // We'll assume the embedded image is PNG, as our generator creates PNGs.
             const img = new Image();
-            img.src = imageUrl;
+            const blob = new Blob([data], { type: 'image/png' });
+            img.src = URL.createObjectURL(blob);
             await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             tempCtx.drawImage(img, 0, 0);
 
@@ -747,7 +781,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const canonical_rebuilt = getCanonicalString(payload);
             const tag_expected = await generateTag(canonical_rebuilt);
 
-            let result = { status: 'LOW', meta: 'FAIL', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL' };
+            let result = { status: 'LOW', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL' };
             if (tag_from_meta === tag_expected) result.crypto = 'OK';
             if (tag_extracted_from_watermark === tag_from_meta) result.water = 'OK';
             if (hash_of_watermarked_image === payload.imageHashWatermarked) result.hash = 'OK';
@@ -762,7 +796,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error("Verification Failed:", error);
-            displayVerificationResult({ status: 'LOW', meta: 'FAIL', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL', error: error.message });
+            displayVerificationResult({ status: 'LOW', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL', error: error.message });
         }
     }
 
