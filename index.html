@@ -718,6 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const pngImage = await pdfDoc.embedPng(pngImageBytes);
             page.drawImage(pngImage, { x: 0, y: 0, width: canvas.width, height: canvas.height });
             
+            // BUGGFIX HÄR: setKeywords förväntar sig en Array<string>.
             pdfDoc.setKeywords([`carboncert,${JSON.stringify(finalPayload)}`]);
 
             const pdfBytes = await pdfDoc.save();
@@ -754,26 +755,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const pdfBytes = await file.arrayBuffer();
             const pdfDoc = await PDFDocument.load(pdfBytes);
             
-            const keywords = pdfDoc.getKeywords();
-            if (!keywords || keywords.length === 0 || !keywords[0].startsWith('carboncert,')) {
+            // BUGGFIX HÄR: getKeywords() returnerar en string, inte en array.
+            const keywordsString = pdfDoc.getKeywords();
+            if (!keywordsString || !keywordsString.startsWith('carboncert,')) {
                 throw new Error("Not a valid CarbonAra certificate (missing metadata keyword).");
             }
             
-            const payload = JSON.parse(keywords[0].substring('carboncert,'.length));
+            const payload = JSON.parse(keywordsString.substring('carboncert,'.length));
             
-            const pdfImages = await pdfDoc.copy().then(doc => doc.getPages()[0].extractImages());
-            if (Object.keys(pdfImages).length === 0) throw new Error("No image found in PDF.");
+            // BUGGFIX HÄR: Robust bildextraktion.
+            const page = pdfDoc.getPage(0);
+            const xObjects = page.getXObjects();
+            const image = xObjects[0];
+            if (!image) throw new Error("No image found in PDF resources.");
             
-            const mainImage = Object.values(pdfImages)[0];
-            const imageBytes = await mainImage.embed().then(img => img.data);
+            const imageBytes = await image.fetch();
 
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = mainImage.width;
-            tempCanvas.height = mainImage.height;
+            tempCanvas.width = image.width;
+            tempCanvas.height = image.height;
             const tempCtx = tempCanvas.getContext('2d');
             
             const img = new Image();
-            const blob = new Blob([imageBytes], { type: mainImage.mimeType });
+            const blob = new Blob([imageBytes], { type: image.mimeType });
             img.src = URL.createObjectURL(blob);
             await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             tempCtx.drawImage(img, 0, 0);
@@ -810,7 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayVerificationResult(result, payload = {}) {
         const verifyContainer = document.getElementById('verify-container');
         verifyContainer.querySelector('#verify-loading').classList.remove('active');
-        const resultView = verifyContainer.querySelector('#verify-result');
+        const resultView = document.getElementById('verify-result');
         resultView.classList.add('active');
         
         const prob = document.getElementById('auth-prob');
