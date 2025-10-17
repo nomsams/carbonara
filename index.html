@@ -347,6 +347,7 @@ function dataURLtoUint8Array(dataURL){
   for(let i=0;i<binStr.length;i++) out[i]=binStr.charCodeAt(i);
   return out;
 }
+function bytesToHex(u8){ return Array.from(u8).map(b=>b.toString(16).padStart(2,'0')).join(''); }
 
 /* ---------- Global state ---------- */
 document.addEventListener('DOMContentLoaded', () => {
@@ -658,7 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function getCanonicalString(p){
     return [
       `v:${p.v}`,`serial:${p.serial}`,`name:${p.name}`,`amount:${p.amount}`,`date:${p.date}`,`type:${p.type}`,
-      `imageHashOriginal:${p.imageHashOriginal}`,`imageHashWatermarked:${p.imageHashWatermarked}`,
+      `imageHashOriginal:${p.imageHashOriginal}`,`imageHashWatermarked:${p.imageHashWatermarked}`,`imageHashRGB:${p.imageHashRGB}`,
       `posName:${p.posName.x},${p.posName.y}`,`posAmount:${p.posAmount.x},${p.posAmount.y}`,
       `posDate:${p.posDate.x},${p.posDate.y}`,`posType:${p.posType.x},${p.posType.y}`,
       `posSerial:${p.posSerial.x},${p.posSerial.y}`,`posLogo:${p.posLogo.x},${p.posLogo.y},${p.posLogo.w}`,
@@ -701,6 +702,18 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
+  /* ---------- Helper: make RGB-only hash from RGBA ImageData ---------- */
+  async function hashRGBFromImageDataDataBuffer(rgbaUint8){
+    // Extract R,G,B only (drop alpha)
+    const rgb = new Uint8Array(Math.floor(rgbaUint8.length/4)*3);
+    for(let src=0,dst=0; src<rgbaUint8.length; src+=4){
+      rgb[dst++] = rgbaUint8[src];
+      rgb[dst++] = rgbaUint8[src+1];
+      rgb[dst++] = rgbaUint8[src+2];
+    }
+    return sha256(rgb.buffer);
+  }
+
   /* ---------- Export PDF ---------- */
   async function exportPdf(){
     const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
@@ -708,7 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const step=(msg,p)=>{ status.textContent=msg; bar.style.width=p; };
 
     try{
-      step('Step 1/6: Preparing canvas…','8%'); await delay(50);
+      step('Step 1/7: Preparing canvas…','8%'); await delay(50);
 
       const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
       const cx=c.getContext('2d',{ willReadFrequently:true });
@@ -726,20 +739,16 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if(inputs.qrMode.value==='with_qr' && qrImage.src){ cx.globalAlpha=qrCodeElement.alpha; cx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); cx.globalAlpha=1.0; }
 
-      step('Step 2/6: Calculating original hash…','20%');
-      const origPx=cx.getImageData(0,0,c.width,c.height).data;
-      const imageHashOriginal=await sha256(origPx.buffer);
+      step('Step 2/7: Calculating original hash (RGBA)…','20%');
+      const origID = cx.getImageData(0,0,c.width,c.height);
+      const imageHashOriginal = await sha256(origID.data.buffer);
 
-      step('Step 3/6: Building payload…','35%');
-      const payload={
-        v:1,
-        serial:inputs.serial.value,
-        name:(inputs.name.value||'').normalize('NFC'),
-        amount:inputs.amount.value||'',
-        date:inputs.date.value||'',
+      step('Step 3/7: Embedding watermark…','35%');
+      const canonPre = { // temporary for first tag
+        v:1, serial:inputs.serial.value, name:(inputs.name.value||'').normalize('NFC'),
+        amount:inputs.amount.value||'', date:inputs.date.value||'',
         type:(inputs.type.value||'').normalize('NFC'),
-        imageHashOriginal,
-        imageHashWatermarked:'0'.repeat(64),
+        imageHashOriginal, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64),
         posName:{x:Number(textElements.name.x).toFixed(4), y:Number(textElements.name.y).toFixed(4)},
         posAmount:{x:Number(textElements.amount.x).toFixed(4), y:Number(textElements.amount.y).toFixed(4)},
         posDate:{x:Number(textElements.date.x).toFixed(4), y:Number(textElements.date.y).toFixed(4)},
@@ -755,41 +764,41 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas:`${canvas.width}x${canvas.height}@${inputs.dpi.value}`,
         app:'CarbonCert-5.0.0'
       };
+      const tag_initial = await generateTag(getCanonicalString(canonPre));
+      embedDataLSB(cx, tag_initial);
 
-      step('Step 4/6: Generating cryptographic signature…','52%');
-      let canon=getCanonicalString(payload);
-      const tag_b64_initial=await generateTag(canon);
+      step('Step 4/7: Finalizing image hashes…','52%');
+      const wmID = cx.getImageData(0,0,c.width,c.height);
+      const imageHashWatermarked = await sha256(wmID.data.buffer);           // RGBA-based (canvas draw)
+      const imageHashRGB = await hashRGBFromImageDataDataBuffer(wmID.data);  // RGB-only, matches PDF raw stream color comps
+      const payload = { ...canonPre, imageHashWatermarked, imageHashRGB };
+      const final_tag_b64 = await generateTag(getCanonicalString(payload));   // sign with both hashes present
+      const finalPayload = { ...payload, tag_b64: final_tag_b64 };
 
-      step('Step 5/6: Applying secure watermark…','74%');
-      embedDataLSB(cx, tag_b64_initial);
-      const wmPx=cx.getImageData(0,0,c.width,c.height).data;
-      payload.imageHashWatermarked=await sha256(wmPx.buffer);
-      canon=getCanonicalString(payload);
-      const final_tag_b64=await generateTag(canon);
-      const finalPayload={...payload, tag_b64:final_tag_b64};
-      const pngURI=c.toDataURL('image/png');
+      // Get PNG bytes for embedding
+      step('Step 5/7: Serializing PNG…','65%');
+      const pngURI = c.toDataURL('image/png');
+      const pngBytes = dataURLtoUint8Array(pngURI);
 
-      step('Step 6/6: Assembling final PDF…','90%');
+      step('Step 6/7: Assembling final PDF…','80%');
       const { PDFDocument } = window.PDFLib;
       const pdfDoc=await PDFDocument.create();
       const page=pdfDoc.addPage([canvas.width, canvas.height]);
-      const pngBytes=dataURLtoUint8Array(pngURI);
       const pngImg=await pdfDoc.embedPng(pngBytes);
       page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
 
-      // Put payload into Keywords AND into a custom metadata string (double redundancy)
       const keywordsPayload=`carboncert,${JSON.stringify(finalPayload)}`;
       pdfDoc.setKeywords([keywordsPayload]);
       pdfDoc.setProducer('CarbonAra');
       pdfDoc.setCreator('CarbonAra:PNG@PDF');
-      // Minimal XMP-like hint
       pdfDoc.setTitle(`CarbonAra ${finalPayload.serial}`);
 
       const pdfBytes=await pdfDoc.save({useObjectStreams:false});
-      download(pdfBytes,`CarbonCert-${payload.serial}.pdf`,'application/pdf');
 
+      step('Step 7/7: Downloading…','95%');
+      download(pdfBytes,`CarbonCert-${payload.serial}.pdf`,'application/pdf');
       id('progress-bar-inner').style.width='100%';
-      setTimeout(()=> modal.style.display='none',600);
+      setTimeout(()=> id('progress-modal').style.display='none',600);
     }catch(e){
       showError('PDF Generation Failed', e?.stack||e?.message||String(e));
       id('progress-modal').style.display='none';
@@ -841,50 +850,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const result={ crypto:(tagFromMeta===expected)?'OK':'FAIL', water:'SKIPPED', hash:'SKIPPED', status:'LOW' };
 
-      // If crypto is OK, attempt pixel-level checks with THREE different strategies:
-      // Strategy A: pdf-lib raw XObject traversal (try to find a single image XObject and rasterize via <img>)
+      // Strategy A: pdf-lib object traversal & rasterize to canvas (no external libs)
       if(result.crypto==='OK'){
         log('Attempting bitmap extraction (Strategy A: pdf-lib XObject traversal)…');
         try{
           const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
           if(info && info.kind==='png-dataurl'){
-            log('Strategy A: Found embedded PNG-like stream, decoding to canvas…');
-            const { pixelsHash, extractedTag } = await hashAndExtractFromDataURL(info.dataURL, payload);
-            if(pixelsHash){ log(`A: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`); result.hash = (pixelsHash===payload.imageHashWatermarked)?'OK':'FAIL'; }
-            if(extractedTag){ log(`A: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tagFromMeta.slice(0,16)}…`); result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
+            log('Strategy A: Found PNG-like stream, decoding…');
+            const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await hashAndExtractFromDataURL(info.dataURL, payload);
+            log(`A(PNG): RGBA calc ${pixelsHashRGBA.slice(0,16)}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+            log(`A(PNG): RGB  calc ${pixelsHashRGB.slice(0,16)}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+            // Accept if either RGBA or RGB matches the corresponding payload hash
+            if(pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB){
+              result.hash='OK';
+            }else{
+              result.hash='FAIL';
+            }
+            if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
           }else if(info && info.kind==='raw-pixels'){
             log('Strategy A: Found raw pixel stream; drawing to canvas…');
-            const { pixelsHash,extractedTag } = await drawRawPixelsAndAnalyze(info, payload);
-            if(pixelsHash){ log(`A(raw): Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`); result.hash = (pixelsHash===payload.imageHashWatermarked)?'OK':'FAIL'; }
-            if(extractedTag){ log(`A(raw): LSB tag ${extractedTag.slice(0,16)}… vs meta ${tagFromMeta.slice(0,16)}…`); result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
+            const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await drawRawPixelsAndAnalyze(info, payload);
+            log(`A(raw): RGBA calc ${pixelsHashRGBA?.slice(0,16) || 'n/a'}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+            log(`A(raw): RGB  calc ${pixelsHashRGB?.slice(0,16) || 'n/a'}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+            if(pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB){
+              result.hash='OK';
+            }else{
+              result.hash='FAIL';
+            }
+            if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
           }else{
             log('Strategy A: No direct image stream retrievable.');
           }
         }catch(eA){ log('Strategy A failed: '+(eA?.message||String(eA))); }
 
-        // Strategy B: Try to lazy-load PDF.js from multiple CDNs and render at scale 1.0
+        // Strategy B: Try to load PDF.js on the fly (multiple CDNs). If blocked, we still keep Strategy A outcome.
         if(result.hash!=='OK' || result.water!=='OK'){
           log('Attempting bitmap extraction (Strategy B: PDF.js @ scale=1)…');
           const ok = await ensurePdfjs(log);
           if(ok){
             try{
-              const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, 1.0, { imageSmoothingEnabled:false });
-              if(pixelsHash){ log(`B: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`); if(result.hash!=='OK') result.hash=(pixelsHash===payload.imageHashWatermarked)?'OK':'FAIL'; }
-              if(extractedTag){ log(`B: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tagFromMeta.slice(0,16)}…`); if(result.water!=='OK') result.water=(extractedTag===tagFromMeta)?'OK':'FAIL'; }
+              const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, 1.0, { imageSmoothingEnabled:false });
+              log(`B: RGBA calc ${pixelsHashRGBA.slice(0,16)}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+              log(`B: RGB  calc ${pixelsHashRGB.slice(0,16)}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+              if(pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB) result.hash='OK';
+              if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
             }catch(eB){ log('Strategy B failed: '+(eB?.message||String(eB))); }
           }else{
             log('Strategy B skipped: PDF.js could not be loaded (CSP/Network).');
           }
         }
 
-        // Strategy C: PDF.js precise scale to match payload canvas, print intent
+        // Strategy C: PDF.js precise scale + print intent
         if((result.hash!=='OK' || result.water!=='OK') && window.pdfjsLib){
           log('Attempting bitmap extraction (Strategy C: PDF.js precise scale + print intent)…');
           try{
             const scale = await computeViewportScale(pdfBytes, payload);
-            const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, scale, { printIntent:true, imageSmoothingEnabled:false });
-            if(pixelsHash){ log(`C: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`); if(result.hash!=='OK') result.hash=(pixelsHash===payload.imageHashWatermarked)?'OK':'FAIL'; }
-            if(extractedTag){ log(`C: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tagFromMeta.slice(0,16)}…`); if(result.water!=='OK') result.water=(extractedTag===tagFromMeta)?'OK':'FAIL'; }
+            const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, scale, { printIntent:true, imageSmoothingEnabled:false });
+            log(`C: RGBA calc ${pixelsHashRGBA.slice(0,16)}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+            log(`C: RGB  calc ${pixelsHashRGB.slice(0,16)}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+            if(pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB) result.hash='OK';
+            if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
           }catch(eC){ log('Strategy C failed: '+(eC?.message||String(eC))); }
         }
       }
@@ -907,7 +932,6 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ---------- Strategy A: pdf-lib object traversal ---------- */
   async function extractImageLikeWithPdfLib(pdfDoc, types){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = types;
-    // Prefer page XObjects
     const pages=pdfDoc.getPages();
     if(pages.length){
       const page=pages[0];
@@ -925,23 +949,19 @@ document.addEventListener('DOMContentLoaded', () => {
               if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
                 const subtype = stream.dict.get && stream.dict.get(PDFName.of('Subtype'));
                 if(String(subtype)==='/Image'){
-                  // Try to reconstruct a PNG DataURL if stream actually contains PNG (Filter /FlateDecode won't be a PNG)
-                  const filter = stream.dict.get(PDFName.of('Filter'));
-                  // If original was embedPng, pdf-lib often reuses the PNG bytes (as an embedded file stream)
                   const maybeBytes = stream.getContents ? stream.getContents() : stream.contents;
                   if(maybeBytes && maybeBytes.byteLength){
-                    // Check PNG signature
                     const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
+                    // PNG signature?
                     if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
                       const b64 = btoa(String.fromCharCode(...u8));
                       return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
                     }
-                    // Else, return raw pixels plan with parameters (if available)
+                    // Raw pixel info
                     const width = numFromDict(stream.dict, PDFName.of('Width'));
                     const height= numFromDict(stream.dict, PDFName.of('Height'));
                     const bpc   = numFromDict(stream.dict, PDFName.of('BitsPerComponent')) || 8;
                     const cs    = stream.dict.get(PDFName.of('ColorSpace'));
-                    // Assume DeviceRGB unless otherwise
                     const comps = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
                     return { kind:'raw-pixels', width, height, bpc, comps, bytes: u8 };
                   }
@@ -956,8 +976,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fallback: scan every indirect object for an Image stream
     try{
       for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
-        if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-          const subtype = obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+        if(obj && (obj instanceof types.PDFRawStream || obj instanceof types.PDFStream)){
+          const subtype = obj.dict.get && obj.dict.get(types.PDFName.of('Subtype'));
           if(String(subtype)==='/Image'){
             const maybeBytes = obj.getContents ? obj.getContents() : obj.contents;
             if(maybeBytes && maybeBytes.byteLength){
@@ -966,10 +986,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const b64=btoa(String.fromCharCode(...u8));
                 return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
               }
-              const width = numFromDict(obj.dict, PDFName.of('Width'));
-              const height= numFromDict(obj.dict, PDFName.of('Height'));
-              const bpc   = numFromDict(obj.dict, PDFName.of('BitsPerComponent')) || 8;
-              const cs    = obj.dict.get(PDFName.of('ColorSpace'));
+              const width = numFromDict(obj.dict, types.PDFName.of('Width'));
+              const height= numFromDict(obj.dict, types.PDFName.of('Height'));
+              const bpc   = numFromDict(obj.dict, types.PDFName.of('BitsPerComponent')) || 8;
+              const cs    = obj.dict.get(types.PDFName.of('ColorSpace'));
               const comps = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
               return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
             }
@@ -995,9 +1015,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const cx=c.getContext('2d',{ willReadFrequently:true });
     cx.drawImage(img,0,0);
     const idata=cx.getImageData(0,0,c.width,c.height);
-    const pixelsHash=await sha256(idata.data.buffer);
+    const pixelsHashRGBA=await sha256(idata.data.buffer);
+    const pixelsHashRGB =await hashRGBFromImageDataDataBuffer(idata.data);
     const extractedTag=extractDataLSB(cx);
-    return { pixelsHash, extractedTag };
+    return { pixelsHashRGBA, pixelsHashRGB, extractedTag };
   }
   function loadImageFromDataURL(dataURL){
     return new Promise((res,rej)=>{
@@ -1011,12 +1032,11 @@ document.addEventListener('DOMContentLoaded', () => {
   async function drawRawPixelsAndAnalyze(info, payload){
     const { width,height,comps,bpc,bytes } = info;
     if(!width||!height||!bytes) return {};
-    // Very naive decode for DeviceRGB/Gray @ 8bpc and Flate-decoded content only.
-    // If stream is still compressed, this won't work; but pdf-lib usually gives decoded stream contents.
     const c=document.createElement('canvas'); c.width=width; c.height=height;
     const cx=c.getContext('2d',{ willReadFrequently:true });
     const imgData=cx.createImageData(width,height);
     const dst=imgData.data;
+
     if(bpc!==8) return {};
     let si=0, di=0;
     try{
@@ -1034,9 +1054,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }else{ return {}; }
       cx.putImageData(imgData,0,0);
-      const h=await sha256(imgData.data.buffer);
+      const rgbaHash = await sha256(imgData.data.buffer);
+      const rgbHash  = await hashRGBFromImageDataDataBuffer(imgData.data);
       const tag=extractDataLSB(cx);
-      return { pixelsHash:h, extractedTag:tag };
+      return { pixelsHashRGBA:rgbaHash, pixelsHashRGB:rgbHash, extractedTag:tag };
     }catch{ return {}; }
   }
 
@@ -1093,11 +1114,12 @@ document.addEventListener('DOMContentLoaded', () => {
     await renderTask.promise;
 
     const idata=cx.getImageData(0,0,c.width,c.height);
-    const pixelsHash=await sha256(idata.data.buffer);
-    const extractedTag=extractDataLSB(cx);
+    const pixelsHashRGBA=await sha256(idata.data.buffer);
+    const pixelsHashRGB =await hashRGBFromImageDataDataBuffer(idata.data);
+    const extractedTag  = extractDataLSB(cx);
 
     await page.cleanup?.(); await pdf.cleanup?.();
-    return { pixelsHash, extractedTag };
+    return { pixelsHashRGBA, pixelsHashRGB, extractedTag };
   }
   async function computeViewportScale(pdfBytes, payload){
     const task=pdfjsLib.getDocument({ data: pdfBytes });
