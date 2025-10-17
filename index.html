@@ -762,12 +762,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             log("Starting verification...");
-            const { PDFDocument } = window.PDFLib;
+            const { PDFDocument, PDFName, PDFDict } = window.PDFLib;
             const pdfBytes = await file.arrayBuffer();
             const pdfDoc = await PDFDocument.load(pdfBytes);
             log("PDF document loaded successfully.");
 
-            const keywords = pdfDoc.getKeywords();
+            let keywords = pdfDoc.getKeywords();
+            if (Array.isArray(keywords)) keywords = keywords[0];
             if (!keywords || !keywords.startsWith('carboncert,')) {
                 throw new Error("Not a valid CarbonAra certificate (missing metadata keyword).");
             }
@@ -776,18 +777,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const payload = JSON.parse(keywords.substring('carboncert,'.length));
             log("Payload parsed from metadata.");
 
-            const image = (await pdfDoc.getImages())[0];
-            if (!image) throw new Error("No image found in PDF resources.");
-            log(`Image found (${image.width}x${image.height}). Extracting...`);
+            const page = pdfDoc.getPage(0);
+            const resources = page.node.Resources();
+            const xobjects = resources.lookup(PDFName.of('XObject'), PDFDict);
+            const imageRef = xobjects.keys()[0];
+            if (!imageRef) throw new Error("No image XObject found in PDF resources.");
             
+            const imageStream = pdfDoc.context.lookup(imageRef);
+            const imageBytes = imageStream.contents;
+            log(`Image stream found (Ref: ${imageRef.toString()}). Size: ${imageBytes.length} bytes.`);
+
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = image.width;
-            tempCanvas.height = image.height;
+            tempCanvas.width = payload.canvas.split('@')[0].split('x')[0];
+            tempCanvas.height = payload.canvas.split('@')[0].split('x')[1];
             const tempCtx = tempCanvas.getContext('2d');
             
-            const imageBytes = await image.embed().then(img => img.data);
-            const blob = new Blob([imageBytes], { type: image.mimeType });
             const img = new Image();
+            const blob = new Blob([imageBytes], { type: 'image/png' });
             img.src = URL.createObjectURL(blob);
             await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             tempCtx.drawImage(img, 0, 0);
@@ -795,18 +801,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const tag_extracted_from_watermark = extractData(tempCtx);
             if (!tag_extracted_from_watermark) throw new Error("Watermark could not be extracted or is corrupted.");
-            log("Watermark extracted successfully.");
+            log(`Watermark extracted: ${tag_extracted_from_watermark.substring(0,16)}...`);
 
             const tag_from_meta = payload.tag_b64;
-            log("Comparing watermark tag to metadata tag...");
+            log(`Metadata tag:      ${tag_from_meta.substring(0,16)}...`);
             
             const hash_of_watermarked_image = await sha256(tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data.buffer);
-            log("Calculating hash of extracted image...");
+            log(`Calculated hash: ${hash_of_watermarked_image.substring(0,16)}...`);
+            log(`Expected hash:   ${payload.imageHashWatermarked.substring(0,16)}...`);
 
             const canonical_rebuilt = getCanonicalString(payload);
             log("Rebuilding canonical string for signature verification...");
             const tag_expected = await generateTag(canonical_rebuilt);
-            log("Expected signature generated.");
+            log(`Expected tag:      ${tag_expected.substring(0,16)}...`);
 
             let result = { status: 'LOW', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL' };
             if (tag_from_meta === tag_expected) result.crypto = 'OK';
