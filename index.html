@@ -387,22 +387,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- INITIALIZATION ---
     async function init() {
         try {
-            // Date default (yyyy-mm-dd)
             inputs.date.valueAsDate = new Date();
-
             generateNewSerial();
             addEventListeners();
-
             await document.fonts.ready;
 
-            // Failsafe tick to ensure font availability in some browsers
+            // ensure font availability draw tick
             const tmp = inputs.name.value;
             inputs.name.value = 'Rendering…';
             requestRedraw();
             await new Promise(r => setTimeout(r, 60));
             inputs.name.value = tmp;
 
-            // Try to load implicit "image.png" if present (optional)
+            // Try to load default image.png; if missing, A4 default
             bgImage.crossOrigin = "anonymous";
             bgImage.onload = () => {
                 bgImageLoaded = true;
@@ -410,10 +407,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 setupCanvas(bgImage.naturalWidth, bgImage.naturalHeight);
             };
             bgImage.onerror = () => {
-                console.warn('image.png not found. Please upload an image.');
                 document.getElementById('bg-image-status').textContent = '⚠️ No image.png';
-                // Default A4 @ 300 DPI: 2480 x 3508
-                setupCanvas(2480, 3508);
+                setupCanvas(2480, 3508); // A4 @ 300 DPI
             };
             bgImage.src = 'image.png';
 
@@ -424,7 +419,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setupCanvas(width, height) {
-        // Guard sizes
         const w = Number.isFinite(width) && width > 0 ? Math.round(width) : 2480;
         const h = Number.isFinite(height) && height > 0 ? Math.round(height) : 3508;
 
@@ -432,7 +426,6 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.height = h;
         document.getElementById('canvas-dimensions').textContent = `${w} x ${h} px`;
 
-        // If no previous stored layout, set defaults
         if (!loadLayoutFromLocalStorage(true)) {
             resetAllPositions();
         }
@@ -458,7 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EVENT LISTENERS ---
     function addEventListeners() {
-        // General input redraw (with debouncing)
         const debouncedRedraw = debounce(requestRedraw, 30);
         Object.values(inputs).forEach(input => input.addEventListener('input', debouncedRedraw));
 
@@ -484,7 +476,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 await navigator.clipboard.writeText(txt);
                 alert('Diagnostics copied to clipboard.');
             } catch {
-                // Fallback
                 const ta = document.createElement('textarea');
                 ta.value = txt;
                 document.body.appendChild(ta);
@@ -761,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             const qrData = { s: inputs.serial.value, n: inputs.name.value, a: inputs.amount.value, d: inputs.date.value, t: inputs.type.value };
-            const encodedData = btoa(JSON.stringify(qrData)).replace(/\+/g, '-').replace(/_/g, '_').replace(/=+$/g, '');
+            const encodedData = btoa(JSON.stringify(qrData)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
             const qrValue = `https://nomsams.github.io/carbonara/?verify=${encodedData}`;
             const qr = new QRious({ value: qrValue, size: 512 });
             qrImage = new Image();
@@ -777,7 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pbkdf2Iterations = 100000;
 
     async function reconstructMasterKey() {
-        // Placeholder shard reconstruction (kept for backward intent), strengthened by PBKDF2
+        // Placeholder shard reconstruction (kept for intent), strengthened by PBKDF2
         const fragments = ['fragA', 'fragB', 'fragC', 'fragD'];
         const concatenated = fragments.join('') + "a-very-secret-pepper";
         const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(concatenated), { name:"PBKDF2" }, false, ["deriveKey"]);
@@ -791,7 +782,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getCanonicalString(payload) {
-        // Ensure stable, ordered, stringified canonical
         return [
             `v:${payload.v}`,
             `serial:${payload.serial}`,
@@ -839,8 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageData = ctx2d.getImageData(0, 0, ctx2d.canvas.width, ctx2d.canvas.height);
         const data = imageData.data;
 
-        // Capacity check
-        const capacityBits = Math.floor(data.length / 4); // one bit per pixel (on blue channel)
+        const capacityBits = Math.floor(data.length / 4); // one bit per pixel (blue channel)
         if (bitStream.length > capacityBits) {
             throw new Error(`Watermark too large for image capacity. Need ${bitStream.length} bits, have ${capacityBits}.`);
         }
@@ -882,7 +871,6 @@ document.addEventListener('DOMContentLoaded', () => {
             step("Step 1/6: Preparing canvas…", "8%");
             await delay(50);
 
-            // Prepare a clean canvas draw (no selection flicker, fixed colors)
             const cleanCanvas = document.createElement('canvas');
             cleanCanvas.width = canvas.width;
             cleanCanvas.height = canvas.height;
@@ -899,7 +887,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     cleanCtx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
                 }
 
-                // Use dark text for export to preserve legibility
                 const expTextColor = '#000000';
                 Object.values(textElements).forEach(el => {
                     const size = Number.isFinite(el.fontSize) ? el.fontSize : 12;
@@ -956,15 +943,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const tag_b64_initial = await generateTag(canonicalString);
 
             step("Step 5/6: Applying secure watermark…", "74%");
-            // Apply LSB watermark with the tag
             embedDataLSB(cleanCtx, tag_b64_initial);
 
-            // Hash after watermark
             const wmPixels = cleanCtx.getImageData(0, 0, cleanCanvas.width, cleanCanvas.height).data;
             const imageHashWatermarked = await sha256(wmPixels.buffer);
             payload.imageHashWatermarked = imageHashWatermarked;
 
-            // Finalize signature with updated payload (includes watermarked hash)
             canonicalString = getCanonicalString(payload);
             const final_tag_b64 = await generateTag(canonicalString);
             const finalPayload = { ...payload, tag_b64: final_tag_b64 };
@@ -974,25 +958,17 @@ document.addEventListener('DOMContentLoaded', () => {
             step("Step 6/6: Assembling final PDF…", "90%");
             const { PDFDocument } = window.PDFLib;
             const pdfDoc = await PDFDocument.create();
-
-            // Page size equals pixel size (units are PDF points; we assume 1px ~ 1pt for embedded bitmap fidelity)
             const page = pdfDoc.addPage([canvas.width, canvas.height]);
 
-            // Embed PNG as bitmap on page
             const pngImageBytes = dataURLtoUint8Array(watermarkedImageURI);
             const pngImage = await pdfDoc.embedPng(pngImageBytes);
             page.drawImage(pngImage, { x: 0, y: 0, width: canvas.width, height: canvas.height });
 
-            // Add metadata (keywords used as backward-compatible channel)
-            // Keep short & robust: keywords can be a list; we put one long entry "carboncert,<json>"
+            // Embed payload as keyword for verification
             const keywordsPayload = `carboncert,${JSON.stringify(finalPayload)}`;
-            // pdf-lib supports setKeywords (array or string). Use array for portability.
             pdfDoc.setKeywords([keywordsPayload]);
-
-            // Also add Subject with a short marker (non-breaking but helpful)
             pdfDoc.setSubject('CarbonAra Secure Certificate');
 
-            // Save and prompt download
             const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
             download(pdfBytes, `CarbonCert-${payload.serial}.pdf`, 'application/pdf');
 
@@ -1042,18 +1018,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
             log("PDF document loaded successfully.");
 
-            // Extract metadata keyword payload
+            // Extract embedded payload from keywords
             let keywords = pdfDoc.getKeywords?.() || null;
-            if (Array.isArray(keywords)) keywords = keywords.find(k => typeof k === 'string' && k.startsWith('carboncert,')) || keywords[0];
+            if (Array.isArray(keywords)) {
+                keywords = keywords.find(k => typeof k === 'string' && k.startsWith('carboncert,')) || keywords[0];
+            }
             if (typeof keywords !== 'string' || !keywords.startsWith('carboncert,')) {
                 throw new Error("Not a valid CarbonAra certificate (missing metadata keyword).");
             }
             log("Metadata keyword found.");
-            const payload = safeJsonParse(keywords.substring('carboncert,'.length));
+
+            const payloadStr = keywords.substring('carboncert,'.length);
+            const payload = safeJsonParse(payloadStr);
             if (!payload) throw new Error("Invalid embedded payload JSON.");
             log("Payload parsed from metadata.");
 
-            // Rebuild expected tag from payload (cryptographic check)
+            // Cryptographic verification (authoritative)
             log("Rebuilding canonical string for signature verification…");
             const canonical = getCanonicalString(payload);
             const expected_tag = await generateTag(canonical);
@@ -1062,58 +1042,28 @@ document.addEventListener('DOMContentLoaded', () => {
             const tag_from_meta = payload.tag_b64 || '';
             log(`Metadata tag: ${tag_from_meta.slice(0,16)}…`);
 
-            // Attempt to reconstruct the watermarked bitmap for LSB and hash checks.
-            // NOTE: When pdf-lib embeds PNG, it creates an Image XObject stream (raw), not a PNG file.
-            // Rendering that back to pixels is non-trivial without a PDF renderer.
-            // We therefore provide a robust fallback path:
-            // 1) Try to extract a direct PNG if found (rare). If that fails,
-            // 2) Use SKIPPED for watermark/hash checks and rely on crypto (MEDIUM assurance).
+            // We do NOT attempt bitmap extraction (browser lacks a PDF rasterizer here).
+            // Watermark and image-hash checks are SKIPPED (no undefined imageBytes anymore).
+            const result = {
+                crypto: (tag_from_meta === expected_tag) ? 'OK' : 'FAIL',
+                water: 'SKIPPED',
+                hash: 'SKIPPED'
+            };
+            result.status = (result.crypto === 'OK') ? 'MEDIUM' : 'LOW';
 
-            let wmHashCalc = null;
-            let lsbExtracted = null;
-            try {
-                log("Attempting to extract embedded bitmap (best-effort) …");
-                // Best-effort fallback: if payload contains canvas size, create an empty canvas and SKIP
-                // (Full extraction would need a PDF renderer; we avoid false negatives.)
-                throw new Error("Direct bitmap extraction not available in this environment.");
-            } catch (ex) {
-                log("Bitmap extraction skipped: " + ex.message);
-            }
-
-            // Compose result
-            let result = { status: 'LOW', water: 'SKIPPED', crypto: 'FAIL', hash: 'SKIPPED' };
-
-            if (tag_from_meta === expected_tag) {
-                result.crypto = 'OK';
-            }
-
-            if (lsbExtracted !== null) {
-                result.water = (lsbExtracted === tag_from_meta) ? 'OK' : 'FAIL';
-            }
-            if (wmHashCalc !== null) {
-                result.hash = (wmHashCalc === (payload.imageHashWatermarked || '')) ? 'OK' : 'FAIL';
-            }
-
-            if (result.crypto === 'OK' && (result.water === 'OK' || result.water === 'SKIPPED') && (result.hash === 'OK' || result.hash === 'SKIPPED')) {
-                // If we can't check pixels but crypto passes, mark as MEDIUM
-                result.status = (result.water === 'OK' && result.hash === 'OK') ? 'HIGH' : 'MEDIUM';
-            }
-
-            log(`Verification complete. Final status: ${result.status}`);
+            log(`Verification complete. Final status: ${result.status} (pixel-level checks skipped in this environment)`);
             displayVerificationResult(result, payload);
         } catch (error) {
             console.error("Verification Failed:", error);
             diagnostics.textContent += `CRITICAL ERROR: ${error?.message || String(error)}\n`;
             displayVerificationResult({ status: 'LOW', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL', error: error?.message || String(error) });
         } finally {
-            const verifyContainer = document.getElementById('verify-container');
             verifyContainer.querySelector('#verify-loading').classList.remove('active');
         }
     }
 
     function displayVerificationResult(result, payload = {}) {
         const verifyContainer = document.getElementById('verify-container');
-        verifyContainer.querySelector('#verify-loading').classList.remove('active');
         const resultView = document.getElementById('verify-result');
         resultView.classList.add('active');
 
