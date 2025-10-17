@@ -13,6 +13,14 @@
     <!-- Libraries -->
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrious/dist/qrious.min.js"></script>
+    <!-- PDF.js (for pixel-accurate verification attempts) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.js"></script>
+    <script>
+      // Configure worker for PDF.js
+      if (window['pdfjsLib']) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js";
+      }
+    </script>
 
     <style>
         :root {
@@ -768,7 +776,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pbkdf2Iterations = 100000;
 
     async function reconstructMasterKey() {
-        // Placeholder shard reconstruction (kept for intent), strengthened by PBKDF2
         const fragments = ['fragA', 'fragB', 'fragC', 'fragD'];
         const concatenated = fragments.join('') + "a-very-secret-pepper";
         const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(concatenated), { name:"PBKDF2" }, false, ["deriveKey"]);
@@ -964,7 +971,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const pngImage = await pdfDoc.embedPng(pngImageBytes);
             page.drawImage(pngImage, { x: 0, y: 0, width: canvas.width, height: canvas.height });
 
-            // Embed payload as keyword for verification
             const keywordsPayload = `carboncert,${JSON.stringify(finalPayload)}`;
             pdfDoc.setKeywords([keywordsPayload]);
             pdfDoc.setSubject('CarbonAra Secure Certificate');
@@ -1042,28 +1048,161 @@ document.addEventListener('DOMContentLoaded', () => {
             const tag_from_meta = payload.tag_b64 || '';
             log(`Metadata tag: ${tag_from_meta.slice(0,16)}…`);
 
-            // We do NOT attempt bitmap extraction (browser lacks a PDF rasterizer here).
-            // Watermark and image-hash checks are SKIPPED (no undefined imageBytes anymore).
-            const result = {
-                crypto: (tag_from_meta === expected_tag) ? 'OK' : 'FAIL',
-                water: 'SKIPPED',
-                hash: 'SKIPPED'
-            };
-            result.status = (result.crypto === 'OK') ? 'MEDIUM' : 'LOW';
+            // Prepare default result; we will try 3 methods to recover pixel data.
+            const result = { crypto: (tag_from_meta === expected_tag) ? 'OK' : 'FAIL', water: 'SKIPPED', hash: 'SKIPPED', status: 'LOW' };
 
-            log(`Verification complete. Final status: ${result.status} (pixel-level checks skipped in this environment)`);
+            // If crypto fails, no point trying pixels (still run methods to satisfy "try 3" but outcome will remain LOW)
+            // Method 1: PDF.js render with scale 1 (expected exact pixel dimensions because page size == image size)
+            if (window['pdfjsLib']) {
+                try {
+                    log("Attempt 1: PDF.js render (scale=1, smoothing off)...");
+                    const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, 1.0, { imageSmoothingEnabled:false });
+                    if (pixelsHash) {
+                        log(`Attempt 1: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`);
+                        result.hash = (pixelsHash === payload.imageHashWatermarked) ? 'OK' : (result.hash === 'SKIPPED' ? 'FAIL' : result.hash);
+                    }
+                    if (extractedTag) {
+                        log(`Attempt 1: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tag_from_meta.slice(0,16)}…`);
+                        result.water = (extractedTag === tag_from_meta) ? 'OK' : (result.water === 'SKIPPED' ? 'FAIL' : result.water);
+                    }
+                } catch (e1) {
+                    log("Attempt 1 failed: " + (e1?.message || e1));
+                }
+
+                // Method 2: PDF.js render at precise pixel scale to match payload.canvas exactly (if rounding occurred)
+                if (result.water !== 'OK' || result.hash !== 'OK') {
+                    try {
+                        log("Attempt 2: PDF.js render (precise scale to match payload canvas dims)...");
+                        const preciseScale = await computeViewportScale(pdfBytes, payload);
+                        const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, preciseScale, { imageSmoothingEnabled:false });
+                        if (pixelsHash) {
+                            log(`Attempt 2: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`);
+                            if (result.hash !== 'OK') result.hash = (pixelsHash === payload.imageHashWatermarked) ? 'OK' : 'FAIL';
+                        }
+                        if (extractedTag) {
+                            log(`Attempt 2: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tag_from_meta.slice(0,16)}…`);
+                            if (result.water !== 'OK') result.water = (extractedTag === tag_from_meta) ? 'OK' : 'FAIL';
+                        }
+                    } catch (e2) {
+                        log("Attempt 2 failed: " + (e2?.message || e2));
+                    }
+                }
+
+                // Method 3: PDF.js render (print intent) and flip handling (sometimes affects pixel rounding)
+                if (result.water !== 'OK' || result.hash !== 'OK') {
+                    try {
+                        log("Attempt 3: PDF.js render (print intent, smoothing off)...");
+                        const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, 1.0, { printIntent:true, imageSmoothingEnabled:false });
+                        if (pixelsHash) {
+                            log(`Attempt 3: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`);
+                            if (result.hash !== 'OK') result.hash = (pixelsHash === payload.imageHashWatermarked) ? 'OK' : 'FAIL';
+                        }
+                        if (extractedTag) {
+                            log(`Attempt 3: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tag_from_meta.slice(0,16)}…`);
+                            if (result.water !== 'OK') result.water = (extractedTag === tag_from_meta) ? 'OK' : 'FAIL';
+                        }
+                    } catch (e3) {
+                        log("Attempt 3 failed: " + (e3?.message || e3));
+                    }
+                }
+            } else {
+                log("PDF.js not available. Skipping pixel-level verification attempts.");
+            }
+
+            // Determine final status
+            if (result.crypto === 'OK' && result.water === 'OK' && result.hash === 'OK') {
+                result.status = 'HIGH';
+            } else if (result.crypto === 'OK') {
+                result.status = 'MEDIUM';
+            } else {
+                result.status = 'LOW';
+            }
+
+            log(`Verification complete. Final status: ${result.status}`);
             displayVerificationResult(result, payload);
         } catch (error) {
             console.error("Verification Failed:", error);
             diagnostics.textContent += `CRITICAL ERROR: ${error?.message || String(error)}\n`;
             displayVerificationResult({ status: 'LOW', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL', error: error?.message || String(error) });
         } finally {
+            const verifyContainer = document.getElementById('verify-container');
             verifyContainer.querySelector('#verify-loading').classList.remove('active');
         }
     }
 
+    // Render first page of PDF using PDF.js and return pixel hash + LSB tag extraction
+    async function rasterizePdfWithPdfJs(pdfBytes, payload, scale = 1.0, opts = {}) {
+        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
+
+        // Determine viewport; page sizes are in points; our PDF was created with page size [canvas.width, canvas.height] points
+        let viewport = page.getViewport({ scale, dontFlip: false });
+
+        // If payload specifies canvas WxH, ensure our output matches it (round pixels)
+        const [wStr, rest] = payload.canvas.split('@');
+        const [pxW, pxH] = wStr.split('x').map(n => parseInt(n, 10));
+        // If scale 1 produced different dims, compute alternate scale that hits exact pixel dims
+        if (Math.round(viewport.width) !== pxW || Math.round(viewport.height) !== pxH) {
+            const sx = pxW / viewport.width;
+            const sy = pxH / viewport.height;
+            const s = Math.min(sx, sy);
+            viewport = page.getViewport({ scale: s, dontFlip: false });
+        }
+
+        const renderCanvas = document.createElement('canvas');
+        const rctx = renderCanvas.getContext('2d', { willReadFrequently: true });
+        renderCanvas.width = Math.round(viewport.width);
+        renderCanvas.height = Math.round(viewport.height);
+        // Disable smoothing to preserve pixels
+        rctx.imageSmoothingEnabled = opts.imageSmoothingEnabled === false ? false : true;
+
+        const renderTask = page.render({
+            canvasContext: rctx,
+            viewport,
+            intent: opts.printIntent ? 'print' : 'display',
+            enableWebGL: false
+        });
+        await renderTask.promise;
+
+        // Compute hash of pixels
+        const imgData = rctx.getImageData(0, 0, renderCanvas.width, renderCanvas.height);
+        const pixelsHash = await sha256(imgData.data.buffer);
+
+        // Try LSB extraction
+        let extractedTag = null;
+        try {
+            extractedTag = extractDataLSB(rctx);
+        } catch (e) {
+            extractedTag = null;
+        }
+
+        // Cleanup
+        await page.cleanup?.();
+        await pdf.cleanup?.();
+
+        return { pixelsHash, extractedTag };
+    }
+
+    // Compute a precise scale to match payload canvas dimensions
+    async function computeViewportScale(pdfBytes, payload) {
+        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1);
+        const [wStr] = payload.canvas.split('@');
+        const [pxW, pxH] = wStr.split('x').map(n => parseInt(n, 10));
+        const baseViewport = page.getViewport({ scale: 1.0 });
+        const sx = pxW / baseViewport.width;
+        const sy = pxH / baseViewport.height;
+        const s = Math.min(sx, sy);
+        await page.cleanup?.();
+        await pdf.cleanup?.();
+        return s;
+    }
+
     function displayVerificationResult(result, payload = {}) {
         const verifyContainer = document.getElementById('verify-container');
+        verifyContainer.querySelector('#verify-loading').classList.remove('active');
         const resultView = document.getElementById('verify-result');
         resultView.classList.add('active');
 
