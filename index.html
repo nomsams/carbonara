@@ -1,1291 +1,1165 @@
 <!DOCTYPE html>
 <html lang="sv" data-theme="light">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>CarbonAra - Secure Certificate Environment</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CarbonAra - Secure Certificate Environment</title>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet"/>
 
-    <!-- Libraries -->
-    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrious/dist/qrious.min.js"></script>
-    <!-- PDF.js (for pixel-accurate verification attempts) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.js"></script>
-    <script>
-      // Configure worker for PDF.js
-      if (window['pdfjsLib']) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js";
-      }
-    </script>
+  <!-- Core libs -->
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrious/dist/qrious.min.js"></script>
 
-    <style>
-        :root {
-            --bg-color:#f8f9fa; --fg-color:#ffffff; --text-color:#212529;
-            --text-light-color:#6c757d; --border-color:#dee2e6; --primary-color:#0d6efd;
-            --primary-hover-color:#0b5ed7; --header-bg:#ffffff; --shadow-color:rgba(0,0,0,0.05);
-            --success-color:#198754; --warning-color:#ffc107; --danger-color:#dc3545;
-            --font-main:'Montserrat',sans-serif; --font-display:'Great Vibes',cursive;
-        }
-        [data-theme="dark"]{
-            --bg-color:#121212; --fg-color:#1e1e1e; --text-color:#e0e0e0;
-            --text-light-color:#8e8e8e; --border-color:#3a3a3a; --primary-color:#4dabf7;
-            --primary-hover-color:#74c0fc; --header-bg:#1e1e1e; --shadow-color:rgba(0,0,0,0.3);
-        }
-        *,*::before,*::after{box-sizing:border-box}
-        body{font-family:var(--font-main);margin:0;background:var(--bg-color);color:var(--text-color);transition:background-color .3s,color .3s;font-size:14px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow:hidden}
+  <style>
+    :root{
+      --bg-color:#f8f9fa;--fg-color:#ffffff;--text-color:#212529;
+      --text-light-color:#6c757d;--border-color:#dee2e6;--primary-color:#0d6efd;
+      --primary-hover-color:#0b5ed7;--header-bg:#ffffff;--shadow-color:rgba(0,0,0,.05);
+      --success-color:#198754;--warning-color:#ffc107;--danger-color:#dc3545;
+      --font-main:'Montserrat',sans-serif;--font-display:'Great Vibes',cursive;
+    }
+    [data-theme="dark"]{
+      --bg-color:#121212;--fg-color:#1e1e1e;--text-color:#e0e0e0;
+      --text-light-color:#8e8e8e;--border-color:#3a3a3a;--primary-color:#4dabf7;
+      --primary-hover-color:#74c0fc;--header-bg:#1e1e1e;--shadow-color:rgba(0,0,0,.3);
+    }
+    *,*::before,*::after{box-sizing:border-box}
+    body{font-family:var(--font-main);margin:0;background:var(--bg-color);color:var(--text-color);transition:background-color .3s,color .3s;font-size:14px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow:hidden}
 
-        .header{display:flex;justify-content:space-between;align-items:center;padding:12px 30px;background:var(--header-bg);border-bottom:1px solid var(--border-color);box-shadow:0 2px 8px var(--shadow-color);position:sticky;top:0;z-index:100}
-        .logo{display:flex;align-items:center;gap:12px}
-        .logo svg{width:32px;height:32px;fill:var(--primary-color)}
-        .logo h1{margin:0;font-size:22px;font-weight:700}
-        .controls{display:flex;align-items:center;gap:20px}
-        #theme-toggle{cursor:pointer;background:none;border:1px solid var(--border-color);border-radius:20px;padding:6px;display:flex;align-items:center;font-size:18px;line-height:1;transition:transform .2s,background-color .2s}
-        #theme-toggle:hover{transform:scale(1.1);background-color:var(--bg-color)}
+    .header{display:flex;justify-content:space-between;align-items:center;padding:12px 30px;background:var(--header-bg);border-bottom:1px solid var(--border-color);box-shadow:0 2px 8px var(--shadow-color);position:sticky;top:0;z-index:100}
+    .logo{display:flex;align-items:center;gap:12px}
+    .logo svg{width:32px;height:32px;fill:var(--primary-color)}
+    .logo h1{margin:0;font-size:22px;font-weight:700}
+    .controls{display:flex;align-items:center;gap:20px}
+    #theme-toggle{cursor:pointer;background:none;border:1px solid var(--border-color);border-radius:20px;padding:6px;display:flex;align-items:center;font-size:18px;line-height:1;transition:transform .2s,background-color .2s}
+    #theme-toggle:hover{transform:scale(1.1);background:var(--bg-color)}
 
-        .main-container{display:flex;height:calc(100vh - 65px)}
-        .sidebar{width:400px;min-width:400px;padding:20px;background:var(--fg-color);border-right:1px solid var(--border-color);overflow-y:auto}
-        .preview-area{flex-grow:1;padding:30px;display:flex;justify-content:center;align-items:center;overflow:auto;background:var(--bg-color)}
-        .preview-frame{padding:20px;background:var(--fg-color);border-radius:8px;box-shadow:0 10px 30px var(--shadow-color);transform-origin:center center}
-        #previewCanvas{border:1px solid var(--border-color);object-fit:contain;cursor:grab}
-        #previewCanvas:active{cursor:grabbing}
-        .preview-controls{display:flex;justify-content:space-between;align-items:center;padding:10px 0;font-size:12px;color:var(--text-light-color)}
-        .zoom-controls{display:flex;align-items:center;gap:10px}
-        .zoom-controls button{all:unset;cursor:pointer;padding:5px;font-weight:bold;font-size:18px}
+    .main-container{display:flex;height:calc(100vh - 65px)}
+    .sidebar{width:400px;min-width:400px;padding:20px;background:var(--fg-color);border-right:1px solid var(--border-color);overflow-y:auto}
+    .preview-area{flex-grow:1;padding:30px;display:flex;justify-content:center;align-items:center;overflow:auto;background:var(--bg-color)}
+    .preview-frame{padding:20px;background:var(--fg-color);border-radius:8px;box-shadow:0 10px 30px var(--shadow-color);transform-origin:center center}
+    #previewCanvas{border:1px solid var(--border-color);object-fit:contain;cursor:grab}
+    #previewCanvas:active{cursor:grabbing}
+    .preview-controls{display:flex;justify-content:space-between;align-items:center;padding:10px 0;font-size:12px;color:var(--text-light-color)}
+    .zoom-controls{display:flex;align-items:center;gap:10px}
+    .zoom-controls button{all:unset;cursor:pointer;padding:5px;font-weight:bold;font-size:18px}
 
-        .tabs{display:flex;margin-bottom:20px;border-bottom:1px solid var(--border-color)}
-        .tab-button{padding:12px 18px;cursor:pointer;border:none;background:none;font-size:16px;color:var(--text-light-color);border-bottom:3px solid transparent;font-weight:500}
-        .tab-button.active{color:var(--primary-color);border-bottom-color:var(--primary-color)}
-        .tab-content{display:none}
-        .tab-content.active{display:block}
+    .tabs{display:flex;margin-bottom:20px;border-bottom:1px solid var(--border-color)}
+    .tab-button{padding:12px 18px;cursor:pointer;border:none;background:none;font-size:16px;color:var(--text-light-color);border-bottom:3px solid transparent;font-weight:500}
+    .tab-button.active{color:var(--primary-color);border-bottom-color:var(--primary-color)}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
 
-        details{margin-bottom:10px;border:1px solid var(--border-color);border-radius:5px;transition:background-color .2s}
-        details:hover{background-color:rgba(128,128,128,.03)}
-        summary{cursor:pointer;padding:12px;font-weight:bold;background-color:rgba(128,128,128,.05);list-style:revert}
-        details[open]>summary{border-bottom:1px solid var(--border-color)}
-        .details-content{padding:15px}
+    details{margin-bottom:10px;border:1px solid var(--border-color);border-radius:5px;transition:background-color .2s}
+    details:hover{background-color:rgba(128,128,128,.03)}
+    summary{cursor:pointer;padding:12px;font-weight:bold;background-color:rgba(128,128,128,.05);list-style:revert}
+    details[open]>summary{border-bottom:1px solid var(--border-color)}
+    .details-content{padding:15px}
 
-        .form-group{margin-bottom:18px}
-        label{display:block;margin-bottom:6px;font-weight:bold;font-size:12px;text-transform:uppercase;color:var(--text-light-color)}
-        .label-group{display:flex;justify-content:space-between;align-items:center}
-        .label-group small{font-size:11px;font-weight:normal;text-transform:none}
-        input,select{width:100%;padding:10px;box-sizing:border-box;background:var(--bg-color);border:1px solid var(--border-color);border-radius:4px;color:var(--text-color)}
-        input:focus{border-color:var(--primary-color);outline:none;box-shadow:0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent)}
-        .coord-group{display:flex;gap:10px;align-items:center}
-        .input-group{display:flex;gap:10px;align-items:center}
-        .input-group input{flex-grow:1}
-        .input-group button{width:auto;padding:8px;font-size:16px}
+    .form-group{margin-bottom:18px}
+    label{display:block;margin-bottom:6px;font-weight:bold;font-size:12px;text-transform:uppercase;color:var(--text-light-color)}
+    .label-group{display:flex;justify-content:space-between;align-items:center}
+    .label-group small{font-size:11px;font-weight:normal;text-transform:none}
+    input,select{width:100%;padding:10px;background:var(--bg-color);border:1px solid var(--border-color);border-radius:4px;color:var(--text-color)}
+    input:focus{border-color:var(--primary-color);outline:none;box-shadow:0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent)}
+    .coord-group{display:flex;gap:10px;align-items:center}
+    .input-group{display:flex;gap:10px;align-items:center}
+    .input-group input{flex-grow:1}
+    .input-group button{width:auto;padding:8px;font-size:16px}
 
-        button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;background:var(--primary-color);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:16px;font-weight:bold;transition:background-color .2s,transform .1s;width:100%}
-        button:hover{background:var(--primary-hover-color)}
-        button:active{transform:scale(.98)}
-        .secondary-button{background:#6c757d}
-        .secondary-button:hover{background:#5a6268}
+    button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;background:var(--primary-color);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:16px;font-weight:bold;transition:background-color .2s,transform .1s;width:100%}
+    button:hover{background:var(--primary-hover-color)}
+    button:active{transform:scale(.98)}
+    .secondary-button{background:#6c757d}
+    .secondary-button:hover{background:#5a6268}
 
-        #verify-container{text-align:center}
-        #verify-idle,#verify-loading,#verify-result{display:none}
-        #verify-idle.active,#verify-loading.active,#verify-result.active{display:block}
-        .verification-icon{font-size:60px;margin-bottom:20px}
-        .result-card{padding:20px;border-radius:8px;margin-top:20px;text-align:left}
-        .result-card h4{margin-top:0}
-        .result-card.high{border:1px solid var(--success-color);background:rgba(25,135,84,.1)}
-        .result-card.medium{border:1px solid var(--warning-color);background:rgba(255,193,7,.1)}
-        .result-card.low{border:1px solid var(--danger-color);background:rgba(220,53,69,.1)}
-        .verification-breakdown{list-style:none;padding:0}
-        .verification-breakdown li{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-        .verification-breakdown .icon{font-size:20px}
-        .verification-breakdown .icon.ok{color:var(--success-color)}
-        .verification-breakdown .icon.fail{color:var(--danger-color)}
-        #quick-scan-info{border:1px dashed var(--primary-color);padding:15px;margin-bottom:20px;border-radius:5px;text-align:left}
-        #quick-scan-info p{margin:5px 0}
+    #verify-container{text-align:center}
+    #verify-idle,#verify-loading,#verify-result{display:none}
+    #verify-idle.active,#verify-loading.active,#verify-result.active{display:block}
+    .verification-icon{font-size:60px;margin-bottom:20px}
+    .result-card{padding:20px;border-radius:8px;margin-top:20px;text-align:left}
+    .result-card h4{margin-top:0}
+    .result-card.high{border:1px solid var(--success-color);background:rgba(25,135,84,.1)}
+    .result-card.medium{border:1px solid var(--warning-color);background:rgba(255,193,7,.1)}
+    .result-card.low{border:1px solid var(--danger-color);background:rgba(220,53,69,.1)}
+    .verification-breakdown{list-style:none;padding:0}
+    .verification-breakdown li{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .verification-breakdown .icon{font-size:20px}
+    .verification-breakdown .icon.ok{color:var(--success-color)}
+    .verification-breakdown .icon.fail{color:var(--danger-color)}
+    #quick-scan-info{border:1px dashed var(--primary-color);padding:15px;margin-bottom:20px;border-radius:5px;text-align:left}
+    #quick-scan-info p{margin:5px 0}
 
-        #diagnostics{background:var(--bg-color);padding:15px;border-radius:4px;text-align:left;white-space:pre-wrap;word-wrap:break-word;font-family:monospace;font-size:12px;border:1px solid var(--border-color);max-height:300px;overflow-y:auto}
+    #diagnostics{background:var(--bg-color);padding:15px;border-radius:4px;text-align:left;white-space:pre-wrap;word-wrap:break-word;font-family:monospace;font-size:12px;border:1px solid var(--border-color);max-height:300px;overflow-y:auto}
 
-        hr{border:none;border-top:1px solid var(--border-color);margin:20px 0}
+    hr{border:none;border-top:1px solid var(--border-color);margin:20px 0}
 
-        #progress-modal,#error-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center}
-        .modal-content{background:var(--fg-color);padding:30px;border-radius:8px;text-align:center;width:90%;max-width:450px}
-        #progress-bar{width:100%;height:10px;background:var(--border-color);border-radius:5px;overflow:hidden;margin-top:15px}
-        #progress-bar-inner{width:0%;height:100%;background:var(--primary-color);transition:width .3s}
-        #error-details{max-height:200px;overflow-y:auto;background:var(--bg-color);border:1px solid var(--border-color);padding:10px;margin-top:15px;text-align:left;font-family:monospace;font-size:12px}
+    #progress-modal,#error-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center}
+    .modal-content{background:var(--fg-color);padding:30px;border-radius:8px;text-align:center;width:90%;max-width:450px}
+    #progress-bar{width:100%;height:10px;background:var(--border-color);border-radius:5px;overflow:hidden;margin-top:15px}
+    #progress-bar-inner{width:0%;height:100%;background:var(--primary-color);transition:width .3s}
+    #error-details{max-height:200px;overflow-y:auto;background:var(--bg-color);border:1px solid var(--border-color);padding:10px;margin-top:15px;text-align:left;font-family:monospace;font-size:12px}
 
-        @media (max-width:900px){
-            body{overflow:auto}
-            .main-container{flex-direction:column;height:auto}
-            .sidebar{width:100%;min-width:unset;border-right:none;border-bottom:1px solid var(--border-color)}
-            .preview-area{padding:15px}
-            .preview-frame{padding:10px}
-            .header h1{font-size:18px}
-            .logo svg{width:24px;height:24px}
-        }
-    </style>
+    @media (max-width:900px){
+      body{overflow:auto}
+      .main-container{flex-direction:column;height:auto}
+      .sidebar{width:100%;min-width:unset;border-right:none;border-bottom:1px solid var(--border-color)}
+      .preview-area{padding:15px}
+      .preview-frame{padding:10px}
+      .header h1{font-size:18px}
+      .logo svg{width:24px;height:24px}
+    }
+  </style>
 </head>
 <body>
 <header class="header">
-    <div class="logo">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,16.5L6.5,12L7.91,10.59L11,13.67L16.09,8.59L17.5,10L11,16.5Z"></path></svg>
-        <h1>CarbonAra</h1>
-    </div>
-    <div class="controls">
-        <button id="theme-toggle" title="Växla mörkt/ljust läge" aria-label="Toggle theme">🌙</button>
-    </div>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,16.5L6.5,12L7.91,10.59L11,13.67L16.09,8.59L17.5,10L11,16.5Z"></path></svg>
+    <h1>CarbonAra</h1>
+  </div>
+  <div class="controls">
+    <button id="theme-toggle" title="Växla mörkt/ljust läge" aria-label="Toggle theme">🌙</button>
+  </div>
 </header>
 
 <main class="main-container">
-    <aside class="sidebar">
-        <div class="tabs">
-            <button class="tab-button active" onclick="showTab('generate')">Generate</button>
-            <button class="tab-button" onclick="showTab('verify')">Verify</button>
-        </div>
+  <aside class="sidebar">
+    <div class="tabs">
+      <button class="tab-button active" onclick="showTab('generate')">Generate</button>
+      <button class="tab-button" onclick="showTab('verify')">Verify</button>
+    </div>
 
-        <div id="pane-generate" class="tab-content active">
-            <details open>
-                <summary><strong>1. Setup & Branding</strong></summary>
-                <div class="details-content">
-                    <div class="form-group">
-                        <div class="label-group">
-                            <label for="image-upload">Background Image</label>
-                            <small id="bg-image-status"></small>
-                        </div>
-                        <input type="file" id="image-upload" accept="image/png, image/jpeg"/>
-                    </div>
-                    <div class="form-group">
-                        <label for="logo-upload">Branding Logo (Optional)</label>
-                        <input type="file" id="logo-upload" accept="image/png, image/jpeg"/>
-                    </div>
-                </div>
-            </details>
-
-            <details open>
-                <summary><strong>2. Certificate Data</strong></summary>
-                <div class="details-content">
-                    <div class="form-group"><label for="input-name">Name</label><input type="text" id="input-name" value="John Doe"/></div>
-                    <div class="form-group"><label for="input-amount">Amount</label><input type="text" id="input-amount" value="100"/></div>
-                    <div class="form-group"><label for="input-date">Date</label><input type="date" id="input-date"/></div>
-                    <div class="form-group"><label for="input-type">Type</label><input type="text" id="input-type" value="Carbon Credit"/></div>
-                    <div class="form-group">
-                        <label for="input-serial">Serial Number</label>
-                        <div class="input-group">
-                            <input type="text" id="input-serial" readonly title="Unikt serienummer för spårbarhet"/>
-                            <button id="btn-generate-serial" title="Generera Nytt Serienummer" type="button">🔄</button>
-                        </div>
-                    </div>
-                </div>
-            </details>
-
-            <details>
-                <summary><strong>3. Layout & Style</strong></summary>
-                <div class="details-content">
-                    <div class="form-group"><label for="input-fontsize-name">Name Font Size (px)</label><input type="number" id="input-fontsize-name" min="1"/></div>
-                    <div class="form-group">
-                        <label>Name Position (X, Y)</label>
-                        <div class="coord-group">
-                            <input type="number" id="input-x-name" step="0.0001"/>
-                            <input type="number" id="input-y-name" step="0.0001"/>
-                            <button onclick="centerElement('name')" type="button" title="Centrera namnet horisontellt">🎯</button>
-                        </div>
-                    </div>
-                    <hr/>
-                    <div class="form-group"><label for="input-fontsize-other">Data Font Size (px)</label><input type="number" id="input-fontsize-other" min="1"/></div>
-                    <div class="form-group">
-                        <label>Amount Position (X, Y)</label>
-                        <div class="coord-group">
-                            <input type="number" id="input-x-amount" step="0.0001"/>
-                            <input type="number" id="input-y-amount" step="0.0001"/>
-                            <button onclick="centerElement('amount')" type="button" title="Centrera horisontellt">🎯</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Date Position (X, Y)</label>
-                        <div class="coord-group">
-                            <input type="number" id="input-x-date" step="0.0001"/>
-                            <input type="number" id="input-y-date" step="0.0001"/>
-                            <button onclick="centerElement('date')" type="button" title="Centrera horisontellt">🎯</button>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Type Position (X, Y)</label>
-                        <div class="coord-group">
-                            <input type="number" id="input-x-type" step="0.0001"/>
-                            <input type="number" id="input-y-type" step="0.0001"/>
-                            <button onclick="centerElement('type')" type="button" title="Centrera horisontellt">🎯</button>
-                        </div>
-                    </div>
-                    <button id="btn-align-x" class="secondary-button" type="button" style="margin-bottom:1rem;">Align X for Amount &amp; Type</button>
-                    <hr/>
-                    <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input type="number" id="input-fontsize-serial" min="1"/></div>
-                    <div class="form-group">
-                        <label>Serial Nr. Position (X, Y)</label>
-                        <div class="coord-group">
-                            <input type="number" id="input-x-serial" step="0.0001"/>
-                            <input type="number" id="input-y-serial" step="0.0001"/>
-                            <button onclick="centerElement('serial')" type="button" title="Centrera horisontellt">🎯</button>
-                        </div>
-                    </div>
-                    <hr/>
-                    <div class="form-group">
-                        <label>Logo Position &amp; Size (X, Y, Width)</label>
-                        <div class="coord-group">
-                            <input type="number" id="input-x-logo"/>
-                            <input type="number" id="input-y-logo"/>
-                            <input type="number" id="input-w-logo"/>
-                        </div>
-                    </div>
-                    <div class="input-group" style="margin-top:10px">
-                        <button id="btn-reset-all" class="secondary-button" type="button">Reset All Positions</button>
-                        <button id="btn-save-preset" class="secondary-button" type="button" title="Save layout to browser">Save Layout</button>
-                        <button id="btn-load-preset" class="secondary-button" type="button" title="Load layout from browser">Load Layout</button>
-                    </div>
-                </div>
-            </details>
-
-            <details>
-                <summary><strong>4. Export Options</strong></summary>
-                <div class="details-content">
-                    <div class="form-group">
-                        <label for="input-dpi">DPI</label>
-                        <select id="input-dpi">
-                            <option value="150">150</option>
-                            <option value="300" selected>300</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="qr-mode">QR Code</label>
-                        <select id="qr-mode">
-                            <option value="with_qr">With QR Code</option>
-                            <option value="no_qr">No QR Code</option>
-                        </select>
-                    </div>
-                    <div id="qr-controls">
-                        <div class="form-group">
-                            <label>QR Position (X, Y)</label>
-                            <div class="coord-group">
-                                <input type="number" id="input-x-qr"/>
-                                <input type="number" id="input-y-qr"/>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>QR Transparency</label>
-                            <input type="range" id="input-alpha-qr" min="0" max="1" step="0.05"/>
-                        </div>
-                        <button id="btn-reset-qr" class="secondary-button" type="button">Reset QR Position</button>
-                    </div>
-                    <hr/>
-                    <button id="btn-export-pdf" type="button">🔒 Generate Single PDF</button>
-                </div>
-            </details>
-        </div>
-
-        <div id="pane-verify" class="tab-content">
-            <div id="verify-container">
-                <div id="verify-idle" class="active">
-                    <div id="quick-scan-info" style="display:none;"></div>
-                    <div class="verification-icon" aria-hidden="true">🛡️</div>
-                    <h3>Secure Verification</h3>
-                    <p id="verify-prompt">Upload a CarbonAra PDF to verify its authenticity.</p>
-                    <input type="file" id="file-upload-verify" accept=".pdf" style="display:none;"/>
-                    <button type="button" onclick="document.getElementById('file-upload-verify').click();">Select PDF to Verify</button>
-                </div>
-                <div id="verify-loading">
-                    <div class="verification-icon" aria-hidden="true">⏳</div>
-                    <h3>Analyzing Certificate...</h3>
-                    <p>Extracting cryptographic signatures and metadata. Please wait.</p>
-                </div>
-                <div id="verify-result">
-                    <div id="auth-animation"></div>
-                    <h3 id="auth-prob"></h3>
-                    <div id="result-card-details" class="result-card"></div>
-                </div>
+    <div id="pane-generate" class="tab-content active">
+      <details open>
+        <summary><strong>1. Setup & Branding</strong></summary>
+        <div class="details-content">
+          <div class="form-group">
+            <div class="label-group">
+              <label for="image-upload">Background Image</label>
+              <small id="bg-image-status"></small>
             </div>
-            <hr/>
-            <details>
-                <summary><strong>Expert Diagnostics</strong></summary>
-                <div class="details-content">
-                    <div id="diagnostics">No data available.</div>
-                    <button id="copy-diag-report" class="secondary-button" style="margin-top:10px;" type="button">Copy Report</button>
-                </div>
-            </details>
+            <input type="file" id="image-upload" accept="image/png, image/jpeg"/>
+          </div>
+          <div class="form-group">
+            <label for="logo-upload">Branding Logo (Optional)</label>
+            <input type="file" id="logo-upload" accept="image/png, image/jpeg"/>
+          </div>
         </div>
-    </aside>
+      </details>
 
-    <section class="preview-area" id="preview-area">
-        <div class="preview-frame" id="preview-frame">
-            <canvas id="previewCanvas" aria-label="Certificate preview"></canvas>
-            <div class="preview-controls">
-                <div id="canvas-dimensions">...</div>
-                <div class="zoom-controls">
-                    <button id="zoom-out" title="Zoom Out" type="button" aria-label="Zoom out">-</button>
-                    <span id="zoom-level">100%</span>
-                    <button id="zoom-in" title="Zoom In" type="button" aria-label="Zoom in">+</button>
-                </div>
+      <details open>
+        <summary><strong>2. Certificate Data</strong></summary>
+        <div class="details-content">
+          <div class="form-group"><label for="input-name">Name</label><input type="text" id="input-name" value="John Doe"/></div>
+          <div class="form-group"><label for="input-amount">Amount</label><input type="text" id="input-amount" value="100"/></div>
+          <div class="form-group"><label for="input-date">Date</label><input type="date" id="input-date"/></div>
+          <div class="form-group"><label for="input-type">Type</label><input type="text" id="input-type" value="Carbon Credit"/></div>
+          <div class="form-group">
+            <label for="input-serial">Serial Number</label>
+            <div class="input-group">
+              <input type="text" id="input-serial" readonly title="Unikt serienummer för spårbarhet"/>
+              <button id="btn-generate-serial" title="Generera Nytt Serienummer" type="button">🔄</button>
             </div>
+          </div>
         </div>
-    </section>
+      </details>
+
+      <details>
+        <summary><strong>3. Layout & Style</strong></summary>
+        <div class="details-content">
+          <div class="form-group"><label for="input-fontsize-name">Name Font Size (px)</label><input type="number" id="input-fontsize-name" min="1"/></div>
+          <div class="form-group">
+            <label>Name Position (X, Y)</label>
+            <div class="coord-group">
+              <input type="number" id="input-x-name" step="0.0001"/>
+              <input type="number" id="input-y-name" step="0.0001"/>
+              <button onclick="centerElement('name')" type="button" title="Centrera namnet horisontellt">🎯</button>
+            </div>
+          </div>
+          <hr/>
+          <div class="form-group"><label for="input-fontsize-other">Data Font Size (px)</label><input type="number" id="input-fontsize-other" min="1"/></div>
+          <div class="form-group">
+            <label>Amount Position (X, Y)</label>
+            <div class="coord-group">
+              <input type="number" id="input-x-amount" step="0.0001"/>
+              <input type="number" id="input-y-amount" step="0.0001"/>
+              <button onclick="centerElement('amount')" type="button" title="Centrera horisontellt">🎯</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Date Position (X, Y)</label>
+            <div class="coord-group">
+              <input type="number" id="input-x-date" step="0.0001"/>
+              <input type="number" id="input-y-date" step="0.0001"/>
+              <button onclick="centerElement('date')" type="button" title="Centrera horisontellt">🎯</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Type Position (X, Y)</label>
+            <div class="coord-group">
+              <input type="number" id="input-x-type" step="0.0001"/>
+              <input type="number" id="input-y-type" step="0.0001"/>
+              <button onclick="centerElement('type')" type="button" title="Centrera horisontellt">🎯</button>
+            </div>
+          </div>
+          <button id="btn-align-x" class="secondary-button" type="button" style="margin-bottom:1rem;">Align X for Amount &amp; Type</button>
+          <hr/>
+          <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input type="number" id="input-fontsize-serial" min="1"/></div>
+          <div class="form-group">
+            <label>Serial Nr. Position (X, Y)</label>
+            <div class="coord-group">
+              <input type="number" id="input-x-serial" step="0.0001"/>
+              <input type="number" id="input-y-serial" step="0.0001"/>
+              <button onclick="centerElement('serial')" type="button" title="Centrera horisontellt">🎯</button>
+            </div>
+          </div>
+          <hr/>
+          <div class="form-group">
+            <label>Logo Position &amp; Size (X, Y, Width)</label>
+            <div class="coord-group">
+              <input type="number" id="input-x-logo"/>
+              <input type="number" id="input-y-logo"/>
+              <input type="number" id="input-w-logo"/>
+            </div>
+          </div>
+          <div class="input-group" style="margin-top:10px">
+            <button id="btn-reset-all" class="secondary-button" type="button">Reset All Positions</button>
+            <button id="btn-save-preset" class="secondary-button" type="button" title="Save layout to browser">Save Layout</button>
+            <button id="btn-load-preset" class="secondary-button" type="button" title="Load layout from browser">Load Layout</button>
+          </div>
+        </div>
+      </details>
+
+      <details>
+        <summary><strong>4. Export Options</strong></summary>
+        <div class="details-content">
+          <div class="form-group">
+            <label for="input-dpi">DPI</label>
+            <select id="input-dpi">
+              <option value="150">150</option>
+              <option value="300" selected>300</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="qr-mode">QR Code</label>
+            <select id="qr-mode">
+              <option value="with_qr">With QR Code</option>
+              <option value="no_qr">No QR Code</option>
+            </select>
+          </div>
+          <div id="qr-controls">
+            <div class="form-group">
+              <label>QR Position (X, Y)</label>
+              <div class="coord-group">
+                <input type="number" id="input-x-qr"/>
+                <input type="number" id="input-y-qr"/>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>QR Transparency</label>
+              <input type="range" id="input-alpha-qr" min="0" max="1" step="0.05"/>
+            </div>
+            <button id="btn-reset-qr" class="secondary-button" type="button">Reset QR Position</button>
+          </div>
+          <hr/>
+          <button id="btn-export-pdf" type="button">🔒 Generate Single PDF</button>
+        </div>
+      </details>
+    </div>
+
+    <div id="pane-verify" class="tab-content">
+      <div id="verify-container">
+        <div id="verify-idle" class="active">
+          <div id="quick-scan-info" style="display:none;"></div>
+          <div class="verification-icon" aria-hidden="true">🛡️</div>
+          <h3>Secure Verification</h3>
+          <p id="verify-prompt">Upload a CarbonAra PDF to verify its authenticity.</p>
+          <input type="file" id="file-upload-verify" accept=".pdf" style="display:none;"/>
+          <button type="button" onclick="document.getElementById('file-upload-verify').click();">Select PDF to Verify</button>
+        </div>
+        <div id="verify-loading">
+          <div class="verification-icon" aria-hidden="true">⏳</div>
+          <h3>Analyzing Certificate...</h3>
+          <p>Extracting cryptographic signatures and metadata. Please wait.</p>
+        </div>
+        <div id="verify-result">
+          <div id="auth-animation"></div>
+          <h3 id="auth-prob"></h3>
+          <div id="result-card-details" class="result-card"></div>
+        </div>
+      </div>
+      <hr/>
+      <details>
+        <summary><strong>Expert Diagnostics</strong></summary>
+        <div class="details-content">
+          <div id="diagnostics">No data available.</div>
+          <button id="copy-diag-report" class="secondary-button" style="margin-top:10px;" type="button">Copy Report</button>
+        </div>
+      </details>
+    </div>
+  </aside>
+
+  <section class="preview-area" id="preview-area">
+    <div class="preview-frame" id="preview-frame">
+      <canvas id="previewCanvas" aria-label="Certificate preview"></canvas>
+      <div class="preview-controls">
+        <div id="canvas-dimensions">...</div>
+        <div class="zoom-controls">
+          <button id="zoom-out" title="Zoom Out" type="button" aria-label="Zoom out">-</button>
+          <span id="zoom-level">100%</span>
+          <button id="zoom-in" title="Zoom In" type="button" aria-label="Zoom in">+</button>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <div id="progress-modal" role="dialog" aria-modal="true" aria-labelledby="progress-title">
-    <div class="modal-content">
-        <h3 id="progress-title">Generating PDF...</h3>
-        <p id="progress-status">Initializing secure processes...</p>
-        <div id="progress-bar"><div id="progress-bar-inner"></div></div>
-    </div>
+  <div class="modal-content">
+    <h3 id="progress-title">Generating PDF...</h3>
+    <p id="progress-status">Initializing secure processes...</p>
+    <div id="progress-bar"><div id="progress-bar-inner"></div></div>
+  </div>
 </div>
 
 <div id="error-modal" role="dialog" aria-modal="true" aria-labelledby="error-title">
-    <div class="modal-content">
-        <h3 id="error-title">An Error Occurred</h3>
-        <p id="error-message"></p>
-        <pre id="error-details"></pre>
-        <button id="error-close-btn" type="button">Close</button>
-    </div>
+  <div class="modal-content">
+    <h3 id="error-title">An Error Occurred</h3>
+    <p id="error-message"></p>
+    <pre id="error-details"></pre>
+    <button id="error-close-btn" type="button">Close</button>
+  </div>
 </div>
 
 <script>
-/* Helper: robust JSON.parse with error guarding */
-function safeJsonParse(str) {
-    try { return JSON.parse(str); } catch (e) { return null; }
+/* ---------- Utility helpers ---------- */
+const safeJsonParse = (s)=>{ try{return JSON.parse(s)}catch{return null} };
+const delay = (ms)=>new Promise(r=>setTimeout(r,ms));
+const debounce=(fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+function dataURLtoUint8Array(dataURL){
+  const base64 = dataURL.split(',')[1] || '';
+  const binStr = atob(base64);
+  const out = new Uint8Array(binStr.length);
+  for(let i=0;i<binStr.length;i++) out[i]=binStr.charCodeAt(i);
+  return out;
 }
 
+/* ---------- Global state ---------- */
 document.addEventListener('DOMContentLoaded', () => {
-    // --- GLOBAL STATE & ELEMENTS ---
-    const canvas = document.getElementById('previewCanvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const bgImage = new Image();
-    const logoImage = new Image();
-    let qrImage = new Image();
+  const canvas = document.getElementById('previewCanvas');
+  const ctx = canvas.getContext('2d',{ willReadFrequently:true });
+  const bgImage = new Image();
+  const logoImage = new Image();
+  let qrImage = new Image();
 
-    let bgImageLoaded = false;
-    let logoImageLoaded = false;
-    let zoomLevel = 1.0;
-    let isRendering = false;
+  let bgImageLoaded=false, logoImageLoaded=false, zoomLevel=1, isRendering=false;
 
-    const inputs = {
-        name: document.getElementById('input-name'),
-        amount: document.getElementById('input-amount'),
-        date: document.getElementById('input-date'),
-        type: document.getElementById('input-type'),
-        serial: document.getElementById('input-serial'),
-        dpi: document.getElementById('input-dpi'),
+  const inputs = {
+    name: document.getElementById('input-name'),
+    amount: document.getElementById('input-amount'),
+    date: document.getElementById('input-date'),
+    type: document.getElementById('input-type'),
+    serial: document.getElementById('input-serial'),
+    dpi: document.getElementById('input-dpi'),
+    fontSizeName: document.getElementById('input-fontsize-name'),
+    fontSizeOther: document.getElementById('input-fontsize-other'),
+    fontSizeSerial: document.getElementById('input-fontsize-serial'),
+    xName: document.getElementById('input-x-name'), yName: document.getElementById('input-y-name'),
+    xAmount: document.getElementById('input-x-amount'), yAmount: document.getElementById('input-y-amount'),
+    xDate: document.getElementById('input-x-date'), yDate: document.getElementById('input-y-date'),
+    xType: document.getElementById('input-x-type'), yType: document.getElementById('input-y-type'),
+    xSerial: document.getElementById('input-x-serial'), ySerial: document.getElementById('input-y-serial'),
+    xLogo: document.getElementById('input-x-logo'), yLogo: document.getElementById('input-y-logo'), wLogo: document.getElementById('input-w-logo'),
+    qrMode: document.getElementById('qr-mode'), xQr: document.getElementById('input-x-qr'),
+    yQr: document.getElementById('input-y-qr'), alphaQr: document.getElementById('input-alpha-qr'),
+  };
 
-        fontSizeName: document.getElementById('input-fontsize-name'),
-        fontSizeOther: document.getElementById('input-fontsize-other'),
-        fontSizeSerial: document.getElementById('input-fontsize-serial'),
+  let textElements={}, logoElement={}, qrCodeElement={};
 
-        xName: document.getElementById('input-x-name'), yName: document.getElementById('input-y-name'),
-        xAmount: document.getElementById('input-x-amount'), yAmount: document.getElementById('input-y-amount'),
-        xDate: document.getElementById('input-x-date'), yDate: document.getElementById('input-y-date'),
-        xType: document.getElementById('input-x-type'), yType: document.getElementById('input-y-type'),
-        xSerial: document.getElementById('input-x-serial'), ySerial: document.getElementById('input-y-serial'),
+  /* ---------- Init ---------- */
+  async function init(){
+    inputs.date.valueAsDate = new Date();
+    generateNewSerial();
+    addEventListeners();
+    await document.fonts.ready;
 
-        xLogo: document.getElementById('input-x-logo'), yLogo: document.getElementById('input-y-logo'), wLogo: document.getElementById('input-w-logo'),
+    // warm draw
+    const tmp = inputs.name.value; inputs.name.value='Rendering…'; requestRedraw(); await delay(60); inputs.name.value=tmp;
 
-        qrMode: document.getElementById('qr-mode'),
-        xQr: document.getElementById('input-x-qr'),
-        yQr: document.getElementById('input-y-qr'),
-        alphaQr: document.getElementById('input-alpha-qr'),
-    };
+    // background
+    bgImage.crossOrigin='anonymous';
+    bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent='✅ image.png loaded'; setupCanvas(bgImage.naturalWidth,bgImage.naturalHeight); };
+    bgImage.onerror=()=>{ id('bg-image-status').textContent='⚠️ No image.png'; setupCanvas(2480,3508); };
+    bgImage.src='image.png';
 
-    let textElements = {};
-    let logoElement = {};
-    let qrCodeElement = {};
+    handleUrlParams();
+  }
 
-    // --- INITIALIZATION ---
-    async function init() {
-        try {
-            inputs.date.valueAsDate = new Date();
-            generateNewSerial();
-            addEventListeners();
-            await document.fonts.ready;
+  function setupCanvas(w,h){
+    canvas.width = Number.isFinite(w) && w>0 ? Math.round(w):2480;
+    canvas.height= Number.isFinite(h) && h>0 ? Math.round(h):3508;
+    id('canvas-dimensions').textContent = `${canvas.width} x ${canvas.height} px`;
+    if(!loadLayout(true)){ resetAllPositions(); }
+    fitCanvasToView();
+    requestRedraw();
+  }
 
-            // ensure font availability draw tick
-            const tmp = inputs.name.value;
-            inputs.name.value = 'Rendering…';
-            requestRedraw();
-            await new Promise(r => setTimeout(r, 60));
-            inputs.name.value = tmp;
+  function id(x){ return document.getElementById(x); }
 
-            // Try to load default image.png; if missing, A4 default
-            bgImage.crossOrigin = "anonymous";
-            bgImage.onload = () => {
-                bgImageLoaded = true;
-                document.getElementById('bg-image-status').textContent = '✅ image.png loaded';
-                setupCanvas(bgImage.naturalWidth, bgImage.naturalHeight);
-            };
-            bgImage.onerror = () => {
-                document.getElementById('bg-image-status').textContent = '⚠️ No image.png';
-                setupCanvas(2480, 3508); // A4 @ 300 DPI
-            };
-            bgImage.src = 'image.png';
+  window.showTab=(tabName)=>{
+    document.querySelectorAll('.tab-content, .tab-button').forEach(el=>el.classList.remove('active'));
+    id(`pane-${tabName}`).classList.add('active');
+    document.querySelector(`.tab-button[onclick="showTab('${tabName}')"]`).classList.add('active');
+  };
 
-            handleUrlParams();
-        } catch (e) {
-            showError("Initialization Error", e?.stack || String(e));
-        }
-    }
+  id('theme-toggle').addEventListener('click',()=>{
+    const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',t);
+    id('theme-toggle').textContent= t==='dark'?'☀️':'🌙';
+    requestRedraw();
+  });
 
-    function setupCanvas(width, height) {
-        const w = Number.isFinite(width) && width > 0 ? Math.round(width) : 2480;
-        const h = Number.isFinite(height) && height > 0 ? Math.round(height) : 3508;
+  /* ---------- Events ---------- */
+  function addEventListeners(){
+    const debounced = debounce(requestRedraw,30);
+    Object.values(inputs).forEach(el=>el.addEventListener('input',debounced));
 
-        canvas.width = w;
-        canvas.height = h;
-        document.getElementById('canvas-dimensions').textContent = `${w} x ${h} px`;
+    id('image-upload').addEventListener('change', handleImageUpload);
+    id('logo-upload').addEventListener('change', handleLogoUpload);
+    id('btn-reset-all').addEventListener('click', resetAllPositions);
+    id('btn-save-preset').addEventListener('click', saveLayout);
+    id('btn-load-preset').addEventListener('click', ()=> loadLayout(false) || alert('No saved layout found.'));
+    id('btn-reset-qr').addEventListener('click', resetQrPosition);
+    id('btn-export-pdf').addEventListener('click', exportPdf);
+    id('btn-generate-serial').addEventListener('click', generateNewSerial);
+    id('btn-align-x').addEventListener('click', alignXValues);
+    id('file-upload-verify').addEventListener('change', handleVerifyUpload);
+    id('zoom-in').addEventListener('click', ()=>updateZoom(0.2));
+    id('zoom-out').addEventListener('click', ()=>updateZoom(-0.2));
+    id('error-close-btn').addEventListener('click',()=> id('error-modal').style.display='none');
+    window.addEventListener('resize', fitCanvasToView);
 
-        if (!loadLayoutFromLocalStorage(true)) {
-            resetAllPositions();
-        }
-        fitCanvasToView();
-        requestRedraw();
-    }
-
-    // --- UI & THEME ---
-    window.showTab = (tabName) => {
-        document.querySelectorAll('.tab-content, .tab-button').forEach(el => el.classList.remove('active'));
-        const pane = document.getElementById(`pane-${tabName}`);
-        const btn = document.querySelector(`.tab-button[onclick="showTab('${tabName}')"]`);
-        if (pane) pane.classList.add('active');
-        if (btn) btn.classList.add('active');
-    };
-
-    document.getElementById('theme-toggle').addEventListener('click', () => {
-        const newTheme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', newTheme);
-        document.getElementById('theme-toggle').textContent = newTheme === 'dark' ? '☀️' : '🌙';
-        requestRedraw();
+    id('copy-diag-report').addEventListener('click', async ()=>{
+      const txt=id('diagnostics').textContent||'';
+      try{ await navigator.clipboard.writeText(txt); alert('Diagnostics copied.'); }
+      catch{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('Diagnostics copied.'); }
     });
 
-    // --- EVENT LISTENERS ---
-    function addEventListeners() {
-        const debouncedRedraw = debounce(requestRedraw, 30);
-        Object.values(inputs).forEach(input => input.addEventListener('input', debouncedRedraw));
-
-        document.getElementById('image-upload').addEventListener('change', handleImageUpload);
-        document.getElementById('logo-upload').addEventListener('change', handleLogoUpload);
-        document.getElementById('btn-reset-all').addEventListener('click', resetAllPositions);
-        document.getElementById('btn-save-preset').addEventListener('click', saveLayoutToLocalStorage);
-        document.getElementById('btn-load-preset').addEventListener('click', () => loadLayoutFromLocalStorage(false) || alert('No saved layout found.'));
-        document.getElementById('btn-reset-qr').addEventListener('click', resetQrPosition);
-        document.getElementById('btn-export-pdf').addEventListener('click', exportPdf);
-        document.getElementById('btn-generate-serial').addEventListener('click', generateNewSerial);
-        document.getElementById('btn-align-x').addEventListener('click', alignXValues);
-        document.getElementById('file-upload-verify').addEventListener('change', handleVerifyUpload);
-        document.getElementById('zoom-in').addEventListener('click', () => updateZoom(0.2));
-        document.getElementById('zoom-out').addEventListener('click', () => updateZoom(-0.2));
-        document.getElementById('error-close-btn').addEventListener('click', () => document.getElementById('error-modal').style.display = 'none');
-        window.addEventListener('resize', fitCanvasToView);
-
-        // Diagnostics copy
-        document.getElementById('copy-diag-report').addEventListener('click', async () => {
-            const txt = document.getElementById('diagnostics').textContent || '';
-            try {
-                await navigator.clipboard.writeText(txt);
-                alert('Diagnostics copied to clipboard.');
-            } catch {
-                const ta = document.createElement('textarea');
-                ta.value = txt;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-                alert('Diagnostics copied to clipboard.');
-            }
-        });
-
-        // Dragging entities on canvas
-        let dragging = false, selectedKey = null, offset = { x: 0, y: 0 };
-        canvas.addEventListener('mousedown', e => {
-            const pos = getCanvasMousePos(e);
-            const elements = { ...textElements, logo: logoElement, qr: qrCodeElement };
-            const keys = Object.keys(elements).reverse();
-            for (const key of keys) {
-                const el = elements[key];
-                if (el && el.draggable) {
-                    ctx.font = `${el.fontSize || 12}px '${el.font || 'Montserrat'}'`;
-                    const width = key === 'logo'
-                        ? el.width
-                        : (key === 'qr' ? el.size : ctx.measureText(el.text || '').width);
-                    const height = key === 'logo'
-                        ? el.height
-                        : (key === 'qr' ? el.size : (el.fontSize || 12));
-                    const x_origin = (key === 'logo' || key === 'qr') ? el.x : (el.x - width / 2);
-                    const y_origin = (key === 'logo' || key === 'qr') ? el.y : el.y;
-                    if (pos.x >= x_origin && pos.x <= x_origin + width && pos.y >= y_origin && pos.y <= y_origin + height) {
-                        dragging = true; selectedKey = key;
-                        offset = { x: pos.x - el.x, y: pos.y - el.y };
-                        canvas.style.cursor = 'grabbing';
-                        return;
-                    }
-                }
-            }
-        });
-        canvas.addEventListener('mousemove', e => {
-            if (dragging && selectedKey) {
-                const pos = getCanvasMousePos(e);
-                const element = selectedKey === 'logo' ? logoElement : (selectedKey === 'qr' ? qrCodeElement : textElements[selectedKey]);
-                element.x = Math.max(0, Math.min(canvas.width - (selectedKey === 'logo' ? element.width : 0), pos.x - offset.x));
-                element.y = Math.max(0, Math.min(canvas.height - (selectedKey === 'logo' ? element.height : 0), pos.y - offset.y));
-                updateCoordsFromCanvas(selectedKey);
-                requestRedraw();
-            }
-        });
-        window.addEventListener('mouseup', () => { dragging = false; selectedKey = null; canvas.style.cursor = 'grab'; });
-    }
-
-    // --- CANVAS & DRAWING ---
-    function requestRedraw() {
-        if (isRendering) return;
-        isRendering = true;
-        requestAnimationFrame(() => {
-            try {
-                updateElementsFromInputs();
-                drawCanvas();
-            } finally {
-                isRendering = false;
-            }
-        });
-    }
-
-    function drawCanvas() {
-        ctx.textBaseline = 'top';
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        if (bgImageLoaded) ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
-        else {
-            ctx.fillStyle = (document.documentElement.getAttribute('data-theme') === 'dark') ? '#1e1e1e' : '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // drag on canvas
+    let dragging=false, selectedKey=null, offset={x:0,y:0};
+    canvas.addEventListener('mousedown', e=>{
+      const pos=getCanvasMousePos(e);
+      const elements={...textElements, logo:logoElement, qr:qrCodeElement};
+      const keys=Object.keys(elements).reverse();
+      for(const key of keys){
+        const el=elements[key]; if(!el||!el.draggable) continue;
+        ctx.font=`${el.fontSize||12}px '${el.font||'Montserrat'}'`;
+        const w= key==='logo'? el.width : (key==='qr'? el.size : ctx.measureText(el.text||'').width);
+        const h= key==='logo'? el.height: (key==='qr'? el.size : (el.fontSize||12));
+        const x0=(key==='logo'||key==='qr')? el.x : el.x - w/2;
+        const y0=(key==='logo'||key==='qr')? el.y : el.y;
+        if(pos.x>=x0 && pos.x<=x0+w && pos.y>=y0 && pos.y<=y0+h){
+          dragging=true; selectedKey=key; offset={x:pos.x-el.x, y:pos.y-el.y}; canvas.style.cursor='grabbing'; return;
         }
+      }
+    });
+    canvas.addEventListener('mousemove', e=>{
+      if(!dragging||!selectedKey) return;
+      const pos=getCanvasMousePos(e);
+      const el = selectedKey==='logo'? logoElement : (selectedKey==='qr'? qrCodeElement : textElements[selectedKey]);
+      el.x = Math.max(0, Math.min(canvas.width  - (selectedKey==='logo'? el.width : 0), pos.x - offset.x));
+      el.y = Math.max(0, Math.min(canvas.height - (selectedKey==='logo'? el.height: 0), pos.y - offset.y));
+      updateCoordsFromCanvas(selectedKey);
+      requestRedraw();
+    });
+    window.addEventListener('mouseup',()=>{ dragging=false; selectedKey=null; canvas.style.cursor='grab'; });
+  }
 
-        if (logoImageLoaded && logoElement.width > 0) {
-            ctx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
-        }
+  /* ---------- Canvas / draw ---------- */
+  function requestRedraw(){
+    if(isRendering) return;
+    isRendering=true;
+    requestAnimationFrame(()=>{
+      try{ updateElementsFromInputs(); drawCanvas(); }
+      finally{ isRendering=false; }
+    });
+  }
 
-        const textColor = (document.documentElement.getAttribute('data-theme') === 'dark') ? '#e0e0e0' : '#212529';
-        Object.values(textElements).forEach(el => {
-            const fontSize = Number.isFinite(el.fontSize) ? el.fontSize : 12;
-            ctx.font = `${fontSize}px '${el.font || 'Montserrat'}'`;
-            const textWidth = ctx.measureText(el.text || '').width;
-            ctx.fillStyle = textColor;
-            ctx.fillText(el.text || '', el.x - textWidth / 2, el.y);
-        });
+  function drawCanvas(){
+    ctx.textBaseline='top';
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(bgImageLoaded) ctx.drawImage(bgImage,0,0,canvas.width,canvas.height);
+    else { ctx.fillStyle= (document.documentElement.getAttribute('data-theme')==='dark')?'#1e1e1e':'#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
 
-        if (inputs.qrMode.value === 'with_qr' && qrImage.src) {
-            ctx.globalAlpha = qrCodeElement.alpha;
-            ctx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size);
-            ctx.globalAlpha = 1.0;
-        }
+    if(logoImageLoaded && logoElement.width>0) ctx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
+
+    const color = (document.documentElement.getAttribute('data-theme')==='dark')?'#e0e0e0':'#212529';
+    Object.values(textElements).forEach(el=>{
+      const size=Number.isFinite(el.fontSize)? el.fontSize:12;
+      ctx.font = `${size}px '${el.font||'Montserrat'}'`;
+      const w=ctx.measureText(el.text||'').width;
+      ctx.fillStyle=color;
+      ctx.fillText(el.text||'', el.x - w/2, el.y);
+    });
+
+    if(inputs.qrMode.value==='with_qr' && qrImage.src){
+      ctx.globalAlpha = qrCodeElement.alpha;
+      ctx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size);
+      ctx.globalAlpha = 1.0;
     }
+  }
 
-    function updateElementsFromInputs() {
-        const parseNum = v => {
-            const n = parseFloat(v);
-            return Number.isFinite(n) ? n : 0;
-        };
-        const commonFontSize = parseNum(inputs.fontSizeOther.value);
-        textElements = {
-            name:   { text: (inputs.name.value || '').normalize('NFC'),   x: parseNum(inputs.xName.value),   y: parseNum(inputs.yName.value),   font: 'Great Vibes', fontSize: parseNum(inputs.fontSizeName.value),   draggable: true },
-            amount: { text: inputs.amount.value || '',                    x: parseNum(inputs.xAmount.value), y: parseNum(inputs.yAmount.value), font: 'Montserrat',  fontSize: commonFontSize,                           draggable: true },
-            date:   { text: inputs.date.value || '',                      x: parseNum(inputs.xDate.value),   y: parseNum(inputs.yDate.value),   font: 'Montserrat',  fontSize: commonFontSize,                           draggable: true },
-            type:   { text: (inputs.type.value || '').normalize('NFC'),   x: parseNum(inputs.xType.value),   y: parseNum(inputs.yType.value),   font: 'Montserrat',  fontSize: commonFontSize,                           draggable: true },
-            serial: { text: inputs.serial.value || '',                    x: parseNum(inputs.xSerial.value), y: parseNum(inputs.ySerial.value), font: 'Montserrat',  fontSize: parseNum(inputs.fontSizeSerial.value),    draggable: true }
-        };
-
-        if (logoImageLoaded) {
-            const w = parseNum(inputs.wLogo.value);
-            const calcH = logoImage.height ? (logoImage.height * (w / (logoImage.width || 1))) : 0;
-            logoElement = { x: parseNum(inputs.xLogo.value), y: parseNum(inputs.yLogo.value), width: w, height: calcH, draggable: true };
-        } else {
-            logoElement = { x: 0, y: 0, width: 0, height: 0, draggable: false };
-        }
-
-        qrCodeElement = {
-            x: parseNum(inputs.xQr.value),
-            y: parseNum(inputs.yQr.value),
-            alpha: (()=>{
-                const a = parseFloat(inputs.alphaQr.value);
-                return Number.isFinite(a) ? Math.max(0, Math.min(1, a)) : 0.8;
-            })(),
-            size: 150,
-            draggable: inputs.qrMode.value === 'with_qr'
-        };
-
-        generateQrImage();
-    }
-
-    function resetAllPositions() {
-        const defaults = {
-            fontSizeName: 100, xName: 705.6404, yName: 1005.7899,
-            fontSizeOther: 33, xAmount: 359.1387, yAmount: 1531.1968,
-            xDate: 1068.8586, yDate: 1527.7868,
-            xType: 359.1387, yType: 1676.0735,
-            fontSizeSerial: 22, xSerial: 516.0143, ySerial: 1943.9245,
-            xLogo: 50, yLogo: 50, wLogo: 200
-        };
-        Object.entries(defaults).forEach(([k,v]) => { if (inputs[k]) inputs[k].value = v; });
-        resetQrPosition();
-        requestRedraw();
-    }
-
-    function resetQrPosition() {
-        const margin = 50;
-        const size = 150;
-        inputs.xQr.value = String(Math.max(0, canvas.width - size - margin));
-        inputs.yQr.value = String(Math.max(0, canvas.height - size - margin));
-        inputs.alphaQr.value = String(0.8);
-        requestRedraw();
-    }
-
-    function getCanvasMousePos(e) {
-        const rect = canvas.getBoundingClientRect();
-        return {
-            x: (e.clientX - rect.left) * (canvas.width / rect.width),
-            y: (e.clientY - rect.top) * (canvas.height / rect.height)
-        };
-    }
-
-    function updateCoordsFromCanvas(key) {
-        const el = key === 'logo' ? logoElement : (key === 'qr' ? qrCodeElement : textElements[key]);
-        const setIf = (id, val) => {
-            const node = document.getElementById(`input-${id}`);
-            if (node) node.value = typeof val === 'number' ? val.toFixed(4) : val;
-        };
-        setIf(`x-${key.toLowerCase()}`, el.x);
-        setIf(`y-${key.toLowerCase()}`, el.y);
-    }
-
-    function handleImageUpload(event) {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        if (!/^image\/(png|jpeg)$/i.test(file.type)) {
-            showError("Invalid Image", "Please upload a PNG or JPEG image as background.");
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = e => {
-            bgImage.onload = () => {
-                bgImageLoaded = true;
-                document.getElementById('bg-image-status').textContent = `✅ ${file.name} loaded`;
-                setupCanvas(bgImage.naturalWidth || canvas.width, bgImage.naturalHeight || canvas.height);
-            };
-            bgImage.onerror = () => showError("Image Load Error", "Failed to load the selected background image.");
-            bgImage.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function handleLogoUpload(event) {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        if (!/^image\/(png|jpeg)$/i.test(file.type)) {
-            showError("Invalid Logo", "Please upload a PNG or JPEG image as logo.");
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = e => {
-            logoImage.onload = () => { logoImageLoaded = true; requestRedraw(); };
-            logoImage.onerror = () => showError("Logo Load Error", "Failed to load the selected logo.");
-            logoImage.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function generateNewSerial() {
-        const rnd = Math.random().toString(36).slice(2, 11).toUpperCase();
-        inputs.serial.value = `SN-${Date.now()}-${rnd}`;
-        requestRedraw();
-    }
-
-    window.centerElement = (key) => {
-        const target = `x${key.charAt(0).toUpperCase() + key.slice(1)}`;
-        if (inputs[target]) {
-            inputs[target].value = (canvas.width / 2).toFixed(4);
-            requestRedraw();
-        }
+  function updateElementsFromInputs(){
+    const num=v=>{ const n=parseFloat(v); return Number.isFinite(n)? n:0; };
+    const fsOther=num(inputs.fontSizeOther.value);
+    textElements={
+      name:{text:(inputs.name.value||'').normalize('NFC'), x:num(inputs.xName.value), y:num(inputs.yName.value), font:'Great Vibes', fontSize:num(inputs.fontSizeName.value), draggable:true},
+      amount:{text:inputs.amount.value||'', x:num(inputs.xAmount.value), y:num(inputs.yAmount.value), font:'Montserrat', fontSize:fsOther, draggable:true},
+      date:{text:inputs.date.value||'', x:num(inputs.xDate.value), y:num(inputs.yDate.value), font:'Montserrat', fontSize:fsOther, draggable:true},
+      type:{text:(inputs.type.value||'').normalize('NFC'), x:num(inputs.xType.value), y:num(inputs.yType.value), font:'Montserrat', fontSize:fsOther, draggable:true},
+      serial:{text:inputs.serial.value||'', x:num(inputs.xSerial.value), y:num(inputs.ySerial.value), font:'Montserrat', fontSize:num(inputs.fontSizeSerial.value), draggable:true}
     };
-
-    function alignXValues() {
-        inputs.xType.value = inputs.xAmount.value;
-        requestRedraw();
+    if(logoImageLoaded){
+      const w=num(inputs.wLogo.value);
+      const h = logoImage.height ? (logoImage.height*(w/Math.max(1,logoImage.width))) : 0;
+      logoElement={x:num(inputs.xLogo.value), y:num(inputs.yLogo.value), width:w, height:h, draggable:true};
+    }else{
+      logoElement={x:0,y:0,width:0,height:0,draggable:false};
     }
+    qrCodeElement={ x:num(inputs.xQr.value), y:num(inputs.yQr.value),
+      alpha:(()=>{ const a=parseFloat(inputs.alphaQr.value); return Number.isFinite(a)? Math.max(0,Math.min(1,a)) : 0.8; })(),
+      size:150, draggable: inputs.qrMode.value==='with_qr'
+    };
+    generateQrImage();
+  }
 
-    function fitCanvasToView() {
-        const area = document.getElementById('preview-area');
-        const frame = document.getElementById('preview-frame');
-        const scale = Math.min(
-            (area.clientHeight - 60) / Math.max(1, frame.offsetHeight),
-            (area.clientWidth - 60) / Math.max(1, frame.offsetWidth),
-            1.0
-        );
-        zoomLevel = scale;
-        updateZoom(0);
+  function resetAllPositions(){
+    const d={
+      fontSizeName:100, xName:705.6404, yName:1005.7899,
+      fontSizeOther:33, xAmount:359.1387, yAmount:1531.1968,
+      xDate:1068.8586, yDate:1527.7868,
+      xType:359.1387, yType:1676.0735,
+      fontSizeSerial:22, xSerial:516.0143, ySerial:1943.9245,
+      xLogo:50, yLogo:50, wLogo:200
+    };
+    Object.entries(d).forEach(([k,v])=>{ if(inputs[k]) inputs[k].value=v; });
+    resetQrPosition();
+    requestRedraw();
+  }
+  function resetQrPosition(){
+    const margin=50, size=150;
+    inputs.xQr.value = String(Math.max(0,canvas.width - size - margin));
+    inputs.yQr.value = String(Math.max(0,canvas.height- size - margin));
+    inputs.alphaQr.value= String(0.8);
+    requestRedraw();
+  }
+  function getCanvasMousePos(e){
+    const r=canvas.getBoundingClientRect();
+    return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) };
+  }
+  function updateCoordsFromCanvas(key){
+    const el = key==='logo'? logoElement : (key==='qr'? qrCodeElement : textElements[key]);
+    const set=(id,val)=>{ const n=id&&document.getElementById(`input-${id}`); if(n) n.value = typeof val==='number'? val.toFixed(4):val; };
+    set(`x-${key.toLowerCase()}`, el.x); set(`y-${key.toLowerCase()}`, el.y);
+  }
+
+  function handleImageUpload(ev){
+    const f=ev.target.files?.[0]; if(!f) return;
+    if(!/^image\/(png|jpeg)$/i.test(f.type)){ showError('Invalid Image','Please upload PNG or JPEG.'); return; }
+    const r=new FileReader();
+    r.onload = e=>{
+      bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent=`✅ ${f.name} loaded`; setupCanvas(bgImage.naturalWidth||canvas.width, bgImage.naturalHeight||canvas.height); };
+      bgImage.onerror=()=>showError('Image Load Error','Failed to load selected background.');
+      bgImage.src=e.target.result;
+    };
+    r.readAsDataURL(f);
+  }
+  function handleLogoUpload(ev){
+    const f=ev.target.files?.[0]; if(!f) return;
+    if(!/^image\/(png|jpeg)$/i.test(f.type)){ showError('Invalid Logo','Please upload PNG or JPEG.'); return; }
+    const r=new FileReader();
+    r.onload = e=>{
+      logoImage.onload=()=>{ logoImageLoaded=true; requestRedraw(); };
+      logoImage.onerror=()=>showError('Logo Load Error','Failed to load selected logo.');
+      logoImage.src=e.target.result;
+    };
+    r.readAsDataURL(f);
+  }
+
+  function generateNewSerial(){
+    inputs.serial.value = `SN-${Date.now()}-${Math.random().toString(36).slice(2,11).toUpperCase()}`;
+    requestRedraw();
+  }
+  window.centerElement=(key)=>{
+    const t=`x${key.charAt(0).toUpperCase()+key.slice(1)}`;
+    if(inputs[t]){ inputs[t].value=(canvas.width/2).toFixed(4); requestRedraw(); }
+  };
+  function alignXValues(){ inputs.xType.value = inputs.xAmount.value; requestRedraw(); }
+  function fitCanvasToView(){
+    const area=id('preview-area'), frame=id('preview-frame');
+    const s=Math.min((area.clientHeight-60)/Math.max(1,frame.offsetHeight),(area.clientWidth-60)/Math.max(1,frame.offsetWidth),1);
+    zoomLevel=s; updateZoom(0);
+  }
+  function updateZoom(d){
+    zoomLevel=Math.max(.1,Math.min(3,zoomLevel+d));
+    id('preview-frame').style.transform=`scale(${zoomLevel})`;
+    id('zoom-level').textContent=`${Math.round(zoomLevel*100)}%`;
+  }
+
+  function handleUrlParams(){
+    const p=new URLSearchParams(location.search);
+    const encoded=p.get('verify');
+    if(!encoded) return;
+    try{
+      const dec=atob(encoded.replace(/-/g,'+').replace(/_/g,'/'));
+      const qrData=safeJsonParse(dec)||{};
+      showTab('verify');
+      const q=id('quick-scan-info'); q.style.display='block';
+      q.innerHTML=`<h4>Quick Scan Information</h4>
+        <p><strong>Serial:</strong> ${qrData.s||'N/A'}</p>
+        <p><strong>Name:</strong> ${qrData.n||'N/A'}</p>
+        <p><strong>Amount:</strong> ${qrData.a||'N/A'}</p>
+        <p><strong>Date:</strong> ${qrData.d||'N/A'}</p>
+        <p><strong>Type:</strong> ${qrData.t||'N/A'}</p>
+        <p><em>Upload the corresponding PDF for full cryptographic verification.</em></p>`;
+      id('verify-prompt').textContent=`Ready to verify serial: ${qrData.s||'N/A'}.`;
+    }catch(e){
+      console.error('QR param decode failed',e);
+      showError('Invalid QR Code Link','Verification link is corrupted or invalid.');
     }
+  }
 
-    function updateZoom(amount) {
-        zoomLevel = Math.max(0.1, Math.min(3, zoomLevel + amount));
-        document.getElementById('preview-frame').style.transform = `scale(${zoomLevel})`;
-        document.getElementById('zoom-level').textContent = `${Math.round(zoomLevel * 100)}%`;
+  function generateQrImage(){
+    try{
+      if(inputs.qrMode.value!=='with_qr'){ qrImage.src=''; return; }
+      const qrData={ s:inputs.serial.value, n:inputs.name.value, a:inputs.amount.value, d:inputs.date.value, t:inputs.type.value };
+      const encoded=btoa(JSON.stringify(qrData)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+      const value=`https://nomsams.github.io/carbonara/?verify=${encoded}`;
+      const qri=new QRious({ value, size:512 });
+      qrImage=new Image(); qrImage.src=qri.toDataURL();
+    }catch(e){ console.warn('QR gen failed',e); qrImage.src=''; }
+  }
+
+  /* ---------- Crypto + canonical ---------- */
+  const masterKeySalt="CarbonCertSaltV1", pbkdf2Iterations=100000;
+  async function reconstructMasterKey(){
+    const fragments=['fragA','fragB','fragC','fragD'];
+    const concatenated=fragments.join('')+'a-very-secret-pepper';
+    const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(concatenated), {name:'PBKDF2'}, false, ['deriveKey']);
+    return await crypto.subtle.deriveKey(
+      {name:'PBKDF2',salt:new TextEncoder().encode(masterKeySalt),iterations:pbkdf2Iterations,hash:'SHA-256'},
+      base,{name:'HMAC',hash:'SHA-256',length:256},true,['sign','verify']
+    );
+  }
+  function getCanonicalString(p){
+    return [
+      `v:${p.v}`,`serial:${p.serial}`,`name:${p.name}`,`amount:${p.amount}`,`date:${p.date}`,`type:${p.type}`,
+      `imageHashOriginal:${p.imageHashOriginal}`,`imageHashWatermarked:${p.imageHashWatermarked}`,
+      `posName:${p.posName.x},${p.posName.y}`,`posAmount:${p.posAmount.x},${p.posAmount.y}`,
+      `posDate:${p.posDate.x},${p.posDate.y}`,`posType:${p.posType.x},${p.posType.y}`,
+      `posSerial:${p.posSerial.x},${p.posSerial.y}`,`posLogo:${p.posLogo.x},${p.posLogo.y},${p.posLogo.w}`,
+      `fontName:${p.fontName}`,`fontOther:${p.fontOther}`,`fontSerial:${p.fontSerial}`,
+      `qrMode:${p.qrMode}`,`qrPos:${p.qrPos.x},${p.qrPos.y}`,`qrAlpha:${p.qrAlpha}`,
+      `canvas:${p.canvas}`,`app:${p.app}`
+    ].join('|');
+  }
+  async function generateTag(canon){
+    const key=await reconstructMasterKey();
+    const data=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon));
+    const sig=await crypto.subtle.sign('HMAC', key, data);
+    return btoa(String.fromCharCode(...new Uint8Array(sig)));
+  }
+  async function sha256(bufLike){
+    const buf = bufLike instanceof ArrayBuffer ? bufLike : (bufLike?.buffer || bufLike);
+    const h=await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  /* ---------- LSB stego ---------- */
+  function embedDataLSB(ctx2d, str){
+    const term="::END::";
+    const bits=Array.from(str+term).map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join('');
+    const img=ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height);
+    const data=img.data;
+    const capacity=Math.floor(data.length/4);
+    if(bits.length>capacity) throw new Error(`Watermark too large. Need ${bits.length} bits, capacity ${capacity}.`);
+    for(let i=0;i<bits.length;i++){
+      const idx=i*4+2; data[idx]= (data[idx]&0xFE) | (bits[i]==='1'?1:0);
     }
+    ctx2d.putImageData(img,0,0);
+  }
+  function extractDataLSB(ctx2d){
+    const img=ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height);
+    const d=img.data; let bits='';
+    for(let i=0;i<d.length;i+=4) bits += (d[i+2]&1);
+    const bytes=bits.match(/.{1,8}/g)||[]; let s='';
+    for(const b of bytes){ if(b.length<8) continue; s+=String.fromCharCode(parseInt(b,2)); if(s.endsWith('::END::')) return s.slice(0,-7); }
+    return null;
+  }
 
-    function handleUrlParams() {
-        const params = new URLSearchParams(window.location.search);
-        const encodedData = params.get('verify');
-        if (encodedData) {
-            try {
-                const decodedStr = atob(encodedData.replace(/-/g, '+').replace(/_/g, '/'));
-                const qrData = safeJsonParse(decodedStr) || {};
-                showTab('verify');
-                const quickScanInfo = document.getElementById('quick-scan-info');
-                quickScanInfo.style.display = 'block';
-                quickScanInfo.innerHTML = `<h4>Quick Scan Information</h4>
-                    <p><strong>Serial:</strong> ${qrData.s || 'N/A'}</p>
-                    <p><strong>Name:</strong> ${qrData.n || 'N/A'}</p>
-                    <p><strong>Amount:</strong> ${qrData.a || 'N/A'}</p>
-                    <p><strong>Date:</strong> ${qrData.d || 'N/A'}</p>
-                    <p><strong>Type:</strong> ${qrData.t || 'N/A'}</p>
-                    <p><em>Upload the corresponding PDF for full cryptographic verification.</em></p>`;
-                document.getElementById('verify-prompt').textContent = `Ready to verify serial: ${qrData.s || 'N/A'}.`;
-            } catch (e) {
-                console.error("Failed to decode QR data from URL", e);
-                showError("Invalid QR Code Link", "The data in the verification link is corrupted or invalid.");
-            }
+  /* ---------- Export PDF ---------- */
+  async function exportPdf(){
+    const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
+    modal.style.display='flex';
+    const step=(msg,p)=>{ status.textContent=msg; bar.style.width=p; };
+
+    try{
+      step('Step 1/6: Preparing canvas…','8%'); await delay(50);
+
+      const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
+      const cx=c.getContext('2d',{ willReadFrequently:true });
+      updateElementsFromInputs();
+
+      // draw
+      cx.textBaseline='top';
+      if(bgImageLoaded) cx.drawImage(bgImage,0,0,c.width,c.height); else { cx.fillStyle='#FFF'; cx.fillRect(0,0,c.width,c.height); }
+      if(logoImageLoaded && logoElement.width>0) cx.drawImage(logoImage,logoElement.x,logoElement.y,logoElement.width,logoElement.height);
+      Object.values(textElements).forEach(el=>{
+        const size=Number.isFinite(el.fontSize)? el.fontSize:12;
+        cx.font=`${size}px '${el.font||'Montserrat'}'`;
+        const w=cx.measureText(el.text||'').width;
+        cx.fillStyle='#000'; cx.fillText(el.text||'', el.x - w/2, el.y);
+      });
+      if(inputs.qrMode.value==='with_qr' && qrImage.src){ cx.globalAlpha=qrCodeElement.alpha; cx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); cx.globalAlpha=1.0; }
+
+      step('Step 2/6: Calculating original hash…','20%');
+      const origPx=cx.getImageData(0,0,c.width,c.height).data;
+      const imageHashOriginal=await sha256(origPx.buffer);
+
+      step('Step 3/6: Building payload…','35%');
+      const payload={
+        v:1,
+        serial:inputs.serial.value,
+        name:(inputs.name.value||'').normalize('NFC'),
+        amount:inputs.amount.value||'',
+        date:inputs.date.value||'',
+        type:(inputs.type.value||'').normalize('NFC'),
+        imageHashOriginal,
+        imageHashWatermarked:'0'.repeat(64),
+        posName:{x:Number(textElements.name.x).toFixed(4), y:Number(textElements.name.y).toFixed(4)},
+        posAmount:{x:Number(textElements.amount.x).toFixed(4), y:Number(textElements.amount.y).toFixed(4)},
+        posDate:{x:Number(textElements.date.x).toFixed(4), y:Number(textElements.date.y).toFixed(4)},
+        posType:{x:Number(textElements.type.x).toFixed(4), y:Number(textElements.type.y).toFixed(4)},
+        posSerial:{x:Number(textElements.serial.x).toFixed(4), y:Number(textElements.serial.y).toFixed(4)},
+        posLogo:{x:Number(logoElement.x||0).toFixed(4), y:Number(logoElement.y||0).toFixed(4), w:Number(logoElement.width||0).toFixed(4)},
+        fontName:`GreatVibes-${Number(textElements.name.fontSize||0)}px`,
+        fontOther:`Montserrat-${Number(textElements.amount.fontSize||0)}px`,
+        fontSerial:`Montserrat-${Number(textElements.serial.fontSize||0)}px`,
+        qrMode:inputs.qrMode.value,
+        qrPos:{x:Number(qrCodeElement.x||0).toFixed(4), y:Number(qrCodeElement.y||0).toFixed(4)},
+        qrAlpha:Number(qrCodeElement.alpha||0).toFixed(2),
+        canvas:`${canvas.width}x${canvas.height}@${inputs.dpi.value}`,
+        app:'CarbonCert-5.0.0'
+      };
+
+      step('Step 4/6: Generating cryptographic signature…','52%');
+      let canon=getCanonicalString(payload);
+      const tag_b64_initial=await generateTag(canon);
+
+      step('Step 5/6: Applying secure watermark…','74%');
+      embedDataLSB(cx, tag_b64_initial);
+      const wmPx=cx.getImageData(0,0,c.width,c.height).data;
+      payload.imageHashWatermarked=await sha256(wmPx.buffer);
+      canon=getCanonicalString(payload);
+      const final_tag_b64=await generateTag(canon);
+      const finalPayload={...payload, tag_b64:final_tag_b64};
+      const pngURI=c.toDataURL('image/png');
+
+      step('Step 6/6: Assembling final PDF…','90%');
+      const { PDFDocument } = window.PDFLib;
+      const pdfDoc=await PDFDocument.create();
+      const page=pdfDoc.addPage([canvas.width, canvas.height]);
+      const pngBytes=dataURLtoUint8Array(pngURI);
+      const pngImg=await pdfDoc.embedPng(pngBytes);
+      page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
+
+      // Put payload into Keywords AND into a custom metadata string (double redundancy)
+      const keywordsPayload=`carboncert,${JSON.stringify(finalPayload)}`;
+      pdfDoc.setKeywords([keywordsPayload]);
+      pdfDoc.setProducer('CarbonAra');
+      pdfDoc.setCreator('CarbonAra:PNG@PDF');
+      // Minimal XMP-like hint
+      pdfDoc.setTitle(`CarbonAra ${finalPayload.serial}`);
+
+      const pdfBytes=await pdfDoc.save({useObjectStreams:false});
+      download(pdfBytes,`CarbonCert-${payload.serial}.pdf`,'application/pdf');
+
+      id('progress-bar-inner').style.width='100%';
+      setTimeout(()=> modal.style.display='none',600);
+    }catch(e){
+      showError('PDF Generation Failed', e?.stack||e?.message||String(e));
+      id('progress-modal').style.display='none';
+    }
+  }
+
+  function download(data,filename,type){
+    try{
+      const blob=new Blob([data],{type});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },0);
+    }catch(e){ showError('Download Error', e?.stack||String(e)); }
+  }
+
+  /* ---------- Verification (multi-failsafe) ---------- */
+  async function handleVerifyUpload(ev){
+    const file=ev.target.files?.[0]; if(!file) return;
+
+    const vc=id('verify-container');
+    vc.querySelector('#verify-idle').classList.remove('active');
+    vc.querySelector('#verify-loading').classList.add('active');
+
+    const diag=id('diagnostics'); diag.textContent='';
+    const log=(m)=> diag.textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`;
+
+    try{
+      log('Starting verification...');
+      const { PDFDocument, PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
+      const pdfBytes=await file.arrayBuffer();
+      const pdfDoc=await PDFDocument.load(pdfBytes,{ ignoreEncryption:true });
+      log('PDF document loaded successfully.');
+
+      // --- Metadata payload
+      let keywords = pdfDoc.getKeywords?.() || null;
+      if(Array.isArray(keywords)) keywords = keywords.find(k=> typeof k==='string' && k.startsWith('carboncert,')) || keywords[0];
+      if(typeof keywords!=='string' || !keywords.startsWith('carboncert,')) throw new Error('Not a valid CarbonAra certificate (missing metadata keyword).');
+      log('Metadata keyword found.');
+      const payloadStr=keywords.substring('carboncert,'.length);
+      const payload=safeJsonParse(payloadStr); if(!payload) throw new Error('Invalid embedded payload JSON.');
+      log('Payload parsed from metadata.');
+
+      // --- Crypto check (authoritative)
+      log('Rebuilding canonical string for signature verification…');
+      const expected=await generateTag(getCanonicalString(payload));
+      log(`Expected tag: ${expected.slice(0,16)}…`);
+      const tagFromMeta=payload.tag_b64||'';
+      log(`Metadata tag: ${tagFromMeta.slice(0,16)}…`);
+
+      const result={ crypto:(tagFromMeta===expected)?'OK':'FAIL', water:'SKIPPED', hash:'SKIPPED', status:'LOW' };
+
+      // If crypto is OK, attempt pixel-level checks with THREE different strategies:
+      // Strategy A: pdf-lib raw XObject traversal (try to find a single image XObject and rasterize via <img>)
+      if(result.crypto==='OK'){
+        log('Attempting bitmap extraction (Strategy A: pdf-lib XObject traversal)…');
+        try{
+          const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
+          if(info && info.kind==='png-dataurl'){
+            log('Strategy A: Found embedded PNG-like stream, decoding to canvas…');
+            const { pixelsHash, extractedTag } = await hashAndExtractFromDataURL(info.dataURL, payload);
+            if(pixelsHash){ log(`A: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`); result.hash = (pixelsHash===payload.imageHashWatermarked)?'OK':'FAIL'; }
+            if(extractedTag){ log(`A: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tagFromMeta.slice(0,16)}…`); result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
+          }else if(info && info.kind==='raw-pixels'){
+            log('Strategy A: Found raw pixel stream; drawing to canvas…');
+            const { pixelsHash,extractedTag } = await drawRawPixelsAndAnalyze(info, payload);
+            if(pixelsHash){ log(`A(raw): Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`); result.hash = (pixelsHash===payload.imageHashWatermarked)?'OK':'FAIL'; }
+            if(extractedTag){ log(`A(raw): LSB tag ${extractedTag.slice(0,16)}… vs meta ${tagFromMeta.slice(0,16)}…`); result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
+          }else{
+            log('Strategy A: No direct image stream retrievable.');
+          }
+        }catch(eA){ log('Strategy A failed: '+(eA?.message||String(eA))); }
+
+        // Strategy B: Try to lazy-load PDF.js from multiple CDNs and render at scale 1.0
+        if(result.hash!=='OK' || result.water!=='OK'){
+          log('Attempting bitmap extraction (Strategy B: PDF.js @ scale=1)…');
+          const ok = await ensurePdfjs(log);
+          if(ok){
+            try{
+              const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, 1.0, { imageSmoothingEnabled:false });
+              if(pixelsHash){ log(`B: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`); if(result.hash!=='OK') result.hash=(pixelsHash===payload.imageHashWatermarked)?'OK':'FAIL'; }
+              if(extractedTag){ log(`B: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tagFromMeta.slice(0,16)}…`); if(result.water!=='OK') result.water=(extractedTag===tagFromMeta)?'OK':'FAIL'; }
+            }catch(eB){ log('Strategy B failed: '+(eB?.message||String(eB))); }
+          }else{
+            log('Strategy B skipped: PDF.js could not be loaded (CSP/Network).');
+          }
         }
-    }
 
-    function generateQrImage() {
-        try {
-            if (inputs.qrMode.value !== 'with_qr') {
-                qrImage.src = '';
-                return;
-            }
-            const qrData = { s: inputs.serial.value, n: inputs.name.value, a: inputs.amount.value, d: inputs.date.value, t: inputs.type.value };
-            const encodedData = btoa(JSON.stringify(qrData)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-            const qrValue = `https://nomsams.github.io/carbonara/?verify=${encodedData}`;
-            const qr = new QRious({ value: qrValue, size: 512 });
-            qrImage = new Image();
-            qrImage.src = qr.toDataURL();
-        } catch (e) {
-            console.warn("QR generation failed", e);
-            qrImage.src = '';
+        // Strategy C: PDF.js precise scale to match payload canvas, print intent
+        if((result.hash!=='OK' || result.water!=='OK') && window.pdfjsLib){
+          log('Attempting bitmap extraction (Strategy C: PDF.js precise scale + print intent)…');
+          try{
+            const scale = await computeViewportScale(pdfBytes, payload);
+            const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, scale, { printIntent:true, imageSmoothingEnabled:false });
+            if(pixelsHash){ log(`C: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`); if(result.hash!=='OK') result.hash=(pixelsHash===payload.imageHashWatermarked)?'OK':'FAIL'; }
+            if(extractedTag){ log(`C: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tagFromMeta.slice(0,16)}…`); if(result.water!=='OK') result.water=(extractedTag===tagFromMeta)?'OK':'FAIL'; }
+          }catch(eC){ log('Strategy C failed: '+(eC?.message||String(eC))); }
         }
+      }
+
+      // Final status
+      if(result.crypto==='OK' && result.water==='OK' && result.hash==='OK') result.status='HIGH';
+      else if(result.crypto==='OK') result.status='MEDIUM';
+      else result.status='LOW';
+
+      log(`Verification complete. Final status: ${result.status}`);
+      displayVerificationResult(result, payload);
+    }catch(e){
+      diag.textContent += `CRITICAL ERROR: ${e?.message||String(e)}\n`;
+      displayVerificationResult({ status:'LOW', water:'FAIL', crypto:'FAIL', hash:'FAIL', error:e?.message||String(e) });
+    }finally{
+      id('verify-loading').classList.remove('active');
     }
+  }
 
-    // --- CRYPTOGRAPHY & PAYLOAD ---
-    const masterKeySalt = "CarbonCertSaltV1";
-    const pbkdf2Iterations = 100000;
-
-    async function reconstructMasterKey() {
-        const fragments = ['fragA', 'fragB', 'fragC', 'fragD'];
-        const concatenated = fragments.join('') + "a-very-secret-pepper";
-        const baseKey = await crypto.subtle.importKey("raw", new TextEncoder().encode(concatenated), { name:"PBKDF2" }, false, ["deriveKey"]);
-        return await crypto.subtle.deriveKey(
-            { name:"PBKDF2", salt: new TextEncoder().encode(masterKeySalt), iterations: pbkdf2Iterations, hash:"SHA-256" },
-            baseKey,
-            { name:"HMAC", hash:"SHA-256", length:256 },
-            true,
-            ["sign","verify"]
-        );
-    }
-
-    function getCanonicalString(payload) {
-        return [
-            `v:${payload.v}`,
-            `serial:${payload.serial}`,
-            `name:${payload.name}`,
-            `amount:${payload.amount}`,
-            `date:${payload.date}`,
-            `type:${payload.type}`,
-            `imageHashOriginal:${payload.imageHashOriginal}`,
-            `imageHashWatermarked:${payload.imageHashWatermarked}`,
-            `posName:${payload.posName.x},${payload.posName.y}`,
-            `posAmount:${payload.posAmount.x},${payload.posAmount.y}`,
-            `posDate:${payload.posDate.x},${payload.posDate.y}`,
-            `posType:${payload.posType.x},${payload.posType.y}`,
-            `posSerial:${payload.posSerial.x},${payload.posSerial.y}`,
-            `posLogo:${payload.posLogo.x},${payload.posLogo.y},${payload.posLogo.w}`,
-            `fontName:${payload.fontName}`,
-            `fontOther:${payload.fontOther}`,
-            `fontSerial:${payload.fontSerial}`,
-            `qrMode:${payload.qrMode}`,
-            `qrPos:${payload.qrPos.x},${payload.qrPos.y}`,
-            `qrAlpha:${payload.qrAlpha}`,
-            `canvas:${payload.canvas}`,
-            `app:${payload.app}`
-        ].join('|');
-    }
-
-    async function generateTag(canonicalString) {
-        const masterKey = await reconstructMasterKey();
-        const dataToSign = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonicalString));
-        const signature = await crypto.subtle.sign('HMAC', masterKey, dataToSign);
-        return btoa(String.fromCharCode(...new Uint8Array(signature)));
-    }
-
-    async function sha256(bufferOrArrayBufferLike) {
-        const buf = bufferOrArrayBufferLike instanceof ArrayBuffer ? bufferOrArrayBufferLike : bufferOrArrayBufferLike?.buffer || bufferOrArrayBufferLike;
-        const hashBuffer = await crypto.subtle.digest('SHA-256', buf);
-        return Array.from(new Uint8Array(hashBuffer)).map(b=>b.toString(16).padStart(2,'0')).join('');
-    }
-
-    // --- LSB STEGANOGRAPHY ---
-    function embedDataLSB(ctx2d, str) {
-        const terminator = "::END::";
-        const payload = (str + terminator);
-        const bitStream = Array.from(payload).map(c => c.charCodeAt(0).toString(2).padStart(8,'0')).join('');
-        const imageData = ctx2d.getImageData(0, 0, ctx2d.canvas.width, ctx2d.canvas.height);
-        const data = imageData.data;
-
-        const capacityBits = Math.floor(data.length / 4); // one bit per pixel (blue channel)
-        if (bitStream.length > capacityBits) {
-            throw new Error(`Watermark too large for image capacity. Need ${bitStream.length} bits, have ${capacityBits}.`);
-        }
-
-        for (let i = 0; i < bitStream.length; i++) {
-            const dataIndex = i * 4 + 2;        // Blue channel
-            data[dataIndex] = (data[dataIndex] & 0xFE) | (bitStream[i] === '1' ? 1 : 0);
-        }
-        ctx2d.putImageData(imageData, 0, 0);
-    }
-
-    function extractDataLSB(ctx2d) {
-        const imageData = ctx2d.getImageData(0, 0, ctx2d.canvas.width, ctx2d.canvas.height);
-        const data = imageData.data;
-        let bitStream = '';
-        for (let i = 0; i < data.length; i += 4) {
-            bitStream += (data[i + 2] & 1); // Blue LSB
-        }
-        const bytes = bitStream.match(/.{1,8}/g) || [];
-        let out = '';
-        for (const byte of bytes) {
-            if (byte.length < 8) continue;
-            out += String.fromCharCode(parseInt(byte, 2));
-            if (out.endsWith("::END::")) return out.slice(0, -7);
-        }
-        return null;
-    }
-
-    // --- PDF EXPORT ---
-    async function exportPdf() {
-        const modal = document.getElementById('progress-modal');
-        const status = document.getElementById('progress-status');
-        const bar = document.getElementById('progress-bar-inner');
-        modal.style.display = 'flex';
-
-        const step = (msg, pct) => { status.textContent = msg; bar.style.width = pct; };
-
-        try {
-            step("Step 1/6: Preparing canvas…", "8%");
-            await delay(50);
-
-            const cleanCanvas = document.createElement('canvas');
-            cleanCanvas.width = canvas.width;
-            cleanCanvas.height = canvas.height;
-            const cleanCtx = cleanCanvas.getContext('2d', { willReadFrequently: true });
-
-            updateElementsFromInputs();
-
-            const originalDraw = () => {
-                cleanCtx.textBaseline = 'top';
-                if (bgImageLoaded) cleanCtx.drawImage(bgImage, 0, 0, cleanCanvas.width, cleanCanvas.height);
-                else { cleanCtx.fillStyle = '#FFFFFF'; cleanCtx.fillRect(0, 0, cleanCanvas.width, cleanCanvas.height); }
-
-                if (logoImageLoaded && logoElement.width > 0) {
-                    cleanCtx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
-                }
-
-                const expTextColor = '#000000';
-                Object.values(textElements).forEach(el => {
-                    const size = Number.isFinite(el.fontSize) ? el.fontSize : 12;
-                    cleanCtx.font = `${size}px '${el.font || 'Montserrat'}'`;
-                    const textWidth = cleanCtx.measureText(el.text || '').width;
-                    cleanCtx.fillStyle = expTextColor;
-                    cleanCtx.fillText(el.text || '', el.x - textWidth / 2, el.y);
-                });
-
-                if (inputs.qrMode.value === 'with_qr' && qrImage.src) {
-                    cleanCtx.globalAlpha = qrCodeElement.alpha;
-                    cleanCtx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size);
-                    cleanCtx.globalAlpha = 1.0;
-                }
-            };
-            originalDraw();
-
-            step("Step 2/6: Calculating original hash…", "20%");
-            const originalPixels = cleanCtx.getImageData(0, 0, cleanCanvas.width, cleanCanvas.height).data;
-            const imageHashOriginal = await sha256(originalPixels.buffer);
-
-            step("Step 3/6: Building payload…", "35%");
-            const payload = {
-                v: 1,
-                serial: inputs.serial.value,
-                name: (inputs.name.value || '').normalize('NFC'),
-                amount: inputs.amount.value || '',
-                date: inputs.date.value || '',
-                type: (inputs.type.value || '').normalize('NFC'),
-                imageHashOriginal: imageHashOriginal,
-                imageHashWatermarked: '0'.repeat(64),
-
-                posName:   { x: Number(textElements.name.x).toFixed(4),   y: Number(textElements.name.y).toFixed(4) },
-                posAmount: { x: Number(textElements.amount.x).toFixed(4), y: Number(textElements.amount.y).toFixed(4) },
-                posDate:   { x: Number(textElements.date.x).toFixed(4),   y: Number(textElements.date.y).toFixed(4) },
-                posType:   { x: Number(textElements.type.x).toFixed(4),   y: Number(textElements.type.y).toFixed(4) },
-                posSerial: { x: Number(textElements.serial.x).toFixed(4), y: Number(textElements.serial.y).toFixed(4) },
-                posLogo:   { x: Number(logoElement.x || 0).toFixed(4),    y: Number(logoElement.y || 0).toFixed(4), w: Number(logoElement.width || 0).toFixed(4) },
-
-                fontName: `GreatVibes-${Number(textElements.name.fontSize || 0)}px`,
-                fontOther:`Montserrat-${Number(textElements.amount.fontSize || 0)}px`,
-                fontSerial:`Montserrat-${Number(textElements.serial.fontSize || 0)}px`,
-
-                qrMode: inputs.qrMode.value,
-                qrPos: { x: Number(qrCodeElement.x || 0).toFixed(4), y: Number(qrCodeElement.y || 0).toFixed(4) },
-                qrAlpha: Number(qrCodeElement.alpha || 0).toFixed(2),
-
-                canvas: `${canvas.width}x${canvas.height}@${inputs.dpi.value}`,
-                app: "CarbonCert-5.0.0"
-            };
-
-            step("Step 4/6: Generating cryptographic signature…", "52%");
-            let canonicalString = getCanonicalString(payload);
-            const tag_b64_initial = await generateTag(canonicalString);
-
-            step("Step 5/6: Applying secure watermark…", "74%");
-            embedDataLSB(cleanCtx, tag_b64_initial);
-
-            const wmPixels = cleanCtx.getImageData(0, 0, cleanCanvas.width, cleanCanvas.height).data;
-            const imageHashWatermarked = await sha256(wmPixels.buffer);
-            payload.imageHashWatermarked = imageHashWatermarked;
-
-            canonicalString = getCanonicalString(payload);
-            const final_tag_b64 = await generateTag(canonicalString);
-            const finalPayload = { ...payload, tag_b64: final_tag_b64 };
-
-            const watermarkedImageURI = cleanCanvas.toDataURL('image/png');
-
-            step("Step 6/6: Assembling final PDF…", "90%");
-            const { PDFDocument } = window.PDFLib;
-            const pdfDoc = await PDFDocument.create();
-            const page = pdfDoc.addPage([canvas.width, canvas.height]);
-
-            const pngImageBytes = dataURLtoUint8Array(watermarkedImageURI);
-            const pngImage = await pdfDoc.embedPng(pngImageBytes);
-            page.drawImage(pngImage, { x: 0, y: 0, width: canvas.width, height: canvas.height });
-
-            const keywordsPayload = `carboncert,${JSON.stringify(finalPayload)}`;
-            pdfDoc.setKeywords([keywordsPayload]);
-            pdfDoc.setSubject('CarbonAra Secure Certificate');
-
-            const pdfBytes = await pdfDoc.save({ useObjectStreams: false });
-            download(pdfBytes, `CarbonCert-${payload.serial}.pdf`, 'application/pdf');
-
-            bar.style.width = "100%";
-            setTimeout(() => modal.style.display = 'none', 600);
-        } catch (error) {
-            showError("PDF Generation Failed", error?.stack || error?.message || String(error));
-            document.getElementById('progress-modal').style.display = 'none';
-        }
-    }
-
-    function download(data, filename, type) {
-        try {
-            const blob = new Blob([data], { type });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-                a.remove();
-            }, 0);
-        } catch (e) {
-            showError("Download Error", e?.stack || String(e));
-        }
-    }
-
-    // --- VERIFICATION ---
-    async function handleVerifyUpload(event) {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        const verifyContainer = document.getElementById('verify-container');
-        verifyContainer.querySelector('#verify-idle').classList.remove('active');
-        verifyContainer.querySelector('#verify-loading').classList.add('active');
-
-        const diagnostics = document.getElementById('diagnostics');
-        diagnostics.textContent = '';
-        const log = (msg) => diagnostics.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
-
-        try {
-            log("Starting verification...");
-            const { PDFDocument } = window.PDFLib;
-            const pdfBytes = await file.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-            log("PDF document loaded successfully.");
-
-            // Extract embedded payload from keywords
-            let keywords = pdfDoc.getKeywords?.() || null;
-            if (Array.isArray(keywords)) {
-                keywords = keywords.find(k => typeof k === 'string' && k.startsWith('carboncert,')) || keywords[0];
-            }
-            if (typeof keywords !== 'string' || !keywords.startsWith('carboncert,')) {
-                throw new Error("Not a valid CarbonAra certificate (missing metadata keyword).");
-            }
-            log("Metadata keyword found.");
-
-            const payloadStr = keywords.substring('carboncert,'.length);
-            const payload = safeJsonParse(payloadStr);
-            if (!payload) throw new Error("Invalid embedded payload JSON.");
-            log("Payload parsed from metadata.");
-
-            // Cryptographic verification (authoritative)
-            log("Rebuilding canonical string for signature verification…");
-            const canonical = getCanonicalString(payload);
-            const expected_tag = await generateTag(canonical);
-            log(`Expected tag: ${expected_tag.slice(0,16)}…`);
-
-            const tag_from_meta = payload.tag_b64 || '';
-            log(`Metadata tag: ${tag_from_meta.slice(0,16)}…`);
-
-            // Prepare default result; we will try 3 methods to recover pixel data.
-            const result = { crypto: (tag_from_meta === expected_tag) ? 'OK' : 'FAIL', water: 'SKIPPED', hash: 'SKIPPED', status: 'LOW' };
-
-            // If crypto fails, no point trying pixels (still run methods to satisfy "try 3" but outcome will remain LOW)
-            // Method 1: PDF.js render with scale 1 (expected exact pixel dimensions because page size == image size)
-            if (window['pdfjsLib']) {
-                try {
-                    log("Attempt 1: PDF.js render (scale=1, smoothing off)...");
-                    const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, 1.0, { imageSmoothingEnabled:false });
-                    if (pixelsHash) {
-                        log(`Attempt 1: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`);
-                        result.hash = (pixelsHash === payload.imageHashWatermarked) ? 'OK' : (result.hash === 'SKIPPED' ? 'FAIL' : result.hash);
+  /* ---------- Strategy A: pdf-lib object traversal ---------- */
+  async function extractImageLikeWithPdfLib(pdfDoc, types){
+    const { PDFName, PDFDict, PDFRawStream, PDFStream } = types;
+    // Prefer page XObjects
+    const pages=pdfDoc.getPages();
+    if(pages.length){
+      const page=pages[0];
+      try{
+        const Resources=page.node.Resources && page.node.Resources();
+        if(Resources){
+          const xobjDict = Resources.lookup && Resources.lookup(PDFName.of('XObject'), PDFDict);
+          if(xobjDict){
+            const keys = xobjDict.keys ? xobjDict.keys() : [];
+            for(const k of keys){
+              let obj = xobjDict.lookup ? xobjDict.lookup(k) : null;
+              if(!obj && xobjDict.get) obj = xobjDict.get(k);
+              if(obj && pdfDoc.context.lookup) obj = pdfDoc.context.lookup(obj);
+              const stream = obj;
+              if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+                const subtype = stream.dict.get && stream.dict.get(PDFName.of('Subtype'));
+                if(String(subtype)==='/Image'){
+                  // Try to reconstruct a PNG DataURL if stream actually contains PNG (Filter /FlateDecode won't be a PNG)
+                  const filter = stream.dict.get(PDFName.of('Filter'));
+                  // If original was embedPng, pdf-lib often reuses the PNG bytes (as an embedded file stream)
+                  const maybeBytes = stream.getContents ? stream.getContents() : stream.contents;
+                  if(maybeBytes && maybeBytes.byteLength){
+                    // Check PNG signature
+                    const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
+                    if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
+                      const b64 = btoa(String.fromCharCode(...u8));
+                      return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
                     }
-                    if (extractedTag) {
-                        log(`Attempt 1: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tag_from_meta.slice(0,16)}…`);
-                        result.water = (extractedTag === tag_from_meta) ? 'OK' : (result.water === 'SKIPPED' ? 'FAIL' : result.water);
-                    }
-                } catch (e1) {
-                    log("Attempt 1 failed: " + (e1?.message || e1));
+                    // Else, return raw pixels plan with parameters (if available)
+                    const width = numFromDict(stream.dict, PDFName.of('Width'));
+                    const height= numFromDict(stream.dict, PDFName.of('Height'));
+                    const bpc   = numFromDict(stream.dict, PDFName.of('BitsPerComponent')) || 8;
+                    const cs    = stream.dict.get(PDFName.of('ColorSpace'));
+                    // Assume DeviceRGB unless otherwise
+                    const comps = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
+                    return { kind:'raw-pixels', width, height, bpc, comps, bytes: u8 };
+                  }
                 }
-
-                // Method 2: PDF.js render at precise pixel scale to match payload.canvas exactly (if rounding occurred)
-                if (result.water !== 'OK' || result.hash !== 'OK') {
-                    try {
-                        log("Attempt 2: PDF.js render (precise scale to match payload canvas dims)...");
-                        const preciseScale = await computeViewportScale(pdfBytes, payload);
-                        const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, preciseScale, { imageSmoothingEnabled:false });
-                        if (pixelsHash) {
-                            log(`Attempt 2: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`);
-                            if (result.hash !== 'OK') result.hash = (pixelsHash === payload.imageHashWatermarked) ? 'OK' : 'FAIL';
-                        }
-                        if (extractedTag) {
-                            log(`Attempt 2: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tag_from_meta.slice(0,16)}…`);
-                            if (result.water !== 'OK') result.water = (extractedTag === tag_from_meta) ? 'OK' : 'FAIL';
-                        }
-                    } catch (e2) {
-                        log("Attempt 2 failed: " + (e2?.message || e2));
-                    }
-                }
-
-                // Method 3: PDF.js render (print intent) and flip handling (sometimes affects pixel rounding)
-                if (result.water !== 'OK' || result.hash !== 'OK') {
-                    try {
-                        log("Attempt 3: PDF.js render (print intent, smoothing off)...");
-                        const { pixelsHash, extractedTag } = await rasterizePdfWithPdfJs(pdfBytes, payload, 1.0, { printIntent:true, imageSmoothingEnabled:false });
-                        if (pixelsHash) {
-                            log(`Attempt 3: Hash(calc) ${pixelsHash.slice(0,16)}… vs Hash(payload) ${payload.imageHashWatermarked.slice(0,16)}…`);
-                            if (result.hash !== 'OK') result.hash = (pixelsHash === payload.imageHashWatermarked) ? 'OK' : 'FAIL';
-                        }
-                        if (extractedTag) {
-                            log(`Attempt 3: LSB tag ${extractedTag.slice(0,16)}… vs meta ${tag_from_meta.slice(0,16)}…`);
-                            if (result.water !== 'OK') result.water = (extractedTag === tag_from_meta) ? 'OK' : 'FAIL';
-                        }
-                    } catch (e3) {
-                        log("Attempt 3 failed: " + (e3?.message || e3));
-                    }
-                }
-            } else {
-                log("PDF.js not available. Skipping pixel-level verification attempts.");
+              }
             }
+          }
+        }
+      }catch(e){ /* fall through */ }
+    }
 
-            // Determine final status
-            if (result.crypto === 'OK' && result.water === 'OK' && result.hash === 'OK') {
-                result.status = 'HIGH';
-            } else if (result.crypto === 'OK') {
-                result.status = 'MEDIUM';
-            } else {
-                result.status = 'LOW';
+    // Fallback: scan every indirect object for an Image stream
+    try{
+      for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
+        if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
+          const subtype = obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+          if(String(subtype)==='/Image'){
+            const maybeBytes = obj.getContents ? obj.getContents() : obj.contents;
+            if(maybeBytes && maybeBytes.byteLength){
+              const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
+              if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
+                const b64=btoa(String.fromCharCode(...u8));
+                return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
+              }
+              const width = numFromDict(obj.dict, PDFName.of('Width'));
+              const height= numFromDict(obj.dict, PDFName.of('Height'));
+              const bpc   = numFromDict(obj.dict, PDFName.of('BitsPerComponent')) || 8;
+              const cs    = obj.dict.get(PDFName.of('ColorSpace'));
+              const comps = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
+              return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
             }
-
-            log(`Verification complete. Final status: ${result.status}`);
-            displayVerificationResult(result, payload);
-        } catch (error) {
-            console.error("Verification Failed:", error);
-            diagnostics.textContent += `CRITICAL ERROR: ${error?.message || String(error)}\n`;
-            displayVerificationResult({ status: 'LOW', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL', error: error?.message || String(error) });
-        } finally {
-            const verifyContainer = document.getElementById('verify-container');
-            verifyContainer.querySelector('#verify-loading').classList.remove('active');
+          }
         }
-    }
+      }
+    }catch(e){ /* ignore */ }
 
-    // Render first page of PDF using PDF.js and return pixel hash + LSB tag extraction
-    async function rasterizePdfWithPdfJs(pdfBytes, payload, scale = 1.0, opts = {}) {
-        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(1);
+    return null;
+  }
+  function numFromDict(dict, name){
+    try{
+      const x=dict.get(name);
+      if(!x) return null;
+      const s=String(x).replace(/[^\d.]/g,'');
+      const n=Number(s); return Number.isFinite(n)? n:null;
+    }catch{ return null; }
+  }
 
-        // Determine viewport; page sizes are in points; our PDF was created with page size [canvas.width, canvas.height] points
-        let viewport = page.getViewport({ scale, dontFlip: false });
+  async function hashAndExtractFromDataURL(dataURL, payload){
+    const img = await loadImageFromDataURL(dataURL);
+    const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
+    const cx=c.getContext('2d',{ willReadFrequently:true });
+    cx.drawImage(img,0,0);
+    const idata=cx.getImageData(0,0,c.width,c.height);
+    const pixelsHash=await sha256(idata.data.buffer);
+    const extractedTag=extractDataLSB(cx);
+    return { pixelsHash, extractedTag };
+  }
+  function loadImageFromDataURL(dataURL){
+    return new Promise((res,rej)=>{
+      const img=new Image();
+      img.onload=()=>res(img);
+      img.onerror=rej;
+      img.src=dataURL;
+    });
+  }
 
-        // If payload specifies canvas WxH, ensure our output matches it (round pixels)
-        const [wStr, rest] = payload.canvas.split('@');
-        const [pxW, pxH] = wStr.split('x').map(n => parseInt(n, 10));
-        // If scale 1 produced different dims, compute alternate scale that hits exact pixel dims
-        if (Math.round(viewport.width) !== pxW || Math.round(viewport.height) !== pxH) {
-            const sx = pxW / viewport.width;
-            const sy = pxH / viewport.height;
-            const s = Math.min(sx, sy);
-            viewport = page.getViewport({ scale: s, dontFlip: false });
+  async function drawRawPixelsAndAnalyze(info, payload){
+    const { width,height,comps,bpc,bytes } = info;
+    if(!width||!height||!bytes) return {};
+    // Very naive decode for DeviceRGB/Gray @ 8bpc and Flate-decoded content only.
+    // If stream is still compressed, this won't work; but pdf-lib usually gives decoded stream contents.
+    const c=document.createElement('canvas'); c.width=width; c.height=height;
+    const cx=c.getContext('2d',{ willReadFrequently:true });
+    const imgData=cx.createImageData(width,height);
+    const dst=imgData.data;
+    if(bpc!==8) return {};
+    let si=0, di=0;
+    try{
+      if(comps===3){ // RGB
+        for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; }
+      }else if(comps===1){ // Gray
+        for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; }
+      }else if(comps===4){ // CMYK to RGB (approx)
+        for(let i=0;i<width*height;i++){
+          const c0=bytes[si++]/255, m=bytes[si++]/255, y=bytes[si++]/255, k=bytes[si++]/255;
+          const r=255*(1-Math.min(1,c0*(1-k)+k));
+          const g=255*(1-Math.min(1,m *(1-k)+k));
+          const b=255*(1-Math.min(1,y *(1-k)+k));
+          dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255;
         }
+      }else{ return {}; }
+      cx.putImageData(imgData,0,0);
+      const h=await sha256(imgData.data.buffer);
+      const tag=extractDataLSB(cx);
+      return { pixelsHash:h, extractedTag:tag };
+    }catch{ return {}; }
+  }
 
-        const renderCanvas = document.createElement('canvas');
-        const rctx = renderCanvas.getContext('2d', { willReadFrequently: true });
-        renderCanvas.width = Math.round(viewport.width);
-        renderCanvas.height = Math.round(viewport.height);
-        // Disable smoothing to preserve pixels
-        rctx.imageSmoothingEnabled = opts.imageSmoothingEnabled === false ? false : true;
+  /* ---------- Strategy B/C: PDF.js rendering ---------- */
+  async function ensurePdfjs(logFn){
+    if(window.pdfjsLib && window.pdfjsLib.getDocument) return true;
+    const log = logFn || (()=>{});
+    const cdnCandidates = [
+      { base: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168', worker: 'pdf.worker.min.js', main:'pdf.min.js' },
+      { base: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168', worker: 'build/pdf.worker.min.js', main:'build/pdf.min.js' },
+      { base: 'https://unpkg.com/pdfjs-dist@4.4.168', worker: 'build/pdf.worker.min.js', main:'build/pdf.min.js' },
+    ];
+    for(const cdn of cdnCandidates){
+      try{
+        await loadScript(`${cdn.base}/${cdn.main}`);
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = `${cdn.base}/${cdn.worker}`;
+        log(`Loaded PDF.js from ${cdn.base}`);
+        return true;
+      }catch(e){
+        log(`PDF.js load failed from ${cdn.base}: ${e?.message||e}`);
+      }
+    }
+    return false;
+  }
+  function loadScript(src){
+    return new Promise((res,rej)=>{
+      const s=document.createElement('script'); s.src=src; s.async=true;
+      s.onload=()=>res(); s.onerror=()=>rej(new Error('Script load error'));
+      document.head.appendChild(s);
+    });
+  }
 
-        const renderTask = page.render({
-            canvasContext: rctx,
-            viewport,
-            intent: opts.printIntent ? 'print' : 'display',
-            enableWebGL: false
-        });
-        await renderTask.promise;
+  async function rasterizePdfWithPdfJs(pdfBytes, payload, scale=1.0, opts={}){
+    const task=pdfjsLib.getDocument({ data: pdfBytes });
+    const pdf=await task.promise;
+    const page=await pdf.getPage(1);
+    let viewport=page.getViewport({ scale, dontFlip:false });
 
-        // Compute hash of pixels
-        const imgData = rctx.getImageData(0, 0, renderCanvas.width, renderCanvas.height);
-        const pixelsHash = await sha256(imgData.data.buffer);
-
-        // Try LSB extraction
-        let extractedTag = null;
-        try {
-            extractedTag = extractDataLSB(rctx);
-        } catch (e) {
-            extractedTag = null;
-        }
-
-        // Cleanup
-        await page.cleanup?.();
-        await pdf.cleanup?.();
-
-        return { pixelsHash, extractedTag };
+    // Align to payload canvas if needed
+    const [wStr]=payload.canvas.split('@');
+    const [pxW,pxH]=wStr.split('x').map(n=>parseInt(n,10));
+    if(Math.round(viewport.width)!==pxW || Math.round(viewport.height)!==pxH){
+      const sx=pxW/viewport.width, sy=pxH/viewport.height, s=Math.min(sx,sy);
+      viewport = page.getViewport({ scale:s, dontFlip:false });
     }
 
-    // Compute a precise scale to match payload canvas dimensions
-    async function computeViewportScale(pdfBytes, payload) {
-        const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(1);
-        const [wStr] = payload.canvas.split('@');
-        const [pxW, pxH] = wStr.split('x').map(n => parseInt(n, 10));
-        const baseViewport = page.getViewport({ scale: 1.0 });
-        const sx = pxW / baseViewport.width;
-        const sy = pxH / baseViewport.height;
-        const s = Math.min(sx, sy);
-        await page.cleanup?.();
-        await pdf.cleanup?.();
-        return s;
-    }
+    const c=document.createElement('canvas');
+    c.width = Math.round(viewport.width);
+    c.height= Math.round(viewport.height);
+    const cx=c.getContext('2d',{ willReadFrequently:true });
+    cx.imageSmoothingEnabled = opts.imageSmoothingEnabled===false ? false : true;
 
-    function displayVerificationResult(result, payload = {}) {
-        const verifyContainer = document.getElementById('verify-container');
-        verifyContainer.querySelector('#verify-loading').classList.remove('active');
-        const resultView = document.getElementById('verify-result');
-        resultView.classList.add('active');
+    const renderTask = page.render({ canvasContext:cx, viewport, intent: opts.printIntent?'print':'display', enableWebGL:false });
+    await renderTask.promise;
 
-        const prob = document.getElementById('auth-prob');
-        const details = document.getElementById('result-card-details');
+    const idata=cx.getImageData(0,0,c.width,c.height);
+    const pixelsHash=await sha256(idata.data.buffer);
+    const extractedTag=extractDataLSB(cx);
 
-        prob.textContent = `Authenticity: ${result.status}`;
-        details.className = `result-card ${String(result.status || 'LOW').toLowerCase()}`;
-        details.innerHTML = `
-            <h4>${result.status === 'HIGH' ? '✓' : (result.status === 'MEDIUM' ? '⚠️' : '✗')} Verification ${result.status}</h4>
-            <ul class="verification-breakdown">
-                <li><span class="icon ${result.crypto === 'OK' ? 'ok' : 'fail'}">${result.crypto === 'OK' ? '✓' : '✗'}</span> Cryptographic Signature: <strong>${result.crypto === 'OK' ? 'Valid' : 'Invalid'}</strong></li>
-                <li><span class="icon ${result.water === 'OK' ? 'ok' : (result.water === 'SKIPPED' ? '' : 'fail')}">${result.water === 'OK' ? '✓' : (result.water === 'SKIPPED' ? '•' : '✗')}</span> Watermark Integrity: <strong>${result.water === 'OK' ? 'Matched' : (result.water === 'SKIPPED' ? 'Skipped' : 'Mismatch/Missing')}</strong></li>
-                <li><span class="icon ${result.hash === 'OK' ? 'ok' : (result.hash === 'SKIPPED' ? '' : 'fail')}">${result.hash === 'OK' ? '✓' : (result.hash === 'SKIPPED' ? '•' : '✗')}</span> Image Hash Consistency: <strong>${result.hash === 'OK' ? 'Matched' : (result.hash === 'SKIPPED' ? 'Skipped' : 'Mismatch')}</strong></li>
-            </ul>
-            ${payload.serial ? `<p><strong>Serial:</strong> ${payload.serial}</p>` : ''}
-            ${payload.name ? `<p><strong>Name:</strong> ${payload.name}</p>` : ''}
-            ${payload.date ? `<p><strong>Date:</strong> ${payload.date}</p>` : ''}
-            ${result.error ? `<p><strong>Error:</strong> ${result.error}</p>` : ''}
-        `;
-    }
+    await page.cleanup?.(); await pdf.cleanup?.();
+    return { pixelsHash, extractedTag };
+  }
+  async function computeViewportScale(pdfBytes, payload){
+    const task=pdfjsLib.getDocument({ data: pdfBytes });
+    const pdf=await task.promise;
+    const page=await pdf.getPage(1);
+    const [wStr]=payload.canvas.split('@');
+    const [pxW,pxH]=wStr.split('x').map(n=>parseInt(n,10));
+    const base=page.getViewport({ scale:1.0 });
+    const sx=pxW/base.width, sy=pxH/base.height, s=Math.min(sx,sy);
+    await page.cleanup?.(); await pdf.cleanup?.();
+    return s;
+  }
 
-    function showError(message, details) {
-        document.getElementById('error-message').textContent = message || 'Unknown Error';
-        document.getElementById('error-details').textContent = details || '';
-        document.getElementById('error-modal').style.display = 'flex';
-    }
+  /* ---------- Display & errors ---------- */
+  function displayVerificationResult(result, payload={}){
+    id('verify-loading').classList.remove('active');
+    id('verify-result').classList.add('active');
+    id('auth-prob').textContent=`Authenticity: ${result.status}`;
+    const details=id('result-card-details');
+    details.className=`result-card ${String(result.status||'LOW').toLowerCase()}`;
+    details.innerHTML=`
+      <h4>${result.status==='HIGH'?'✓':(result.status==='MEDIUM'?'⚠️':'✗')} Verification ${result.status}</h4>
+      <ul class="verification-breakdown">
+        <li><span class="icon ${result.crypto==='OK'?'ok':'fail'}">${result.crypto==='OK'?'✓':'✗'}</span> Cryptographic Signature: <strong>${result.crypto==='OK'?'Valid':'Invalid'}</strong></li>
+        <li><span class="icon ${result.water==='OK'?'ok':(result.water==='SKIPPED'?'':'fail')}">${result.water==='OK'?'✓':(result.water==='SKIPPED'?'•':'✗')}</span> Watermark Integrity: <strong>${result.water==='OK'?'Matched':(result.water==='SKIPPED'?'Skipped':'Mismatch/Missing')}</strong></li>
+        <li><span class="icon ${result.hash==='OK'?'ok':(result.hash==='SKIPPED'?'':'fail')}">${result.hash==='OK'?'✓':(result.hash==='SKIPPED'?'•':'✗')}</span> Image Hash Consistency: <strong>${result.hash==='OK'?'Matched':(result.hash==='SKIPPED'?'Skipped':'Mismatch')}</strong></li>
+      </ul>
+      ${payload.serial?`<p><strong>Serial:</strong> ${payload.serial}</p>`:''}
+      ${payload.name?`<p><strong>Name:</strong> ${payload.name}</p>`:''}
+      ${payload.date?`<p><strong>Date:</strong> ${payload.date}</p>`:''}
+      ${result.error?`<p><strong>Error:</strong> ${result.error}</p>`:''}
+    `;
+  }
+  function showError(msg,details){ id('error-message').textContent=msg||'Unknown Error'; id('error-details').textContent=details||''; id('error-modal').style.display='flex'; }
 
-    // --- LAYOUT PRESET (Local Storage) ---
-    function saveLayoutToLocalStorage() {
-        try {
-            const layout = {
-                fontSizeName: inputs.fontSizeName.value,
-                xName: inputs.xName.value, yName: inputs.yName.value,
-                fontSizeOther: inputs.fontSizeOther.value,
-                xAmount: inputs.xAmount.value, yAmount: inputs.yAmount.value,
-                xDate: inputs.xDate.value, yDate: inputs.yDate.value,
-                xType: inputs.xType.value, yType: inputs.yType.value,
-                fontSizeSerial: inputs.fontSizeSerial.value,
-                xSerial: inputs.xSerial.value, ySerial: inputs.ySerial.value,
-                xLogo: inputs.xLogo.value, yLogo: inputs.yLogo.value, wLogo: inputs.wLogo.value,
-                xQr: inputs.xQr.value, yQr: inputs.yQr.value, alphaQr: inputs.alphaQr.value
-            };
-            localStorage.setItem('carbonara_layout_v1', JSON.stringify(layout));
-            alert('Layout saved to this browser.');
-        } catch (e) {
-            showError("Save Layout Error", e?.stack || String(e));
-        }
-    }
+  /* ---------- Layout save/load ---------- */
+  function saveLayout(){
+    try{
+      const L={
+        fontSizeName:inputs.fontSizeName.value, xName:inputs.xName.value, yName:inputs.yName.value,
+        fontSizeOther:inputs.fontSizeOther.value, xAmount:inputs.xAmount.value, yAmount:inputs.yAmount.value,
+        xDate:inputs.xDate.value, yDate:inputs.yDate.value, xType:inputs.xType.value, yType:inputs.yType.value,
+        fontSizeSerial:inputs.fontSizeSerial.value, xSerial:inputs.xSerial.value, ySerial:inputs.ySerial.value,
+        xLogo:inputs.xLogo.value, yLogo:inputs.yLogo.value, wLogo:inputs.wLogo.value,
+        xQr:inputs.xQr.value, yQr:inputs.yQr.value, alphaQr:inputs.alphaQr.value
+      };
+      localStorage.setItem('carbonara_layout_v1', JSON.stringify(L));
+      alert('Layout saved.');
+    }catch(e){ showError('Save Layout Error', e?.stack||String(e)); }
+  }
+  function loadLayout(silent=false){
+    try{
+      const raw=localStorage.getItem('carbonara_layout_v1'); if(!raw) return false;
+      const L=safeJsonParse(raw); if(!L) return false;
+      Object.entries(L).forEach(([k,v])=>{ if(inputs[k]) inputs[k].value=v; });
+      if(!silent) requestRedraw();
+      return true;
+    }catch(e){ if(!silent) showError('Load Layout Error', e?.stack||String(e)); return false; }
+  }
 
-    function loadLayoutFromLocalStorage(silent = false) {
-        try {
-            const raw = localStorage.getItem('carbonara_layout_v1');
-            if (!raw) return false;
-            const layout = safeJsonParse(raw);
-            if (!layout) return false;
-            Object.entries(layout).forEach(([k,v]) => { if (inputs[k]) inputs[k].value = v; });
-            if (!silent) requestRedraw();
-            return true;
-        } catch (e) {
-            if (!silent) showError("Load Layout Error", e?.stack || String(e));
-            return false;
-        }
-    }
-
-    // --- UTIL ---
-    function debounce(fn, ms) {
-        let t;
-        return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-    }
-    function delay(ms){ return new Promise(r => setTimeout(r, ms)); }
-
-    function dataURLtoUint8Array(dataURL) {
-        const base64 = dataURL.split(',')[1] || '';
-        const binStr = atob(base64);
-        const len = binStr.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
-        return bytes;
-    }
-
-    // --- START ---
-    init();
+  /* ---------- Start ---------- */
+  init();
 });
 </script>
 </body>
