@@ -801,7 +801,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // Attach raster using high-level API to avoid low-level Name tree corruption
       step('Step 5/7: Embedding raster as attachment…','66%');
       try{
-        // pdf-lib .attach accepts (embed, name?, options?)
         await pdfDoc.attach(pngBytes, `CarbonAra-${basePayload.serial}.png`, {
           mimeType:'image/png', description:'Original raster used to compose this document', createDate:new Date(), modificationDate:new Date()
         });
@@ -809,9 +808,10 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Attachment skipped:', e);
       }
 
-      // Embed payload in Keywords (single string for maximal compatibility)
+      // Embed payload in Keywords.
+      // IMPORTANT: pdf-lib setKeywords expects an array of strings (XMP-safe). Passing a single string causes an exception.
       const keywordsStr = `carboncert,${JSON.stringify({...basePayload, tag_b64:finalTag})}`;
-      pdfDoc.setKeywords(keywordsStr);
+      pdfDoc.setKeywords([keywordsStr]); // <-- FIX: pass array, not a single string
       pdfDoc.setProducer('CarbonAra');
       pdfDoc.setCreator('CarbonAra:PNG@PDF');
       pdfDoc.setTitle(`CarbonAra ${basePayload.serial}`);
