@@ -295,6 +295,13 @@ document.addEventListener('DOMContentLoaded', () => {
         addEventListeners();
 
         await document.fonts.ready;
+        
+        // Failsafe for font rendering
+        const tempVal = inputs.name.value;
+        inputs.name.value = 'Rendering...';
+        requestRedraw();
+        await new Promise(r => setTimeout(r, 50));
+        inputs.name.value = tempVal;
 
         bgImage.crossOrigin = "Anonymous";
         bgImage.src = 'image.png';
@@ -568,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
             s: inputs.serial.value, n: inputs.name.value, a: inputs.amount.value,
             d: inputs.date.value, t: inputs.type.value
         };
-        const encodedData = btoa(JSON.stringify(qrData)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        const encodedData = btoa(JSON.stringify(qrData)).replace(/\+/g, '-').replace(/_/g, '_').replace(/=/g, '');
         const qrValue = `https://nomsams.github.io/carbonara/?verify=${encodedData}`;
         const qr = new QRious({ value: qrValue, size: 512 });
         qrImage.src = qr.toDataURL();
@@ -769,21 +776,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const payload = JSON.parse(keywords.substring('carboncert,'.length));
             log("Payload parsed from metadata.");
 
-            const page = pdfDoc.getPage(0);
-            const xObject = page.node.Resources().lookup(window.PDFLib.PDFName.of('XObject'));
-            const imageRef = xObject.keys()[0];
-            if (!imageRef) throw new Error("No image found in PDF resources.");
+            const image = (await pdfDoc.getImages())[0];
+            if (!image) throw new Error("No image found in PDF resources.");
+            log(`Image found (${image.width}x${image.height}). Extracting...`);
             
-            const image = pdfDoc.context.lookup(imageRef);
-            const imageBytes = image.getContents();
-
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = payload.canvas.split('@')[0].split('x')[0];
-            tempCanvas.height = payload.canvas.split('@')[0].split('x')[1];
+            tempCanvas.width = image.width;
+            tempCanvas.height = image.height;
             const tempCtx = tempCanvas.getContext('2d');
             
+            const imageBytes = await image.embed().then(img => img.data);
+            const blob = new Blob([imageBytes], { type: image.mimeType });
             const img = new Image();
-            const blob = new Blob([imageBytes], { type: 'image/png' });
             img.src = URL.createObjectURL(blob);
             await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             tempCtx.drawImage(img, 0, 0);
