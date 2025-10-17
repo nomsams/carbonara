@@ -769,20 +769,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const payload = JSON.parse(keywords.substring('carboncert,'.length));
             log("Payload parsed from metadata.");
 
-            const pdfImages = await pdfDoc.copy().then(doc => doc.getPages()[0].extractImages());
-            if (Object.keys(pdfImages).length === 0) throw new Error("No image found in PDF.");
+            const page = pdfDoc.getPage(0);
+            const xObject = page.node.Resources().lookup(window.PDFLib.PDFName.of('XObject'));
+            const imageRef = xObject.keys()[0];
+            if (!imageRef) throw new Error("No image found in PDF resources.");
             
-            const mainImage = Object.values(pdfImages)[0];
-            log(`Largest image found (${mainImage.width}x${mainImage.height}). Extracting...`);
-            const imageBytes = await mainImage.embed().then(img => img.data);
+            const image = pdfDoc.context.lookup(imageRef);
+            const imageBytes = image.getContents();
 
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = mainImage.width;
-            tempCanvas.height = mainImage.height;
+            tempCanvas.width = payload.canvas.split('@')[0].split('x')[0];
+            tempCanvas.height = payload.canvas.split('@')[0].split('x')[1];
             const tempCtx = tempCanvas.getContext('2d');
             
             const img = new Image();
-            const blob = new Blob([imageBytes], { type: mainImage.mimeType });
+            const blob = new Blob([imageBytes], { type: 'image/png' });
             img.src = URL.createObjectURL(blob);
             await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             tempCtx.drawImage(img, 0, 0);
