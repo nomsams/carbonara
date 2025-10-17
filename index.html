@@ -718,7 +718,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const pngImage = await pdfDoc.embedPng(pngImageBytes);
             page.drawImage(pngImage, { x: 0, y: 0, width: canvas.width, height: canvas.height });
             
-            // BUGGFIX HÄR: setKeywords förväntar sig en Array<string>.
             pdfDoc.setKeywords([`carboncert,${JSON.stringify(finalPayload)}`]);
 
             const pdfBytes = await pdfDoc.save();
@@ -750,47 +749,59 @@ document.addEventListener('DOMContentLoaded', () => {
         verifyContainer.querySelector('#verify-idle').classList.remove('active');
         verifyContainer.querySelector('#verify-loading').classList.add('active');
         
+        const diagnostics = document.getElementById('diagnostics');
+        diagnostics.textContent = '';
+        const log = (msg) => diagnostics.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+
         try {
+            log("Starting verification...");
             const { PDFDocument } = window.PDFLib;
             const pdfBytes = await file.arrayBuffer();
             const pdfDoc = await PDFDocument.load(pdfBytes);
-            
-            // BUGGFIX HÄR: getKeywords() returnerar en string, inte en array.
-            const keywordsString = pdfDoc.getKeywords();
-            if (!keywordsString || !keywordsString.startsWith('carboncert,')) {
+            log("PDF document loaded successfully.");
+
+            const keywords = pdfDoc.getKeywords();
+            if (!keywords || !keywords.startsWith('carboncert,')) {
                 throw new Error("Not a valid CarbonAra certificate (missing metadata keyword).");
             }
+            log("Metadata keyword found.");
             
-            const payload = JSON.parse(keywordsString.substring('carboncert,'.length));
+            const payload = JSON.parse(keywords.substring('carboncert,'.length));
+            log("Payload parsed from metadata.");
+
+            const pdfImages = await pdfDoc.copy().then(doc => doc.getPages()[0].extractImages());
+            if (Object.keys(pdfImages).length === 0) throw new Error("No image found in PDF.");
             
-            // BUGGFIX HÄR: Robust bildextraktion.
-            const page = pdfDoc.getPage(0);
-            const xObjects = page.getXObjects();
-            const image = xObjects[0];
-            if (!image) throw new Error("No image found in PDF resources.");
-            
-            const imageBytes = await image.fetch();
+            const mainImage = Object.values(pdfImages)[0];
+            log(`Largest image found (${mainImage.width}x${mainImage.height}). Extracting...`);
+            const imageBytes = await mainImage.embed().then(img => img.data);
 
             const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = image.width;
-            tempCanvas.height = image.height;
+            tempCanvas.width = mainImage.width;
+            tempCanvas.height = mainImage.height;
             const tempCtx = tempCanvas.getContext('2d');
             
             const img = new Image();
-            const blob = new Blob([imageBytes], { type: image.mimeType });
+            const blob = new Blob([imageBytes], { type: mainImage.mimeType });
             img.src = URL.createObjectURL(blob);
             await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
             tempCtx.drawImage(img, 0, 0);
+            log("Image drawn to temporary canvas for analysis.");
 
             const tag_extracted_from_watermark = extractData(tempCtx);
             if (!tag_extracted_from_watermark) throw new Error("Watermark could not be extracted or is corrupted.");
+            log("Watermark extracted successfully.");
 
             const tag_from_meta = payload.tag_b64;
+            log("Comparing watermark tag to metadata tag...");
             
             const hash_of_watermarked_image = await sha256(tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data.buffer);
+            log("Calculating hash of extracted image...");
 
             const canonical_rebuilt = getCanonicalString(payload);
+            log("Rebuilding canonical string for signature verification...");
             const tag_expected = await generateTag(canonical_rebuilt);
+            log("Expected signature generated.");
 
             let result = { status: 'LOW', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL' };
             if (tag_from_meta === tag_expected) result.crypto = 'OK';
@@ -802,11 +813,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (result.crypto === 'OK') {
                 result.status = 'MEDIUM';
             }
+            log(`Verification complete. Final status: ${result.status}`);
             
             displayVerificationResult(result, payload);
 
         } catch (error) {
             console.error("Verification Failed:", error);
+            log(`CRITICAL ERROR: ${error.message}`);
             displayVerificationResult({ status: 'LOW', water: 'FAIL', crypto: 'FAIL', hash: 'FAIL', error: error.message });
         }
     }
