@@ -228,8 +228,6 @@
           </div>
           <div class="input-group" style="margin-top:10px">
             <button id="btn-reset-all" class="secondary-button" type="button">Reset All Positions</button>
-            <button id="btn-save-preset" class="secondary-button" type="button" title="Save layout to browser">Save Layout</button>
-            <button id="btn-load-preset" class="secondary-button" type="button" title="Load layout from browser">Load Layout</button>
           </div>
         </div>
       </details>
@@ -347,10 +345,19 @@ function dataURLtoUint8Array(dataURL){
   for(let i=0;i<binStr.length;i++) out[i]=binStr.charCodeAt(i);
   return out;
 }
-function u8equals(a,b){
-  if(!a||!b||a.length!==b.length) return false;
-  for(let i=0;i<a.length;i++) if(a[i]!==b[i]) return false;
-  return true;
+async function sha256(bufLike){
+  const buf = bufLike instanceof ArrayBuffer ? bufLike : (bufLike?.buffer || bufLike);
+  const h=await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function hashRGBFromImageDataDataBuffer(rgbaUint8){
+  const rgb = new Uint8Array(Math.floor(rgbaUint8.length/4)*3);
+  for(let src=0,dst=0; src<rgbaUint8.length; src+=4){
+    rgb[dst++] = rgbaUint8[src];
+    rgb[dst++] = rgbaUint8[src+1];
+    rgb[dst++] = rgbaUint8[src+2];
+  }
+  return sha256(rgb.buffer);
 }
 
 /* ---------- Global state ---------- */
@@ -408,7 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.width = Number.isFinite(w) && w>0 ? Math.round(w):2480;
     canvas.height= Number.isFinite(h) && h>0 ? Math.round(h):3508;
     id('canvas-dimensions').textContent = `${canvas.width} x ${canvas.height} px`;
-    if(!loadLayout(true)){ resetAllPositions(); }
+    resetAllPositions();
     fitCanvasToView();
     requestRedraw();
   }
@@ -436,8 +443,6 @@ document.addEventListener('DOMContentLoaded', () => {
     id('image-upload').addEventListener('change', handleImageUpload);
     id('logo-upload').addEventListener('change', handleLogoUpload);
     id('btn-reset-all').addEventListener('click', resetAllPositions);
-    id('btn-save-preset').addEventListener('click', saveLayout);
-    id('btn-load-preset').addEventListener('click', ()=> loadLayout(false) || alert('No saved layout found.'));
     id('btn-reset-qr').addEventListener('click', resetQrPosition);
     id('btn-export-pdf').addEventListener('click', exportPdf);
     id('btn-generate-serial').addEventListener('click', generateNewSerial);
@@ -446,13 +451,14 @@ document.addEventListener('DOMContentLoaded', () => {
     id('zoom-in').addEventListener('click', ()=>updateZoom(0.2));
     id('zoom-out').addEventListener('click', ()=>updateZoom(-0.2));
     id('error-close-btn').addEventListener('click',()=> id('error-modal').style.display='none');
-    window.addEventListener('resize', fitCanvasToView);
 
     id('copy-diag-report').addEventListener('click', async ()=>{
       const txt=id('diagnostics').textContent||'';
       try{ await navigator.clipboard.writeText(txt); alert('Diagnostics copied.'); }
       catch{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('Diagnostics copied.'); }
     });
+
+    window.addEventListener('resize', fitCanvasToView);
 
     // drag on canvas
     let dragging=false, selectedKey=null, offset={x:0,y:0};
@@ -472,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
-    canvas.addEventListener('mousemove', e=>{
+    window.addEventListener('mousemove', e=>{
       if(!dragging||!selectedKey) return;
       const pos=getCanvasMousePos(e);
       const el = selectedKey==='logo'? logoElement : (selectedKey==='qr'? qrCodeElement : textElements[selectedKey]);
@@ -678,11 +684,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const sig=await crypto.subtle.sign('HMAC', key, data);
     return btoa(String.fromCharCode(...new Uint8Array(sig)));
   }
-  async function sha256(bufLike){
-    const buf = bufLike instanceof ArrayBuffer ? bufLike : (bufLike?.buffer || bufLike);
-    const h=await crypto.subtle.digest('SHA-256', buf);
-    return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  }
 
   /* ---------- LSB stego ---------- */
   function embedDataLSB(ctx2d, str){
@@ -706,71 +707,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
-  /* ---------- Helper: RGB-only hash from RGBA ---------- */
-  async function hashRGBFromImageDataDataBuffer(rgbaUint8){
-    const rgb = new Uint8Array(Math.floor(rgbaUint8.length/4)*3);
-    for(let src=0,dst=0; src<rgbaUint8.length; src+=4){
-      rgb[dst++] = rgbaUint8[src];
-      rgb[dst++] = rgbaUint8[src+1];
-      rgb[dst++] = rgbaUint8[src+2];
-    }
-    return sha256(rgb.buffer);
-  }
-
-  /* ---------- Low-level: embed attachment (no dependency on pdf-lib .attach) ---------- */
-  async function embedAttachmentLowLevel(pdfDoc, bytes, filename, mime='application/octet-stream'){
-    const { context } = pdfDoc;
-    const { PDFName, PDFString, PDFHexString, PDFRawStream, PDFDict } = PDFLib;
-
-    // 1) EmbeddedFile stream
-    const efDictMap = new Map();
-    efDictMap.set(PDFName.of('Type'), PDFName.of('EmbeddedFile'));
-    efDictMap.set(PDFName.of('Subtype'), PDFName.of(mime.replace('/','#2F'))); // e.g. image#2Fpng
-    const paramsDict = context.obj({ Size: bytes.length });
-    efDictMap.set(PDFName.of('Params'), paramsDict);
-    const efStream = new PDFRawStream(context, efDictMap, bytes);
-    const efRef = context.register(efStream);
-
-    // 2) FileSpec dictionary referencing EF
-    const fsDict = context.obj({
-      Type: PDFName.of('Filespec'),
-      F: PDFString.of(filename),
-      EF: context.obj({ F: efRef }),
-      Desc: PDFString.of('Original raster used to compose this document'),
-    });
-    const fsRef = context.register(fsDict);
-
-    // 3) Names tree: EmbeddedFiles
-    const catalog = pdfDoc.catalog; // available in pdf-lib
-    let Names = catalog.get(PDFName.of('Names'));
-    let NamesDict = Names ? context.lookup(Names, PDFDict) : context.obj({});
-
-    let EFTree = NamesDict.get(PDFName.of('EmbeddedFiles'));
-    let EFD = EFTree ? context.lookup(EFTree, PDFDict) : context.obj({});
-
-    // Build /Names array
-    let namesArr = EFD.get(PDFName.of('Names'));
-    let names = namesArr ? context.lookup(namesArr) : context.obj([]);
-    // push (name, filespec)
-    names.push(PDFString.of(filename));
-    names.push(fsRef);
-
-    // set back
-    EFD.set(PDFName.of('Names'), names);
-    NamesDict.set(PDFName.of('EmbeddedFiles'), EFD);
-    catalog.set(PDFName.of('Names'), NamesDict);
-
-    return { efRef, fsRef };
-  }
-
-  /* ---------- Export PDF ---------- */
+  /* ---------- Export PDF (robust; no low-level Names tree) ---------- */
   async function exportPdf(){
     const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
     modal.style.display='flex';
     const step=(msg,p)=>{ status.textContent=msg; bar.style.width=p; };
 
     try{
-      step('Step 1/8: Preparing canvas…','8%'); await delay(20);
+      step('Step 1/7: Preparing canvas…','8%'); await delay(10);
 
       const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
       const cx=c.getContext('2d',{ willReadFrequently:true });
@@ -788,11 +732,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if(inputs.qrMode.value==='with_qr' && qrImage.src){ cx.globalAlpha=qrCodeElement.alpha; cx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); cx.globalAlpha=1.0; }
 
-      step('Step 2/8: Calculating image hashes…','22%');
+      step('Step 2/7: Calculating image hashes…','22%');
       const origID = cx.getImageData(0,0,c.width,c.height);
       const imageHashOriginal = await sha256(origID.data.buffer);
 
-      // First embed a provisional tag, then recompute hashes with watermark included
+      // Provisional tag -> embed -> recompute watermarked hashes
       const provisionalTag = await generateTag(getCanonicalString({
         v:1, serial:inputs.serial.value, name:(inputs.name.value||'').normalize('NFC'), amount:inputs.amount.value||'', date:inputs.date.value||'', type:(inputs.type.value||'').normalize('NFC'),
         imageHashOriginal, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:'',
@@ -814,10 +758,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const imageHashWatermarked = await sha256(wmID.data.buffer);
       const imageHashRGB = await hashRGBFromImageDataDataBuffer(wmID.data);
 
-      step('Step 3/8: Serializing PNG (watermarked)…','30%');
+      step('Step 3/7: Serializing PNG (watermarked)…','34%');
       const pngURI = c.toDataURL('image/png');
       const pngBytes = dataURLtoUint8Array(pngURI);
-      const imageHashAttachment = await sha256(pngBytes.buffer); // stable exact bytes we embed
+      const imageHashAttachment = await sha256(pngBytes.buffer);
 
       const basePayload = {
         v:1, serial:inputs.serial.value,
@@ -841,52 +785,41 @@ document.addEventListener('DOMContentLoaded', () => {
         qrMode:inputs.qrMode.value,
         qrPos:{x:Number(qrCodeElement.x||0).toFixed(4), y:Number(qrCodeElement.y||0).toFixed(4)},
         qrAlpha:Number(qrCodeElement.alpha||0).toFixed(2),
-        canvas:`${canvas.width}x${inputs.dpi.value?canvas.height:canvas.height}@${inputs.dpi.value}`,
+        canvas:`${canvas.width}x${canvas.height}@${inputs.dpi.value}`,
         app:'CarbonCert-5.0.0'
       };
       const finalTag = await generateTag(getCanonicalString(basePayload));
 
-      step('Step 4/8: Building PDF…','45%');
+      step('Step 4/7: Building PDF…','50%');
       const { PDFDocument } = window.PDFLib;
       const pdfDoc=await PDFDocument.create();
       const page=pdfDoc.addPage([canvas.width, canvas.height]);
 
-      // Draw the PNG on the page
       const pngImg=await pdfDoc.embedPng(pngBytes);
       page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
 
-      // Low-level embed the ORIGINAL PNG as an attachment (so verification can access exact bytes; no two-pass save needed)
-      step('Step 5/8: Embedding original raster as attachment…','58%');
+      // Attach raster using high-level API to avoid low-level Name tree corruption
+      step('Step 5/7: Embedding raster as attachment…','66%');
       try{
-        await embedAttachmentLowLevel(pdfDoc, pngBytes, `CarbonAra-${basePayload.serial}.png`, 'image/png');
+        // pdf-lib .attach accepts (embed, name?, options?)
+        await pdfDoc.attach(pngBytes, `CarbonAra-${basePayload.serial}.png`, {
+          mimeType:'image/png', description:'Original raster used to compose this document', createDate:new Date(), modificationDate:new Date()
+        });
       }catch(e){
-        console.warn('Low-level attachment failed, continuing without embedded file.', e);
+        console.warn('Attachment skipped:', e);
       }
 
-      // Put payload + tag into Keywords
+      // Embed payload in Keywords (single string for maximal compatibility)
       const keywordsStr = `carboncert,${JSON.stringify({...basePayload, tag_b64:finalTag})}`;
-      pdfDoc.setKeywords([keywordsStr]);
+      pdfDoc.setKeywords(keywordsStr);
       pdfDoc.setProducer('CarbonAra');
       pdfDoc.setCreator('CarbonAra:PNG@PDF');
       pdfDoc.setTitle(`CarbonAra ${basePayload.serial}`);
 
-      step('Step 6/8: Finalizing…','72%');
+      step('Step 6/7: Finalizing…','84%');
       const pdfBytes = await pdfDoc.save({ useObjectStreams:false });
 
-      step('Step 7/8: Verifying integrity (self-check)…','86%');
-      // Lightweight self-check: ensure embedded payload round-trips
-      try{
-        const doc2 = await PDFDocument.load(pdfBytes, { ignoreEncryption:true });
-        const k2 = doc2.getKeywords?.();
-        if(Array.isArray(k2)){
-          const found = k2.find(x=> typeof x==='string' && x.startsWith('carboncert,')) || k2[0];
-          if(!found) throw new Error('Missing keywords on reload.');
-          const pl = safeJsonParse(found.slice('carboncert,'.length)) || {};
-          if(pl.imageHashAttachment !== imageHashAttachment) console.warn('Attachment hash mismatch on reload (may still be okay if attachment failed).');
-        }
-      }catch(e){ console.warn('Self-check skipped:', e); }
-
-      step('Step 8/8: Downloading…','96%');
+      step('Step 7/7: Downloading…','96%');
       download(pdfBytes,`CarbonCert-${basePayload.serial}.pdf`,'application/pdf');
 
       id('progress-bar-inner').style.width='100%';
@@ -906,7 +839,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(e){ showError('Download Error', e?.stack||String(e)); }
   }
 
-  /* ---------- Verification (multi-failsafe; no external network required) ---------- */
+  /* ---------- Verification (attachment-first; no external PDF.js) ---------- */
   async function handleVerifyUpload(ev){
     const file=ev.target.files?.[0]; if(!file) return;
 
@@ -943,7 +876,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const result={ crypto:(tagFromMeta===expected)?'OK':'FAIL', water:'SKIPPED', hash:'SKIPPED', status:'LOW' };
 
       if(result.crypto==='OK'){
-        // 0) Attachment-first: exact bytes (now embedded by low-level method)
+        // 0) Attachment-first: exact bytes
         try{
           const attachment = await tryGetEmbeddedAttachmentBytes(pdfDoc);
           if(attachment && attachment.bytes){
@@ -955,7 +888,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const attAnalysis = await analyzeImageBytes(attachment.bytes);
             if(attAnalysis){
               const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = attAnalysis;
-              // Compare to both watermarked hashes
               if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
               if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
             }
@@ -964,7 +896,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }catch(e0){ log('Attachment-based verification failed: '+(e0?.message||String(e0))); }
 
-        // A) pdf-lib XObject traversal (decoding if possible) – best-effort fallback
+        // A) pdf-lib XObject traversal (best-effort)
         if(result.hash!=='OK' || result.water!=='OK'){
           try{
             log('Attempting bitmap extraction (Strategy A: pdf-lib XObject traversal)…');
@@ -993,8 +925,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Final status policy:
-      // - HIGH if crypto OK AND (water OK OR hash OK)
-      // - MEDIUM if only crypto OK
       if(result.crypto==='OK' && (result.water==='OK' || result.hash==='OK')) result.status='HIGH';
       else if(result.crypto==='OK') result.status='MEDIUM';
       else result.status='LOW';
@@ -1012,7 +942,7 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ---------- Attachment helpers ---------- */
   async function tryGetEmbeddedAttachmentBytes(pdfDoc){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-    // First, search Filespec dictionaries
+    // Search Filespec dictionaries for EF streams
     try{
       for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && obj.dict && obj.dict.get){
@@ -1040,7 +970,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }catch(_e){ /* fallthrough */ }
 
-    // Fallback: direct EmbeddedFile streams
+    // Fallback: any EmbeddedFile streams
     try{
       for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
@@ -1102,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  /* ---------- Strategy A: pdf-lib object traversal ---------- */
+  /* ---------- Strategy A: pdf-lib traversal ---------- */
   async function extractImageLikeWithPdfLib(pdfDoc, types){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = types;
     const pages=pdfDoc.getPages();
@@ -1125,12 +1055,10 @@ document.addEventListener('DOMContentLoaded', () => {
                   const maybeBytes = stream.getContents ? stream.getContents() : stream.contents;
                   if(maybeBytes && maybeBytes.byteLength){
                     const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
-                    // If this is actually a PNG stream (rare), we can decode via <img>
                     if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
                       const b64 = btoa(String.fromCharCode(...u8));
                       return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
                     }
-                    // Else, treat as raw samples (already decoded by pdf-lib stream.getContents, if filters were applied upstream)
                     const width = numFromDict(stream.dict, PDFName.of('Width'));
                     const height= numFromDict(stream.dict, PDFName.of('Height'));
                     const bpc   = numFromDict(stream.dict, PDFName.of('BitsPerComponent')) || 8;
@@ -1255,31 +1183,6 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
   }
   function showError(msg,details){ id('error-message').textContent=msg||'Unknown Error'; id('error-details').textContent=details||''; id('error-modal').style.display='flex'; }
-
-  /* ---------- Layout save/load ---------- */
-  function saveLayout(){
-    try{
-      const L={
-        fontSizeName:inputs.fontSizeName.value, xName:inputs.xName.value, yName:inputs.yName.value,
-        fontSizeOther:inputs.fontSizeOther.value, xAmount:inputs.xAmount.value, yAmount:inputs.yAmount.value,
-        xDate:inputs.xDate.value, yDate:inputs.yDate.value, xType:inputs.xType.value, yType:inputs.yType.value,
-        fontSizeSerial:inputs.fontSizeSerial.value, xSerial:inputs.xSerial.value, ySerial:inputs.ySerial.value,
-        xLogo:inputs.xLogo.value, yLogo:inputs.yLogo.value, wLogo:inputs.wLogo.value,
-        xQr:inputs.xQr.value, yQr:inputs.yQr.value, alphaQr:inputs.alphaQr.value
-      };
-      localStorage.setItem('carbonara_layout_v1', JSON.stringify(L));
-      alert('Layout saved.');
-    }catch(e){ showError('Save Layout Error', e?.stack||String(e)); }
-  }
-  function loadLayout(silent=false){
-    try{
-      const raw=localStorage.getItem('carbonara_layout_v1'); if(!raw) return false;
-      const L=safeJsonParse(raw); if(!L) return false;
-      Object.entries(L).forEach(([k,v])=>{ if(inputs[k]) inputs[k].value=v; });
-      if(!silent) requestRedraw();
-      return true;
-    }catch(e){ if(!silent) showError('Load Layout Error', e?.stack||String(e)); return false; }
-  }
 
   /* ---------- Start ---------- */
   init();
