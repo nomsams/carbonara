@@ -338,12 +338,22 @@
 const safeJsonParse = (s)=>{ try{return JSON.parse(s)}catch{return null} };
 const delay = (ms)=>new Promise(r=>setTimeout(r,ms));
 const debounce=(fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+
 function dataURLtoUint8Array(dataURL){
   const base64 = dataURL.split(',')[1] || '';
   const binStr = atob(base64);
   const out = new Uint8Array(binStr.length);
   for(let i=0;i<binStr.length;i++) out[i]=binStr.charCodeAt(i);
   return out;
+}
+function u8ToBase64(u8){
+  let bin=''; for(let i=0;i<u8.length;i++) bin+=String.fromCharCode(u8[i]);
+  return btoa(bin);
+}
+function base64ToU8(b64){
+  const bin=atob(b64); const u8=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+  return u8;
 }
 async function sha256(bufLike){
   const buf = bufLike instanceof ArrayBuffer ? bufLike : (bufLike?.buffer || bufLike);
@@ -707,14 +717,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
-  /* ---------- Export PDF (robust; no low-level Names tree) ---------- */
+  /* ---------- Export PDF (robust metadata; fixes setKeywords error) ---------- */
   async function exportPdf(){
     const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
     modal.style.display='flex';
     const step=(msg,p)=>{ status.textContent=msg; bar.style.width=p; };
 
     try{
-      step('Step 1/7: Preparing canvas…','8%'); await delay(10);
+      step('Step 1/8: Preparing canvas…','8%'); await delay(10);
 
       const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
       const cx=c.getContext('2d',{ willReadFrequently:true });
@@ -732,7 +742,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if(inputs.qrMode.value==='with_qr' && qrImage.src){ cx.globalAlpha=qrCodeElement.alpha; cx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); cx.globalAlpha=1.0; }
 
-      step('Step 2/7: Calculating image hashes…','22%');
+      step('Step 2/8: Calculating image hashes…','22%');
       const origID = cx.getImageData(0,0,c.width,c.height);
       const imageHashOriginal = await sha256(origID.data.buffer);
 
@@ -758,7 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const imageHashWatermarked = await sha256(wmID.data.buffer);
       const imageHashRGB = await hashRGBFromImageDataDataBuffer(wmID.data);
 
-      step('Step 3/7: Serializing PNG (watermarked)…','34%');
+      step('Step 3/8: Serializing PNG (watermarked)…','34%');
       const pngURI = c.toDataURL('image/png');
       const pngBytes = dataURLtoUint8Array(pngURI);
       const imageHashAttachment = await sha256(pngBytes.buffer);
@@ -789,8 +799,14 @@ document.addEventListener('DOMContentLoaded', () => {
         app:'CarbonCert-5.0.0'
       };
       const finalTag = await generateTag(getCanonicalString(basePayload));
+      const payloadWithTag = { ...basePayload, tag_b64: finalTag };
 
-      step('Step 4/7: Building PDF…','50%');
+      // Prepare compact, ASCII-safe metadata: "carboncert" + base64(JSON)
+      const jsonBytes = new TextEncoder().encode(JSON.stringify(payloadWithTag));
+      const jsonB64 = u8ToBase64(jsonBytes);
+      const keywordsArray = ['carboncert', jsonB64]; // keep short tokens
+
+      step('Step 4/8: Building PDF…','50%');
       const { PDFDocument } = window.PDFLib;
       const pdfDoc=await PDFDocument.create();
       const page=pdfDoc.addPage([canvas.width, canvas.height]);
@@ -798,30 +814,52 @@ document.addEventListener('DOMContentLoaded', () => {
       const pngImg=await pdfDoc.embedPng(pngBytes);
       page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
 
-      // Attach raster using high-level API to avoid low-level Name tree corruption
-      step('Step 5/7: Embedding raster as attachment…','66%');
+      // Attach raster safely
+      step('Step 5/8: Embedding raster as attachment…','62%');
       try{
         await pdfDoc.attach(pngBytes, `CarbonAra-${basePayload.serial}.png`, {
           mimeType:'image/png', description:'Original raster used to compose this document', createDate:new Date(), modificationDate:new Date()
         });
       }catch(e){
-        console.warn('Attachment skipped:', e);
+        console.warn('Attachment (PNG) skipped:', e);
       }
 
-      // Embed payload in Keywords.
-      // IMPORTANT: pdf-lib setKeywords expects an array of strings (XMP-safe). Passing a single string causes an exception.
-      const keywordsStr = `carboncert,${JSON.stringify({...basePayload, tag_b64:finalTag})}`;
-      pdfDoc.setKeywords([keywordsStr]); // <-- FIX: pass array, not a single string
+      // Attach JSON payload as well for rock-solid retrieval
+      step('Step 6/8: Embedding payload JSON…','74%');
+      try{
+        await pdfDoc.attach(jsonBytes, `carboncert-${basePayload.serial}.json`, {
+          mimeType:'application/json', description:'CarbonAra certificate payload (authenticity data)', createDate:new Date(), modificationDate:new Date()
+        });
+      }catch(e){ console.warn('Attachment (JSON) skipped:', e); }
+
+      // Set metadata (robust: try setKeywords -> fallback to Subject)
       pdfDoc.setProducer('CarbonAra');
       pdfDoc.setCreator('CarbonAra:PNG@PDF');
       pdfDoc.setTitle(`CarbonAra ${basePayload.serial}`);
 
-      step('Step 6/7: Finalizing…','84%');
+      step('Step 7/8: Writing metadata…','86%');
+      let keywordsOk = false;
+      try{
+        // Some pdf-lib versions throw if the array contains non-ASCII or overly-long entries.
+        // We pass two short ASCII tokens only.
+        pdfDoc.setKeywords(keywordsArray);
+        keywordsOk = true;
+      }catch(eK){
+        console.warn('setKeywords failed, falling back to Subject:', eK);
+        try{
+          pdfDoc.setSubject(`carboncert,${jsonB64}`); // compact, ASCII-safe
+          keywordsOk = true;
+        }catch(eS){
+          console.warn('setSubject also failed; metadata will rely on attachments.', eS);
+          // As a last resort, write compact info into Author (safe ASCII)
+          try{ pdfDoc.setAuthor(`carboncert:${jsonB64}`); } catch(eA){ /* ignore */ }
+        }
+      }
+
+      step('Step 8/8: Finalizing & downloading…','94%');
       const pdfBytes = await pdfDoc.save({ useObjectStreams:false });
 
-      step('Step 7/7: Downloading…','96%');
       download(pdfBytes,`CarbonCert-${basePayload.serial}.pdf`,'application/pdf');
-
       id('progress-bar-inner').style.width='100%';
       setTimeout(()=> id('progress-modal').style.display='none',600);
     }catch(e){
@@ -839,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(e){ showError('Download Error', e?.stack||String(e)); }
   }
 
-  /* ---------- Verification (attachment-first; no external PDF.js) ---------- */
+  /* ---------- Verification (attachment/keywords/subject/author-aware) ---------- */
   async function handleVerifyUpload(ev){
     const file=ev.target.files?.[0]; if(!file) return;
 
@@ -857,14 +895,69 @@ document.addEventListener('DOMContentLoaded', () => {
       const pdfDoc=await PDFDocument.load(pdfBytes,{ ignoreEncryption:true });
       log('PDF document loaded successfully.');
 
-      // --- Metadata payload
-      let keywords = pdfDoc.getKeywords?.() || null;
-      if(Array.isArray(keywords)) keywords = keywords.find(k=> typeof k==='string' && k.startsWith('carboncert,')) || keywords[0];
-      if(typeof keywords!=='string' || !keywords.startsWith('carboncert,')) throw new Error('Not a valid CarbonAra certificate (missing metadata keyword).');
-      log('Metadata keyword found.');
-      const payloadStr=keywords.substring('carboncert,'.length);
-      const payload=safeJsonParse(payloadStr); if(!payload) throw new Error('Invalid embedded payload JSON.');
-      log('Payload parsed from metadata.');
+      // --- Locate payload: Keywords -> Subject -> Author -> JSON attachment
+      let payload = null;
+      let location = 'none';
+
+      // 1) Keywords path: expect ['carboncert', base64]
+      try{
+        let kws = pdfDoc.getKeywords?.() || null;
+        if(Array.isArray(kws) && kws.length){
+          const hasFlag = kws.find(k => typeof k==='string' && k.toLowerCase()==='carboncert');
+          const b64 = kws.find(k => typeof k==='string' && k!==hasFlag && /^[A-Za-z0-9+/=]+$/.test(k) && k.length>20);
+          if(hasFlag && b64){
+            const bytes = base64ToU8(b64);
+            const json = new TextDecoder().decode(bytes);
+            const obj = safeJsonParse(json);
+            if(obj) { payload=obj; location='keywords'; }
+          }
+        }
+      }catch(_eK){ /* ignore */ }
+
+      // 2) Subject fallback
+      if(!payload){
+        try{
+          const subj = pdfDoc.getSubject?.();
+          if(typeof subj==='string' && subj.startsWith('carboncert,')){
+            const b64 = subj.slice('carboncert,'.length);
+            const bytes = base64ToU8(b64);
+            const json = new TextDecoder().decode(bytes);
+            const obj = safeJsonParse(json);
+            if(obj){ payload=obj; location='subject'; }
+          }
+        }catch(_eS){ /* ignore */ }
+      }
+
+      // 3) Author fallback (`carboncert:<b64>`)
+      if(!payload){
+        try{
+          const author = pdfDoc.getAuthor?.();
+          if(typeof author==='string' && author.startsWith('carboncert:')){
+            const b64 = author.slice('carboncert:'.length);
+            const bytes = base64ToU8(b64);
+            const json = new TextDecoder().decode(bytes);
+            const obj = safeJsonParse(json);
+            if(obj){ payload=obj; location='author'; }
+          }
+        }catch(_eA){ /* ignore */ }
+      }
+
+      // 4) JSON attachment fallback
+      if(!payload){
+        try{
+          const jsonAttach = await tryGetJsonAttachmentBytes(pdfDoc);
+          if(jsonAttach){
+            const json = new TextDecoder().decode(jsonAttach);
+            const obj = safeJsonParse(json);
+            if(obj){ payload=obj; location='attachment-json'; }
+          }
+        }catch(_eJ){ /* ignore */ }
+      }
+
+      if(!payload){
+        throw new Error('No embedded CarbonAra payload found in Keywords/Subject/Author/Attachments.');
+      }
+      log(`Payload found via: ${location}.`);
 
       // --- Crypto check (authoritative)
       log('Rebuilding canonical string for signature verification…');
@@ -876,7 +969,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const result={ crypto:(tagFromMeta===expected)?'OK':'FAIL', water:'SKIPPED', hash:'SKIPPED', status:'LOW' };
 
       if(result.crypto==='OK'){
-        // 0) Attachment-first: exact bytes
+        // 0) Attachment-first: PNG or image for direct pixel/hash/LSB
         try{
           const attachment = await tryGetEmbeddedAttachmentBytes(pdfDoc);
           if(attachment && attachment.bytes){
@@ -892,7 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
               if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
             }
           } else {
-            log('No embedded attachment found.');
+            log('No embedded PNG/JPEG attachment found.');
           }
         }catch(e0){ log('Attachment-based verification failed: '+(e0?.message||String(e0))); }
 
@@ -940,9 +1033,69 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ---------- Attachment helpers ---------- */
+  async function tryGetJsonAttachmentBytes(pdfDoc){
+    const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
+    // Filespec dictionaries first
+    try{
+      for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
+        if(obj && obj.dict && obj.dict.get){
+          const type = obj.dict.get(PDFName.of('Type'));
+          if(String(type)==='/Filespec'){
+            const fname = obj.dict.get(PDFName.of('F'));
+            const ufname= obj.dict.get(PDFName.of('UF'));
+            const nameStr = (fname?String(fname):'') + (ufname?String(ufname):'');
+            if(/carboncert-.*\.json$/i.test(nameStr)){
+              const ef = obj.dict.get(PDFName.of('EF'));
+              if(ef){
+                const efDict = pdfDoc.context.lookup(ef, PDFDict);
+                const keys = efDict.keys? efDict.keys(): [];
+                for(const k of keys){
+                  const streamRef = efDict.get ? efDict.get(k) : null;
+                  if(!streamRef) continue;
+                  const stream = pdfDoc.context.lookup(streamRef);
+                  if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+                    const contents = stream.getContents ? stream.getContents() : stream.contents;
+                    if(contents) return (contents instanceof Uint8Array)? contents : new Uint8Array(contents);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }catch(_e){ /* ignore */ }
+
+    // Fallback: any EmbeddedFile with JSON-ish name
+    try{
+      for(const [ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
+        if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
+          const subtype = obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+          const params = obj.dict.get && obj.dict.get(PDFName.of('Params'));
+          let isJson=false;
+          if(String(subtype)==='/EmbeddedFile'){
+            const fn = params ? (pdfDoc.context.lookup(params, PDFDict)?.get(PDFName.of('ModDate'))):null;
+            // Can't always read names here; just try by size type.
+            // We'll sniff later.
+            isJson=true;
+          }
+          if(isJson){
+            const contents = obj.getContents ? obj.getContents() : obj.contents;
+            if(contents){
+              const u8 = contents instanceof Uint8Array ? contents : new Uint8Array(contents);
+              // quick sniff
+              const head = new TextDecoder().decode(u8.slice(0,20));
+              if(head.trim().startsWith('{') || head.includes('"serial"') || head.includes('"tag_b64"')) return u8;
+            }
+          }
+        }
+      }
+    }catch(_e2){ /* ignore */ }
+    return null;
+  }
+
   async function tryGetEmbeddedAttachmentBytes(pdfDoc){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-    // Search Filespec dictionaries for EF streams
+    // Prefer Filespec EF entries for PNG
     try{
       for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && obj.dict && obj.dict.get){
@@ -960,7 +1113,9 @@ document.addEventListener('DOMContentLoaded', () => {
                   const contents = stream.getContents ? stream.getContents() : stream.contents;
                   if(contents){
                     const u8 = contents instanceof Uint8Array ? contents : new Uint8Array(contents);
-                    return { bytes: u8 };
+                    // Prefer PNG/JPEG-like by signature
+                    if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return { bytes:u8 }; // PNG
+                    if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return { bytes:u8 }; // JPEG
                   }
                 }
               }
@@ -968,7 +1123,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       }
-    }catch(_e){ /* fallthrough */ }
+    }catch(_e){ /* ignore */ }
 
     // Fallback: any EmbeddedFile streams
     try{
@@ -979,7 +1134,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const contents = obj.getContents ? obj.getContents() : obj.contents;
             if(contents){
               const u8 = contents instanceof Uint8Array ? contents : new Uint8Array(contents);
-              return { bytes: u8 };
+              // Try image-like first
+              if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return { bytes:u8 };
+              if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return { bytes:u8 };
             }
           }
         }
@@ -1056,7 +1213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   if(maybeBytes && maybeBytes.byteLength){
                     const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
                     if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
-                      const b64 = btoa(String.fromCharCode(...u8));
+                      const b64 = u8ToBase64(u8);
                       return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
                     }
                     const width = numFromDict(stream.dict, PDFName.of('Width'));
@@ -1084,7 +1241,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(maybeBytes && maybeBytes.byteLength){
               const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
               if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
-                const b64=btoa(String.fromCharCode(...u8));
+                const b64=u8ToBase64(u8);
                 return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
               }
               const width = numFromDict(obj.dict, types.PDFName.of('Width'));
