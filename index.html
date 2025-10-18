@@ -695,7 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return btoa(String.fromCharCode(...new Uint8Array(sig)));
   }
 
-  /* ---------- LSB stego ---------- */
+  /* ---------- LSB stego (now embeds FULL payload too) ---------- */
   function embedDataLSB(ctx2d, str){
     const term="::END::";
     const bits=Array.from(str+term).map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join('');
@@ -717,14 +717,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
-  /* ---------- Export PDF (robust metadata; fixes setKeywords error) ---------- */
+  /* ---------- Export PDF (robust metadata & multiple fallbacks) ---------- */
   async function exportPdf(){
     const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
     modal.style.display='flex';
     const step=(msg,p)=>{ status.textContent=msg; bar.style.width=p; };
 
     try{
-      step('Step 1/8: Preparing canvas…','8%'); await delay(10);
+      step('Step 1/9: Preparing canvas…','8%'); await delay(10);
 
       const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
       const cx=c.getContext('2d',{ willReadFrequently:true });
@@ -742,37 +742,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if(inputs.qrMode.value==='with_qr' && qrImage.src){ cx.globalAlpha=qrCodeElement.alpha; cx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); cx.globalAlpha=1.0; }
 
-      step('Step 2/8: Calculating image hashes…','22%');
+      step('Step 2/9: Calculating image hashes…','20%');
       const origID = cx.getImageData(0,0,c.width,c.height);
       const imageHashOriginal = await sha256(origID.data.buffer);
 
-      // Provisional tag -> embed -> recompute watermarked hashes
-      const provisionalTag = await generateTag(getCanonicalString({
-        v:1, serial:inputs.serial.value, name:(inputs.name.value||'').normalize('NFC'), amount:inputs.amount.value||'', date:inputs.date.value||'', type:(inputs.type.value||'').normalize('NFC'),
-        imageHashOriginal, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:'',
-        posName:{x:Number(textElements.name.x).toFixed(4), y:Number(textElements.name.y).toFixed(4)},
-        posAmount:{x:Number(textElements.amount.x).toFixed(4), y:Number(textElements.amount.y).toFixed(4)},
-        posDate:{x:Number(textElements.date.x).toFixed(4), y:Number(textElements.date.y).toFixed(4)},
-        posType:{x:Number(textElements.type.x).toFixed(4), y:Number(textElements.type.y).toFixed(4)},
-        posSerial:{x:Number(textElements.serial.x).toFixed(4), y:Number(textElements.serial.y).toFixed(4)},
-        posLogo:{x:Number(logoElement.x||0).toFixed(4), y:Number(logoElement.y||0).toFixed(4), w:Number(logoElement.width||0).toFixed(4)},
-        fontName:`GreatVibes-${Number(textElements.name.fontSize||0)}px`,
-        fontOther:`Montserrat-${Number(textElements.amount.fontSize||0)}px`,
-        fontSerial:`Montserrat-${Number(textElements.serial.fontSize||0)}px`,
-        qrMode:inputs.qrMode.value, qrPos:{x:Number(qrCodeElement.x||0).toFixed(4), y:Number(qrCodeElement.y||0).toFixed(4)}, qrAlpha:Number(qrCodeElement.alpha||0).toFixed(2),
-        canvas:`${canvas.width}x${canvas.height}@${inputs.dpi.value}`, app:'CarbonCert-5.0.0'
-      }));
-      embedDataLSB(cx, provisionalTag);
-
-      const wmID = cx.getImageData(0,0,c.width,c.height);
-      const imageHashWatermarked = await sha256(wmID.data.buffer);
-      const imageHashRGB = await hashRGBFromImageDataDataBuffer(wmID.data);
-
-      step('Step 3/8: Serializing PNG (watermarked)…','34%');
-      const pngURI = c.toDataURL('image/png');
-      const pngBytes = dataURLtoUint8Array(pngURI);
-      const imageHashAttachment = await sha256(pngBytes.buffer);
-
+      // Build payload skeleton first
       const basePayload = {
         v:1, serial:inputs.serial.value,
         name:(inputs.name.value||'').normalize('NFC'),
@@ -780,9 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
         date:inputs.date.value||'',
         type:(inputs.type.value||'').normalize('NFC'),
         imageHashOriginal,
-        imageHashWatermarked,
-        imageHashRGB,
-        imageHashAttachment,
+        imageHashWatermarked:'', imageHashRGB:'', imageHashAttachment:'',
         posName:{x:Number(textElements.name.x).toFixed(4), y:Number(textElements.name.y).toFixed(4)},
         posAmount:{x:Number(textElements.amount.x).toFixed(4), y:Number(textElements.amount.y).toFixed(4)},
         posDate:{x:Number(textElements.date.x).toFixed(4), y:Number(textElements.date.y).toFixed(4)},
@@ -798,65 +770,101 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas:`${canvas.width}x${canvas.height}@${inputs.dpi.value}`,
         app:'CarbonCert-5.0.0'
       };
+
+      // First embed provisional info to compute final hashes
+      step('Step 3/9: Provisional watermark…','28%');
+      const provisionalTag = await generateTag(getCanonicalString({...basePayload, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:''}));
+      embedDataLSB(cx, `TAG:${provisionalTag}||CCJSON:pending::END::`);
+
+      const wmID = cx.getImageData(0,0,c.width,c.height);
+      const imageHashWatermarked = await sha256(wmID.data.buffer);
+      const imageHashRGB = await hashRGBFromImageDataDataBuffer(wmID.data);
+
+      step('Step 4/9: Serializing PNG (watermarked)…','36%');
+      const pngURI = c.toDataURL('image/png');
+      const pngBytes = dataURLtoUint8Array(pngURI);
+      const imageHashAttachment = await sha256(pngBytes.buffer);
+
+      // Final payload + tag
+      basePayload.imageHashWatermarked = imageHashWatermarked;
+      basePayload.imageHashRGB = imageHashRGB;
+      basePayload.imageHashAttachment = imageHashAttachment;
+
       const finalTag = await generateTag(getCanonicalString(basePayload));
       const payloadWithTag = { ...basePayload, tag_b64: finalTag };
 
-      // Prepare compact, ASCII-safe metadata: "carboncert" + base64(JSON)
+      // Re-embed full payload JSON (LSB) so verification can ALWAYS recover payload even if metadata/attachments are stripped.
+      step('Step 5/9: Embedding full payload in LSB…','44%');
       const jsonBytes = new TextEncoder().encode(JSON.stringify(payloadWithTag));
       const jsonB64 = u8ToBase64(jsonBytes);
-      const keywordsArray = ['carboncert', jsonB64]; // keep short tokens
+      // redraw clean to ensure payload watermark is what goes into PDF
+      cx.clearRect(0,0,c.width,c.height);
+      if(bgImageLoaded) cx.drawImage(bgImage,0,0,c.width,c.height); else { cx.fillStyle='#FFF'; cx.fillRect(0,0,c.width,c.height); }
+      if(logoImageLoaded && logoElement.width>0) cx.drawImage(logoImage,logoElement.x,logoElement.y,logoElement.width,logoElement.height);
+      Object.values(textElements).forEach(el=>{
+        const size=Number.isFinite(el.fontSize)? el.fontSize:12;
+        cx.font=`${size}px '${el.font||'Montserrat'}'`;
+        const w=cx.measureText(el.text||'').width;
+        cx.fillStyle='#000'; cx.fillText(el.text||'', el.x - w/2, el.y);
+      });
+      if(inputs.qrMode.value==='with_qr' && qrImage.src){ cx.globalAlpha=qrCodeElement.alpha; cx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); cx.globalAlpha=1.0; }
+      embedDataLSB(cx, `TAG:${finalTag}||CCJSON:${jsonB64}::END::`);
 
-      step('Step 4/8: Building PDF…','50%');
+      // recompute definitive hashes from the actually embedded bitmap
+      const wmID2 = cx.getImageData(0,0,c.width,c.height);
+      basePayload.imageHashWatermarked = await sha256(wmID2.data.buffer);
+      basePayload.imageHashRGB = await hashRGBFromImageDataDataBuffer(wmID2.data);
+      const pngURI2 = c.toDataURL('image/png');
+      const pngBytes2 = dataURLtoUint8Array(pngURI2);
+      basePayload.imageHashAttachment = await sha256(pngBytes2.buffer);
+      const finalTag2 = await generateTag(getCanonicalString(basePayload));
+      const finalPayload = { ...basePayload, tag_b64: finalTag2 };
+      const finalJsonBytes = new TextEncoder().encode(JSON.stringify(finalPayload));
+      const finalJsonB64 = u8ToBase64(finalJsonBytes);
+
+      step('Step 6/9: Building PDF…','58%');
       const { PDFDocument } = window.PDFLib;
       const pdfDoc=await PDFDocument.create();
       const page=pdfDoc.addPage([canvas.width, canvas.height]);
 
-      const pngImg=await pdfDoc.embedPng(pngBytes);
+      const pngImg=await pdfDoc.embedPng(pngBytes2);
       page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
 
       // Attach raster safely
-      step('Step 5/8: Embedding raster as attachment…','62%');
+      step('Step 7/9: Embedding raster & JSON attachments…','70%');
       try{
-        await pdfDoc.attach(pngBytes, `CarbonAra-${basePayload.serial}.png`, {
+        await pdfDoc.attach(pngBytes2, `CarbonAra-${basePayload.serial}.png`, {
           mimeType:'image/png', description:'Original raster used to compose this document', createDate:new Date(), modificationDate:new Date()
         });
       }catch(e){
         console.warn('Attachment (PNG) skipped:', e);
       }
-
-      // Attach JSON payload as well for rock-solid retrieval
-      step('Step 6/8: Embedding payload JSON…','74%');
       try{
-        await pdfDoc.attach(jsonBytes, `carboncert-${basePayload.serial}.json`, {
+        await pdfDoc.attach(finalJsonBytes, `carboncert-${basePayload.serial}.json`, {
           mimeType:'application/json', description:'CarbonAra certificate payload (authenticity data)', createDate:new Date(), modificationDate:new Date()
         });
       }catch(e){ console.warn('Attachment (JSON) skipped:', e); }
 
-      // Set metadata (robust: try setKeywords -> fallback to Subject)
+      // Set safe metadata (multiple fallbacks for later retrieval)
       pdfDoc.setProducer('CarbonAra');
       pdfDoc.setCreator('CarbonAra:PNG@PDF');
-      pdfDoc.setTitle(`CarbonAra ${basePayload.serial}`);
 
-      step('Step 7/8: Writing metadata…','86%');
-      let keywordsOk = false;
-      try{
-        // Some pdf-lib versions throw if the array contains non-ASCII or overly-long entries.
-        // We pass two short ASCII tokens only.
-        pdfDoc.setKeywords(keywordsArray);
-        keywordsOk = true;
-      }catch(eK){
+      step('Step 8/9: Writing metadata…','82%');
+      // Title includes compact payload marker as a fallback retrieval path:
+      try{ pdfDoc.setTitle(`CarbonAra ${basePayload.serial} | carboncert,${finalJsonB64}`);}catch(e){ console.warn('setTitle failed',e); }
+
+      // Prefer Keywords if allowed; otherwise we fall back to Subject / Author automatically
+      try{ pdfDoc.setKeywords(['carboncert', finalJsonB64]); }
+      catch(eK){
         console.warn('setKeywords failed, falling back to Subject:', eK);
-        try{
-          pdfDoc.setSubject(`carboncert,${jsonB64}`); // compact, ASCII-safe
-          keywordsOk = true;
-        }catch(eS){
-          console.warn('setSubject also failed; metadata will rely on attachments.', eS);
-          // As a last resort, write compact info into Author (safe ASCII)
-          try{ pdfDoc.setAuthor(`carboncert:${jsonB64}`); } catch(eA){ /* ignore */ }
+        try{ pdfDoc.setSubject(`carboncert,${finalJsonB64}`); }
+        catch(eS){
+          console.warn('setSubject failed, falling back to Author:', eS);
+          try{ pdfDoc.setAuthor(`carboncert:${finalJsonB64}`); }catch(eA){ console.warn('setAuthor failed',eA); }
         }
       }
 
-      step('Step 8/8: Finalizing & downloading…','94%');
+      step('Step 9/9: Finalizing & downloading…','94%');
       const pdfBytes = await pdfDoc.save({ useObjectStreams:false });
 
       download(pdfBytes,`CarbonCert-${basePayload.serial}.pdf`,'application/pdf');
@@ -877,7 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(e){ showError('Download Error', e?.stack||String(e)); }
   }
 
-  /* ---------- Verification (attachment/keywords/subject/author-aware) ---------- */
+  /* ---------- Verification (adds Title + LSB payload recovery) ---------- */
   async function handleVerifyUpload(ev){
     const file=ev.target.files?.[0]; if(!file) return;
 
@@ -895,7 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const pdfDoc=await PDFDocument.load(pdfBytes,{ ignoreEncryption:true });
       log('PDF document loaded successfully.');
 
-      // --- Locate payload: Keywords -> Subject -> Author -> JSON attachment
+      // --- Locate payload: Keywords -> Subject -> Author -> Title -> JSON attachment -> LSB in bitmap ---
       let payload = null;
       let location = 'none';
 
@@ -942,7 +950,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }catch(_eA){ /* ignore */ }
       }
 
-      // 4) JSON attachment fallback
+      // 4) Title fallback (`… | carboncert,<b64>`)
+      if(!payload){
+        try{
+          const title = pdfDoc.getTitle?.();
+          if(typeof title==='string'){
+            const idx = title.indexOf('carboncert,');
+            if(idx>=0){
+              const b64 = title.slice(idx + 'carboncert,'.length).trim();
+              if(/^[A-Za-z0-9+/=]+$/.test(b64) && b64.length>20){
+                const bytes = base64ToU8(b64);
+                const json = new TextDecoder().decode(bytes);
+                const obj = safeJsonParse(json);
+                if(obj){ payload=obj; location='title'; }
+              }
+            }
+          }
+        }catch(_eT){ /* ignore */ }
+      }
+
+      // 5) JSON attachment fallback
       if(!payload){
         try{
           const jsonAttach = await tryGetJsonAttachmentBytes(pdfDoc);
@@ -954,8 +981,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }catch(_eJ){ /* ignore */ }
       }
 
+      // 6) LAST RESORT: extract payload from LSB stego inside page bitmap
+      let stegoData = null;
       if(!payload){
-        throw new Error('No embedded CarbonAra payload found in Keywords/Subject/Author/Attachments.');
+        try{
+          log('Attempting LSB payload recovery from page bitmap…');
+          const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
+          if(info && info.kind==='png-dataurl'){
+            const { extractedTag, embeddedJSON } = await hashAndExtractFromDataURL_withJSON(info.dataURL);
+            if(embeddedJSON){ payload = embeddedJSON; location='lsb-payload'; }
+          }else if(info && info.kind==='raw-pixels'){
+            const x = await drawRawPixelsAndAnalyze_withJSON(info);
+            if(x.embeddedJSON){ payload = x.embeddedJSON; location='lsb-payload'; }
+          }
+        }catch(eLSB){ log('LSB recovery failed: '+(eLSB?.message||String(eLSB))); }
+      }
+
+      if(!payload){
+        throw new Error('No embedded CarbonAra payload found in Keywords/Subject/Author/Attachments/LSB.');
       }
       log(`Payload found via: ${location}.`);
 
@@ -968,53 +1011,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const result={ crypto:(tagFromMeta===expected)?'OK':'FAIL', water:'SKIPPED', hash:'SKIPPED', status:'LOW' };
 
-      if(result.crypto==='OK'){
-        // 0) Attachment-first: PNG or image for direct pixel/hash/LSB
-        try{
-          const attachment = await tryGetEmbeddedAttachmentBytes(pdfDoc);
-          if(attachment && attachment.bytes){
-            const h = await sha256(attachment.bytes.buffer);
-            log(`Attachment hash: ${h.slice(0,16)}… vs payload attachment ${(payload.imageHashAttachment||'').slice(0,16)}…`);
-            if(h === (payload.imageHashAttachment||'')) {
-              result.hash='OK';
-            }
-            const attAnalysis = await analyzeImageBytes(attachment.bytes);
-            if(attAnalysis){
-              const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = attAnalysis;
-              if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
-              if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
-            }
-          } else {
-            log('No embedded PNG/JPEG attachment found.');
+      // Try pixel/hash & watermark verification using attachments first
+      try{
+        const attachment = await tryGetEmbeddedAttachmentBytes(pdfDoc);
+        if(attachment && attachment.bytes){
+          const h = await sha256(attachment.bytes.buffer);
+          log(`Attachment hash: ${h.slice(0,16)}… vs payload attachment ${(payload.imageHashAttachment||'').slice(0,16)}…`);
+          if(h === (payload.imageHashAttachment||'')) result.hash='OK';
+          const attAnalysis = await analyzeImageBytes(attachment.bytes);
+          if(attAnalysis){
+            const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = attAnalysis;
+            if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
+            if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
           }
-        }catch(e0){ log('Attachment-based verification failed: '+(e0?.message||String(e0))); }
-
-        // A) pdf-lib XObject traversal (best-effort)
-        if(result.hash!=='OK' || result.water!=='OK'){
-          try{
-            log('Attempting bitmap extraction (Strategy A: pdf-lib XObject traversal)…');
-            const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
-            if(info && info.kind==='png-dataurl'){
-              log('Strategy A: Found PNG-like stream, decoding…');
-              const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await hashAndExtractFromDataURL(info.dataURL);
-              log(`A(PNG): RGBA calc ${pixelsHashRGBA.slice(0,16)}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
-              log(`A(PNG): RGB  calc ${pixelsHashRGB.slice(0,16)}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
-              if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
-              if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
-            }else if(info && info.kind==='raw-pixels'){
-              log('Strategy A: Found raw pixel stream; drawing to canvas…');
-              const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await drawRawPixelsAndAnalyze(info);
-              if(pixelsHashRGBA||pixelsHashRGB){
-                log(`A(raw): RGBA calc ${pixelsHashRGBA?.slice(0,16)||'n/a'}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
-                log(`A(raw): RGB  calc ${pixelsHashRGB?.slice(0,16)||'n/a'}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
-              }
-              if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
-              if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
-            }else{
-              log('Strategy A: No direct image stream retrievable.');
-            }
-          }catch(eA){ log('Strategy A failed: '+(eA?.message||String(eA))); }
+        } else {
+          log('No embedded PNG/JPEG attachment found.');
         }
+      }catch(e0){ log('Attachment-based verification failed: '+(e0?.message||String(e0))); }
+
+      // Strategy A via pdf-lib
+      if(result.hash!=='OK' || result.water!=='OK'){
+        try{
+          log('Attempting bitmap extraction (Strategy A: pdf-lib XObject traversal)…');
+          const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
+          if(info && info.kind==='png-dataurl'){
+            const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await hashAndExtractFromDataURL(info.dataURL);
+            log(`A(PNG): RGBA calc ${pixelsHashRGBA.slice(0,16)}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+            log(`A(PNG): RGB  calc ${pixelsHashRGB.slice(0,16)}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+            if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
+            if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
+          }else if(info && info.kind==='raw-pixels'){
+            const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await drawRawPixelsAndAnalyze(info);
+            if(pixelsHashRGBA||pixelsHashRGB){
+              log(`A(raw): RGBA calc ${pixelsHashRGBA?.slice(0,16)||'n/a'}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+              log(`A(raw): RGB  calc ${pixelsHashRGB?.slice(0,16)||'n/a'}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+            }
+            if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
+            if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
+          }else{
+            log('Strategy A: No direct image stream retrievable.');
+          }
+        }catch(eA){ log('Strategy A failed: '+(eA?.message||String(eA))); }
       }
 
       // Final status policy:
@@ -1025,6 +1062,7 @@ document.addEventListener('DOMContentLoaded', () => {
       log(`Verification complete. Final status: ${result.status}`);
       displayVerificationResult(result, payload);
     }catch(e){
+      const diag=id('diagnostics');
       diag.textContent += `CRITICAL ERROR: ${e?.message||String(e)}\n`;
       displayVerificationResult({ status:'LOW', water:'FAIL', crypto:'FAIL', hash:'FAIL', error:e?.message||String(e) });
     }finally{
@@ -1041,21 +1079,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if(obj && obj.dict && obj.dict.get){
           const type = obj.dict.get(PDFName.of('Type'));
           if(String(type)==='/Filespec'){
-            const fname = obj.dict.get(PDFName.of('F'));
-            const ufname= obj.dict.get(PDFName.of('UF'));
-            const nameStr = (fname?String(fname):'') + (ufname?String(ufname):'');
-            if(/carboncert-.*\.json$/i.test(nameStr)){
-              const ef = obj.dict.get(PDFName.of('EF'));
-              if(ef){
-                const efDict = pdfDoc.context.lookup(ef, PDFDict);
-                const keys = efDict.keys? efDict.keys(): [];
-                for(const k of keys){
-                  const streamRef = efDict.get ? efDict.get(k) : null;
-                  if(!streamRef) continue;
-                  const stream = pdfDoc.context.lookup(streamRef);
-                  if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                    const contents = stream.getContents ? stream.getContents() : stream.contents;
-                    if(contents) return (contents instanceof Uint8Array)? contents : new Uint8Array(contents);
+            const ef = obj.dict.get(PDFName.of('EF'));
+            if(ef){
+              const efDict = pdfDoc.context.lookup(ef, PDFDict);
+              const keys = efDict.keys? efDict.keys(): [];
+              for(const k of keys){
+                const streamRef = efDict.get ? efDict.get(k) : null;
+                if(!streamRef) continue;
+                const stream = pdfDoc.context.lookup(streamRef);
+                if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+                  const contents = stream.getContents ? stream.getContents() : stream.contents;
+                  if(contents){
+                    const u8 = contents instanceof Uint8Array? contents : new Uint8Array(contents);
+                    // sniff JSON
+                    const head = new TextDecoder().decode(u8.slice(0,32));
+                    if(head.trim().startsWith('{') || head.includes('"serial"') || head.includes('"tag_b64"')) return u8;
                   }
                 }
               }
@@ -1065,25 +1103,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }catch(_e){ /* ignore */ }
 
-    // Fallback: any EmbeddedFile with JSON-ish name
+    // Fallback: any EmbeddedFile with JSON-like content
     try{
       for(const [ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
           const subtype = obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
-          const params = obj.dict.get && obj.dict.get(PDFName.of('Params'));
-          let isJson=false;
           if(String(subtype)==='/EmbeddedFile'){
-            const fn = params ? (pdfDoc.context.lookup(params, PDFDict)?.get(PDFName.of('ModDate'))):null;
-            // Can't always read names here; just try by size type.
-            // We'll sniff later.
-            isJson=true;
-          }
-          if(isJson){
             const contents = obj.getContents ? obj.getContents() : obj.contents;
             if(contents){
               const u8 = contents instanceof Uint8Array ? contents : new Uint8Array(contents);
-              // quick sniff
-              const head = new TextDecoder().decode(u8.slice(0,20));
+              const head = new TextDecoder().decode(u8.slice(0,32));
               if(head.trim().startsWith('{') || head.includes('"serial"') || head.includes('"tag_b64"')) return u8;
             }
           }
@@ -1095,7 +1124,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function tryGetEmbeddedAttachmentBytes(pdfDoc){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-    // Prefer Filespec EF entries for PNG
+    // Prefer Filespec EF entries for PNG/JPEG
     try{
       for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && obj.dict && obj.dict.get){
@@ -1113,7 +1142,6 @@ document.addEventListener('DOMContentLoaded', () => {
                   const contents = stream.getContents ? stream.getContents() : stream.contents;
                   if(contents){
                     const u8 = contents instanceof Uint8Array ? contents : new Uint8Array(contents);
-                    // Prefer PNG/JPEG-like by signature
                     if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return { bytes:u8 }; // PNG
                     if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return { bytes:u8 }; // JPEG
                   }
@@ -1134,7 +1162,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const contents = obj.getContents ? obj.getContents() : obj.contents;
             if(contents){
               const u8 = contents instanceof Uint8Array ? contents : new Uint8Array(contents);
-              // Try image-like first
               if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return { bytes:u8 };
               if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return { bytes:u8 };
             }
@@ -1278,6 +1305,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const extractedTag=extractDataLSB(cx);
     return { pixelsHashRGBA, pixelsHashRGB, extractedTag };
   }
+  async function hashAndExtractFromDataURL_withJSON(dataURL){
+    const img = await loadImageFromDataURL(dataURL);
+    const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
+    const cx=c.getContext('2d',{ willReadFrequently:true });
+    cx.drawImage(img,0,0);
+    const extracted = extractDataLSB(cx) || '';
+    let embeddedJSON=null, extractedTag=null;
+    const tagMatch = extracted.match(/TAG:([^|]+)\|\|/);
+    if(tagMatch) extractedTag = tagMatch[1];
+    const jsonMatch = extracted.match(/CCJSON:([A-Za-z0-9+/=]+)::END::/);
+    if(jsonMatch){
+      try{
+        const bytes = base64ToU8(jsonMatch[1]);
+        const json = new TextDecoder().decode(bytes);
+        const obj = safeJsonParse(json);
+        if(obj) embeddedJSON=obj;
+      }catch{}
+    }
+    const idata=cx.getImageData(0,0,c.width,c.height);
+    const pixelsHashRGBA=await sha256(idata.data.buffer);
+    const pixelsHashRGB =await hashRGBFromImageDataDataBuffer(idata.data);
+    return { pixelsHashRGBA, pixelsHashRGB, extractedTag, embeddedJSON };
+  }
   function loadImageFromDataURL(dataURL){
     return new Promise((res,rej)=>{
       const img=new Image();
@@ -1316,6 +1366,47 @@ document.addEventListener('DOMContentLoaded', () => {
       const rgbHash  = await hashRGBFromImageDataDataBuffer(imgData.data);
       const tag=extractDataLSB(cx);
       return { pixelsHashRGBA:rgbaHash, pixelsHashRGB:rgbHash, extractedTag:tag };
+    }catch{ return {}; }
+  }
+  async function drawRawPixelsAndAnalyze_withJSON(info){
+    const { width,height,comps,bpc,bytes } = info;
+    if(!width||!height||!bytes) return {};
+    const c=document.createElement('canvas'); c.width=width; c.height=height;
+    const cx=c.getContext('2d',{ willReadFrequently:true });
+    const imgData=cx.createImageData(width,height);
+    const dst=imgData.data;
+
+    if(bpc!==8) return {};
+    let si=0, di=0;
+    try{
+      if(comps===3){ // RGB
+        for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; }
+      }else if(comps===1){ // Gray
+        for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; }
+      }else if(comps===4){ // CMYK to RGB (approx)
+        for(let i=0;i<width*height;i++){
+          const c0=bytes[si++]/255, m=bytes[si++]/255, y=bytes[si++]/255, k=bytes[si++]/255;
+          const r=255*(1-Math.min(1,c0*(1-k)+k));
+          const g=255*(1-Math.min(1,m *(1-k)+k));
+          const b=255*(1-Math.min(1,y *(1-k)+k));
+          dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255;
+        }
+      }else{ return {}; }
+      cx.putImageData(imgData,0,0);
+      const extracted = extractDataLSB(cx) || '';
+      let embeddedJSON=null;
+      const jsonMatch = extracted.match(/CCJSON:([A-Za-z0-9+/=]+)::END::/);
+      if(jsonMatch){
+        try{
+          const bytesB64 = base64ToU8(jsonMatch[1]);
+          const json = new TextDecoder().decode(bytesB64);
+          const obj = safeJsonParse(json);
+          if(obj) embeddedJSON=obj;
+        }catch{}
+      }
+      const rgbaHash = await sha256(imgData.data.buffer);
+      const rgbHash  = await hashRGBFromImageDataDataBuffer(imgData.data);
+      return { pixelsHashRGBA:rgbaHash, pixelsHashRGB:rgbHash, embeddedJSON };
     }catch{ return {}; }
   }
 
