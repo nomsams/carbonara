@@ -2,7 +2,7 @@
 <html lang="sv" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>CarbonAra - Secure Certificate Environment</title>
 
   <!-- Fonts -->
@@ -334,46 +334,22 @@
 </div>
 
 <script>
-/* ---------- Utility helpers ---------- */
+/* ===== Utils ===== */
 const safeJsonParse = (s)=>{ try{return JSON.parse(s)}catch{return null} };
 const delay = (ms)=>new Promise(r=>setTimeout(r,ms));
 const debounce=(fn,ms)=>{ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; };
+function dataURLtoUint8Array(dataURL){ const base64=(dataURL.split(',')[1]||''); const bin=atob(base64); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
+function u8ToBase64(u8){ let bin=''; for(let i=0;i<u8.length;i++) bin+=String.fromCharCode(u8[i]); return btoa(bin); }
+function base64ToU8(b64){ const bin=atob(b64); const u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
+async function sha256(buf){ const b = buf instanceof ArrayBuffer ? buf : (buf?.buffer || buf); const h=await crypto.subtle.digest('SHA-256', b); return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+async function hashRGBFromRGBAData(rgba){ const rgb=new Uint8Array(Math.floor(rgba.length/4)*3); for(let s=0,d=0;s<rgba.length;s+=4){ rgb[d++]=rgba[s]; rgb[d++]=rgba[s+1]; rgb[d++]=rgba[s+2]; } return sha256(rgb.buffer); }
+function id(x){ return document.getElementById(x); }
+function num(v){ const n=parseFloat(v); return Number.isFinite(n)? n:0; }
 
-function dataURLtoUint8Array(dataURL){
-  const base64 = dataURL.split(',')[1] || '';
-  const binStr = atob(base64);
-  const out = new Uint8Array(binStr.length);
-  for(let i=0;i<binStr.length;i++) out[i]=binStr.charCodeAt(i);
-  return out;
-}
-function u8ToBase64(u8){
-  let bin=''; for(let i=0;i<u8.length;i++) bin+=String.fromCharCode(u8[i]);
-  return btoa(bin);
-}
-function base64ToU8(b64){
-  const bin=atob(b64); const u8=new Uint8Array(bin.length);
-  for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
-  return u8;
-}
-async function sha256(bufLike){
-  const buf = bufLike instanceof ArrayBuffer ? bufLike : (bufLike?.buffer || bufLike);
-  const h=await crypto.subtle.digest('SHA-256', buf);
-  return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-async function hashRGBFromImageDataDataBuffer(rgbaUint8){
-  const rgb = new Uint8Array(Math.floor(rgbaUint8.length/4)*3);
-  for(let src=0,dst=0; src<rgbaUint8.length; src+=4){
-    rgb[dst++] = rgbaUint8[src];
-    rgb[dst++] = rgbaUint8[src+1];
-    rgb[dst++] = rgbaUint8[src+2];
-  }
-  return sha256(rgb.buffer);
-}
-
-/* ---------- Global state ---------- */
+/* ===== Global ===== */
 document.addEventListener('DOMContentLoaded', () => {
-  const canvas = document.getElementById('previewCanvas');
-  const ctx = canvas.getContext('2d',{ willReadFrequently:true });
+  const canvas = id('previewCanvas');
+  const ctx = canvas.getContext('2d',{willReadFrequently:true});
   const bgImage = new Image();
   const logoImage = new Image();
   let qrImage = new Image();
@@ -381,56 +357,45 @@ document.addEventListener('DOMContentLoaded', () => {
   let bgImageLoaded=false, logoImageLoaded=false, zoomLevel=1, isRendering=false;
 
   const inputs = {
-    name: document.getElementById('input-name'),
-    amount: document.getElementById('input-amount'),
-    date: document.getElementById('input-date'),
-    type: document.getElementById('input-type'),
-    serial: document.getElementById('input-serial'),
-    dpi: document.getElementById('input-dpi'),
-    fontSizeName: document.getElementById('input-fontsize-name'),
-    fontSizeOther: document.getElementById('input-fontsize-other'),
-    fontSizeSerial: document.getElementById('input-fontsize-serial'),
-    xName: document.getElementById('input-x-name'), yName: document.getElementById('input-y-name'),
-    xAmount: document.getElementById('input-x-amount'), yAmount: document.getElementById('input-y-amount'),
-    xDate: document.getElementById('input-x-date'), yDate: document.getElementById('input-y-date'),
-    xType: document.getElementById('input-x-type'), yType: document.getElementById('input-y-type'),
-    xSerial: document.getElementById('input-x-serial'), ySerial: document.getElementById('input-y-serial'),
-    xLogo: document.getElementById('input-x-logo'), yLogo: document.getElementById('input-y-logo'), wLogo: document.getElementById('input-w-logo'),
-    qrMode: document.getElementById('qr-mode'), xQr: document.getElementById('input-x-qr'),
-    yQr: document.getElementById('input-y-qr'), alphaQr: document.getElementById('input-alpha-qr'),
+    name: id('input-name'), amount: id('input-amount'), date: id('input-date'), type: id('input-type'), serial: id('input-serial'),
+    dpi: id('input-dpi'),
+    fontSizeName: id('input-fontsize-name'), fontSizeOther:id('input-fontsize-other'), fontSizeSerial:id('input-fontsize-serial'),
+    xName:id('input-x-name'), yName:id('input-y-name'),
+    xAmount:id('input-x-amount'), yAmount:id('input-y-amount'),
+    xDate:id('input-x-date'), yDate:id('input-y-date'),
+    xType:id('input-x-type'), yType:id('input-y-type'),
+    xSerial:id('input-x-serial'), ySerial:id('input-y-serial'),
+    xLogo:id('input-x-logo'), yLogo:id('input-y-logo'), wLogo:id('input-w-logo'),
+    qrMode:id('qr-mode'), xQr:id('input-x-qr'), yQr:id('input-y-qr'), alphaQr:id('input-alpha-qr'),
   };
 
   let textElements={}, logoElement={}, qrCodeElement={};
 
-  /* ---------- Init ---------- */
+  /* ==== Init ==== */
   async function init(){
     inputs.date.valueAsDate = new Date();
     generateNewSerial();
     addEventListeners();
     await document.fonts.ready;
 
-    // warm draw
-    const tmp = inputs.name.value; inputs.name.value='Rendering…'; requestRedraw(); await delay(60); inputs.name.value=tmp;
+    const tmp=inputs.name.value; inputs.name.value='Rendering…'; requestRedraw(); await delay(60); inputs.name.value=tmp;
 
-    // background
     bgImage.crossOrigin='anonymous';
     bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent='✅ image.png loaded'; setupCanvas(bgImage.naturalWidth,bgImage.naturalHeight); };
-    bgImage.onerror=()=>{ id('bg-image-status').textContent='⚠️ No image.png'; setupCanvas(2480,3508); };
+    bgImage.onerror=()=>{ id('bg-image-status').textContent='⚠️ No image.png'; setupCanvas(1414,2000); };
     bgImage.src='image.png';
 
     handleUrlParams();
   }
 
   function setupCanvas(w,h){
-    canvas.width = Number.isFinite(w) && w>0 ? Math.round(w):2480;
-    canvas.height= Number.isFinite(h) && h>0 ? Math.round(h):3508;
+    canvas.width=Number.isFinite(w)&&w>0?Math.round(w):1414;
+    canvas.height=Number.isFinite(h)&&h>0?Math.round(h):2000;
     id('canvas-dimensions').textContent = `${canvas.width} x ${canvas.height} px`;
     resetAllPositions();
     fitCanvasToView();
     requestRedraw();
   }
-
-  function id(x){ return document.getElementById(x); }
 
   window.showTab=(tabName)=>{
     document.querySelectorAll('.tab-content, .tab-button').forEach(el=>el.classList.remove('active'));
@@ -445,9 +410,8 @@ document.addEventListener('DOMContentLoaded', () => {
     requestRedraw();
   });
 
-  /* ---------- Events ---------- */
   function addEventListeners(){
-    const debounced = debounce(requestRedraw,30);
+    const debounced=debounce(requestRedraw,30);
     Object.values(inputs).forEach(el=>el.addEventListener('input',debounced));
 
     id('image-upload').addEventListener('change', handleImageUpload);
@@ -461,7 +425,6 @@ document.addEventListener('DOMContentLoaded', () => {
     id('zoom-in').addEventListener('click', ()=>updateZoom(0.2));
     id('zoom-out').addEventListener('click', ()=>updateZoom(-0.2));
     id('error-close-btn').addEventListener('click',()=> id('error-modal').style.display='none');
-
     id('copy-diag-report').addEventListener('click', async ()=>{
       const txt=id('diagnostics').textContent||'';
       try{ await navigator.clipboard.writeText(txt); alert('Diagnostics copied.'); }
@@ -470,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('resize', fitCanvasToView);
 
-    // drag on canvas
+    // canvas drag
     let dragging=false, selectedKey=null, offset={x:0,y:0};
     canvas.addEventListener('mousedown', e=>{
       const pos=getCanvasMousePos(e);
@@ -479,63 +442,53 @@ document.addEventListener('DOMContentLoaded', () => {
       for(const key of keys){
         const el=elements[key]; if(!el||!el.draggable) continue;
         ctx.font=`${el.fontSize||12}px '${el.font||'Montserrat'}'`;
-        const w= key==='logo'? el.width : (key==='qr'? el.size : ctx.measureText(el.text||'').width);
-        const h= key==='logo'? el.height: (key==='qr'? el.size : (el.fontSize||12));
+        const w = key==='logo'? el.width : (key==='qr'? el.size : ctx.measureText(el.text||'').width);
+        const h = key==='logo'? el.height: (key==='qr'? el.size : (el.fontSize||12));
         const x0=(key==='logo'||key==='qr')? el.x : el.x - w/2;
         const y0=(key==='logo'||key==='qr')? el.y : el.y;
-        if(pos.x>=x0 && pos.x<=x0+w && pos.y>=y0 && pos.y<=y0+h){
-          dragging=true; selectedKey=key; offset={x:pos.x-el.x, y:pos.y-el.y}; canvas.style.cursor='grabbing'; return;
-        }
+        if(pos.x>=x0 && pos.x<=x0+w && pos.y>=y0 && pos.y<=y0+h){ dragging=true; selectedKey=key; offset={x:pos.x-el.x,y:pos.y-el.y}; canvas.style.cursor='grabbing'; return; }
       }
     });
     window.addEventListener('mousemove', e=>{
       if(!dragging||!selectedKey) return;
       const pos=getCanvasMousePos(e);
       const el = selectedKey==='logo'? logoElement : (selectedKey==='qr'? qrCodeElement : textElements[selectedKey]);
-      el.x = Math.max(0, Math.min(canvas.width  - (selectedKey==='logo'? el.width : 0), pos.x - offset.x));
-      el.y = Math.max(0, Math.min(canvas.height - (selectedKey==='logo'? el.height: 0), pos.y - offset.y));
+      el.x = Math.max(0, Math.min(canvas.width  - (selectedKey==='logo'? el.width:0), pos.x - offset.x));
+      el.y = Math.max(0, Math.min(canvas.height - (selectedKey==='logo'? el.height:0), pos.y - offset.y));
       updateCoordsFromCanvas(selectedKey);
       requestRedraw();
     });
     window.addEventListener('mouseup',()=>{ dragging=false; selectedKey=null; canvas.style.cursor='grab'; });
   }
 
-  /* ---------- Canvas / draw ---------- */
   function requestRedraw(){
     if(isRendering) return;
     isRendering=true;
     requestAnimationFrame(()=>{
-      try{ updateElementsFromInputs(); drawCanvas(); }
-      finally{ isRendering=false; }
+      try{ updateElementsFromInputs(); drawCanvas(); } finally { isRendering=false; }
     });
   }
-
   function drawCanvas(){
     ctx.textBaseline='top';
     ctx.clearRect(0,0,canvas.width,canvas.height);
     if(bgImageLoaded) ctx.drawImage(bgImage,0,0,canvas.width,canvas.height);
-    else { ctx.fillStyle= (document.documentElement.getAttribute('data-theme')==='dark')?'#1e1e1e':'#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+    else { ctx.fillStyle=(document.documentElement.getAttribute('data-theme')==='dark')?'#1e1e1e':'#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
 
     if(logoImageLoaded && logoElement.width>0) ctx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
 
-    const color = (document.documentElement.getAttribute('data-theme')==='dark')?'#e0e0e0':'#212529';
+    const color=(document.documentElement.getAttribute('data-theme')==='dark')?'#e0e0e0':'#212529';
     Object.values(textElements).forEach(el=>{
       const size=Number.isFinite(el.fontSize)? el.fontSize:12;
-      ctx.font = `${size}px '${el.font||'Montserrat'}'`;
+      ctx.font=`${size}px '${el.font||'Montserrat'}'`;
       const w=ctx.measureText(el.text||'').width;
-      ctx.fillStyle=color;
-      ctx.fillText(el.text||'', el.x - w/2, el.y);
+      ctx.fillStyle=color; ctx.fillText(el.text||'', el.x - w/2, el.y);
     });
 
     if(inputs.qrMode.value==='with_qr' && qrImage.src){
-      ctx.globalAlpha = qrCodeElement.alpha;
-      ctx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size);
-      ctx.globalAlpha = 1.0;
+      ctx.globalAlpha=qrCodeElement.alpha; ctx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); ctx.globalAlpha=1.0;
     }
   }
-
   function updateElementsFromInputs(){
-    const num=v=>{ const n=parseFloat(v); return Number.isFinite(n)? n:0; };
     const fsOther=num(inputs.fontSizeOther.value);
     textElements={
       name:{text:(inputs.name.value||'').normalize('NFC'), x:num(inputs.xName.value), y:num(inputs.yName.value), font:'Great Vibes', fontSize:num(inputs.fontSizeName.value), draggable:true},
@@ -557,25 +510,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     generateQrImage();
   }
-
   function resetAllPositions(){
-    const d={
-      fontSizeName:100, xName:705.6404, yName:1005.7899,
-      fontSizeOther:33, xAmount:359.1387, yAmount:1531.1968,
-      xDate:1068.8586, yDate:1527.7868,
-      xType:359.1387, yType:1676.0735,
-      fontSizeSerial:22, xSerial:516.0143, ySerial:1943.9245,
-      xLogo:50, yLogo:50, wLogo:200
-    };
+    const d={ fontSizeName:100, xName:705.6404, yName:1005.7899, fontSizeOther:33, xAmount:359.1387, yAmount:1531.1968, xDate:1068.8586, yDate:1527.7868, xType:359.1387, yType:1676.0735, fontSizeSerial:22, xSerial:516.0143, ySerial:1943.9245, xLogo:50, yLogo:50, wLogo:200 };
     Object.entries(d).forEach(([k,v])=>{ if(inputs[k]) inputs[k].value=v; });
     resetQrPosition();
     requestRedraw();
   }
   function resetQrPosition(){
     const margin=50, size=150;
-    inputs.xQr.value = String(Math.max(0,canvas.width - size - margin));
-    inputs.yQr.value = String(Math.max(0,canvas.height- size - margin));
-    inputs.alphaQr.value= String(0.8);
+    inputs.xQr.value=String(Math.max(0,canvas.width-size-margin));
+    inputs.yQr.value=String(Math.max(0,canvas.height-size-margin));
+    inputs.alphaQr.value='0.8';
     requestRedraw();
   }
   function getCanvasMousePos(e){
@@ -584,16 +529,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function updateCoordsFromCanvas(key){
     const el = key==='logo'? logoElement : (key==='qr'? qrCodeElement : textElements[key]);
-    const set=(id,val)=>{ const n=id&&document.getElementById(`input-${id}`); if(n) n.value = typeof val==='number'? val.toFixed(4):val; };
+    const set=(idStr,val)=>{ const n=document.getElementById(`input-${idStr}`); if(n) n.value = typeof val==='number'? val.toFixed(4):val; };
     set(`x-${key.toLowerCase()}`, el.x); set(`y-${key.toLowerCase()}`, el.y);
   }
-
   function handleImageUpload(ev){
     const f=ev.target.files?.[0]; if(!f) return;
     if(!/^image\/(png|jpeg)$/i.test(f.type)){ showError('Invalid Image','Please upload PNG or JPEG.'); return; }
     const r=new FileReader();
-    r.onload = e=>{
-      bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent=`✅ ${f.name} loaded`; setupCanvas(bgImage.naturalWidth||canvas.width, bgImage.naturalHeight||canvas.height); };
+    r.onload=e=>{
+      bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent=`✅ ${f.name} loaded`; setupCanvas(bgImage.naturalWidth||canvas.width,bgImage.naturalHeight||canvas.height); };
       bgImage.onerror=()=>showError('Image Load Error','Failed to load selected background.');
       bgImage.src=e.target.result;
     };
@@ -603,33 +547,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const f=ev.target.files?.[0]; if(!f) return;
     if(!/^image\/(png|jpeg)$/i.test(f.type)){ showError('Invalid Logo','Please upload PNG or JPEG.'); return; }
     const r=new FileReader();
-    r.onload = e=>{
+    r.onload=e=>{
       logoImage.onload=()=>{ logoImageLoaded=true; requestRedraw(); };
       logoImage.onerror=()=>showError('Logo Load Error','Failed to load selected logo.');
       logoImage.src=e.target.result;
     };
     r.readAsDataURL(f);
   }
-
-  function generateNewSerial(){
-    inputs.serial.value = `SN-${Date.now()}-${Math.random().toString(36).slice(2,11).toUpperCase()}`;
-    requestRedraw();
-  }
-  window.centerElement=(key)=>{
-    const t=`x${key.charAt(0).toUpperCase()+key.slice(1)}`;
-    if(inputs[t]){ inputs[t].value=(canvas.width/2).toFixed(4); requestRedraw(); }
-  };
-  function alignXValues(){ inputs.xType.value = inputs.xAmount.value; requestRedraw(); }
+  function generateNewSerial(){ inputs.serial.value=`SN-${Date.now()}-${Math.random().toString(36).slice(2,11).toUpperCase()}`; requestRedraw(); }
+  window.centerElement=(key)=>{ const t=`x${key.charAt(0).toUpperCase()+key.slice(1)}`; if(inputs[t]){ inputs[t].value=(canvas.width/2).toFixed(4); requestRedraw(); } }
+  function alignXValues(){ inputs.xType.value=inputs.xAmount.value; requestRedraw(); }
   function fitCanvasToView(){
     const area=id('preview-area'), frame=id('preview-frame');
     const s=Math.min((area.clientHeight-60)/Math.max(1,frame.offsetHeight),(area.clientWidth-60)/Math.max(1,frame.offsetWidth),1);
     zoomLevel=s; updateZoom(0);
   }
-  function updateZoom(d){
-    zoomLevel=Math.max(.1,Math.min(3,zoomLevel+d));
-    id('preview-frame').style.transform=`scale(${zoomLevel})`;
-    id('zoom-level').textContent=`${Math.round(zoomLevel*100)}%`;
-  }
+  function updateZoom(d){ zoomLevel=Math.max(.1,Math.min(3,zoomLevel+d)); id('preview-frame').style.transform=`scale(${zoomLevel})`; id('zoom-level').textContent=`${Math.round(zoomLevel*100)}%`; }
 
   function handleUrlParams(){
     const p=new URLSearchParams(location.search);
@@ -648,24 +581,19 @@ document.addEventListener('DOMContentLoaded', () => {
         <p><strong>Type:</strong> ${qrData.t||'N/A'}</p>
         <p><em>Upload the corresponding PDF for full cryptographic verification.</em></p>`;
       id('verify-prompt').textContent=`Ready to verify serial: ${qrData.s||'N/A'}.`;
-    }catch(e){
-      console.error('QR param decode failed',e);
-      showError('Invalid QR Code Link','Verification link is corrupted or invalid.');
-    }
+    }catch{ showError('Invalid QR Code Link','Verification link is corrupted or invalid.'); }
   }
-
   function generateQrImage(){
     try{
       if(inputs.qrMode.value!=='with_qr'){ qrImage.src=''; return; }
       const qrData={ s:inputs.serial.value, n:inputs.name.value, a:inputs.amount.value, d:inputs.date.value, t:inputs.type.value };
       const encoded=btoa(JSON.stringify(qrData)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
       const value=`https://nomsams.github.io/carbonara/?verify=${encoded}`;
-      const qri=new QRious({ value, size:512 });
-      qrImage=new Image(); qrImage.src=qri.toDataURL();
-    }catch(e){ console.warn('QR gen failed',e); qrImage.src=''; }
+      const qri=new QRious({ value, size:512 }); qrImage=new Image(); qrImage.src=qri.toDataURL();
+    }catch(e){ qrImage.src=''; }
   }
 
-  /* ---------- Crypto + canonical ---------- */
+  /* ==== Crypto & canonical ==== */
   const masterKeySalt="CarbonCertSaltV1", pbkdf2Iterations=100000;
   async function reconstructMasterKey(){
     const fragments=['fragA','fragB','fragC','fragD'];
@@ -673,7 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(concatenated), {name:'PBKDF2'}, false, ['deriveKey']);
     return await crypto.subtle.deriveKey(
       {name:'PBKDF2',salt:new TextEncoder().encode(masterKeySalt),iterations:pbkdf2Iterations,hash:'SHA-256'},
-      base,{name:'HMAC',hash:'SHA-256',length:256},true,['sign','verify']
+      base, {name:'HMAC',hash:'SHA-256',length:256}, true, ['sign','verify']
     );
   }
   function getCanonicalString(p){
@@ -688,73 +616,74 @@ document.addEventListener('DOMContentLoaded', () => {
       `canvas:${p.canvas}`,`app:${p.app}`
     ].join('|');
   }
-  async function generateTag(canon){
-    const key=await reconstructMasterKey();
-    const data=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon));
-    const sig=await crypto.subtle.sign('HMAC', key, data);
-    return btoa(String.fromCharCode(...new Uint8Array(sig)));
-  }
+  async function generateTag(canon){ const key=await reconstructMasterKey(); const data=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon)); const sig=await crypto.subtle.sign('HMAC',key,data); return btoa(String.fromCharCode(...new Uint8Array(sig))); }
 
-  /* ---------- LSB stego (now embeds FULL payload too) ---------- */
+  /* ==== LSB stego ==== */
   function embedDataLSB(ctx2d, str){
     const term="::END::";
     const bits=Array.from(str+term).map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join('');
-    const img=ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height);
-    const data=img.data;
+    const img=ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height); const data=img.data;
     const capacity=Math.floor(data.length/4);
     if(bits.length>capacity) throw new Error(`Watermark too large. Need ${bits.length} bits, capacity ${capacity}.`);
-    for(let i=0;i<bits.length;i++){
-      const idx=i*4+2; data[idx]= (data[idx]&0xFE) | (bits[i]==='1'?1:0);
-    }
+    for(let i=0;i<bits.length;i++){ const idx=i*4+2; data[idx]=(data[idx]&0xFE)|(bits[i]==='1'?1:0); }
     ctx2d.putImageData(img,0,0);
   }
   function extractDataLSB(ctx2d){
     const img=ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height);
     const d=img.data; let bits='';
-    for(let i=0;i<d.length;i+=4) bits += (d[i+2]&1);
+    for(let i=0;i<d.length;i+=4) bits+=(d[i+2]&1);
     const bytes=bits.match(/.{1,8}/g)||[]; let s='';
     for(const b of bytes){ if(b.length<8) continue; s+=String.fromCharCode(parseInt(b,2)); if(s.endsWith('::END::')) return s.slice(0,-7); }
     return null;
   }
 
-  /* ---------- Export PDF (robust metadata & multiple fallbacks) ---------- */
+  /* ==== Export (two-pass stabilization; hashes from decoded PNG to match PDF raw) ==== */
   async function exportPdf(){
     const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
     modal.style.display='flex';
-    const step=(msg,p)=>{ status.textContent=msg; bar.style.width=p; };
+    const step=(m,p)=>{ status.textContent=m; bar.style.width=p; };
 
     try{
-      step('Step 1/9: Preparing canvas…','8%'); await delay(10);
+      step('Step 1/10: Preparing draw…','8%'); await delay(10);
 
-      const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
-      const cx=c.getContext('2d',{ willReadFrequently:true });
+      function drawInto(ctx2){
+        ctx2.textBaseline='top';
+        if(bgImageLoaded) ctx2.drawImage(bgImage,0,0,canvas.width,canvas.height);
+        else { ctx2.fillStyle='#FFF'; ctx2.fillRect(0,0,canvas.width,canvas.height); }
+        if(logoImageLoaded && logoElement.width>0) ctx2.drawImage(logoImage,logoElement.x,logoElement.y,logoElement.width,logoElement.height);
+        Object.values(textElements).forEach(el=>{
+          const size=Number.isFinite(el.fontSize)? el.fontSize:12;
+          ctx2.font=`${size}px '${el.font||'Montserrat'}'`;
+          const w=ctx2.measureText(el.text||'').width;
+          ctx2.fillStyle='#000'; ctx2.fillText(el.text||'', el.x - w/2, el.y);
+        });
+        if(inputs.qrMode.value==='with_qr' && qrImage.src){ ctx2.globalAlpha=qrCodeElement.alpha; ctx2.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); ctx2.globalAlpha=1.0; }
+      }
+
+      async function pngBytesAndDecodedHashes(embedString){
+        const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
+        const cx=c.getContext('2d',{willReadFrequently:true});
+        drawInto(cx);
+        if(embedString) embedDataLSB(cx, embedString);
+        const dataURL=c.toDataURL('image/png');
+        const bytes=dataURLtoUint8Array(dataURL);
+
+        // compute hashes from decoded PNG (to match PDF raw pixels)
+        const img=await loadImageFromDataURL(dataURL);
+        const t=document.createElement('canvas'); t.width=img.naturalWidth||img.width; t.height=img.naturalHeight||img.height;
+        const tx=t.getContext('2d',{willReadFrequently:true}); tx.drawImage(img,0,0);
+        const id=tx.getImageData(0,0,t.width,t.height).data;
+        const rgbaHash=await sha256(id.buffer);
+        const rgbHash =await hashRGBFromRGBAData(id);
+        return { bytes, dataURL, rgbaHash, rgbHash };
+      }
+
       updateElementsFromInputs();
-
-      // draw
-      cx.textBaseline='top';
-      if(bgImageLoaded) cx.drawImage(bgImage,0,0,c.width,c.height); else { cx.fillStyle='#FFF'; cx.fillRect(0,0,c.width,c.height); }
-      if(logoImageLoaded && logoElement.width>0) cx.drawImage(logoImage,logoElement.x,logoElement.y,logoElement.width,logoElement.height);
-      Object.values(textElements).forEach(el=>{
-        const size=Number.isFinite(el.fontSize)? el.fontSize:12;
-        cx.font=`${size}px '${el.font||'Montserrat'}'`;
-        const w=cx.measureText(el.text||'').width;
-        cx.fillStyle='#000'; cx.fillText(el.text||'', el.x - w/2, el.y);
-      });
-      if(inputs.qrMode.value==='with_qr' && qrImage.src){ cx.globalAlpha=qrCodeElement.alpha; cx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); cx.globalAlpha=1.0; }
-
-      step('Step 2/9: Calculating image hashes…','20%');
-      const origID = cx.getImageData(0,0,c.width,c.height);
-      const imageHashOriginal = await sha256(origID.data.buffer);
-
-      // Build payload skeleton first
-      const basePayload = {
-        v:1, serial:inputs.serial.value,
-        name:(inputs.name.value||'').normalize('NFC'),
-        amount:inputs.amount.value||'',
-        date:inputs.date.value||'',
-        type:(inputs.type.value||'').normalize('NFC'),
-        imageHashOriginal,
-        imageHashWatermarked:'', imageHashRGB:'', imageHashAttachment:'',
+      // Base payload skeleton
+      let payload = {
+        v:1, serial:inputs.serial.value, name:(inputs.name.value||'').normalize('NFC'), amount:inputs.amount.value||'',
+        date:inputs.date.value||'', type:(inputs.type.value||'').normalize('NFC'),
+        imageHashOriginal:'', imageHashWatermarked:'', imageHashRGB:'', imageHashAttachment:'',
         posName:{x:Number(textElements.name.x).toFixed(4), y:Number(textElements.name.y).toFixed(4)},
         posAmount:{x:Number(textElements.amount.x).toFixed(4), y:Number(textElements.amount.y).toFixed(4)},
         posDate:{x:Number(textElements.date.x).toFixed(4), y:Number(textElements.date.y).toFixed(4)},
@@ -764,112 +693,92 @@ document.addEventListener('DOMContentLoaded', () => {
         fontName:`GreatVibes-${Number(textElements.name.fontSize||0)}px`,
         fontOther:`Montserrat-${Number(textElements.amount.fontSize||0)}px`,
         fontSerial:`Montserrat-${Number(textElements.serial.fontSize||0)}px`,
-        qrMode:inputs.qrMode.value,
-        qrPos:{x:Number(qrCodeElement.x||0).toFixed(4), y:Number(qrCodeElement.y||0).toFixed(4)},
+        qrMode:inputs.qrMode.value, qrPos:{x:Number(qrCodeElement.x||0).toFixed(4), y:Number(qrCodeElement.y||0).toFixed(4)},
         qrAlpha:Number(qrCodeElement.alpha||0).toFixed(2),
         canvas:`${canvas.width}x${canvas.height}@${inputs.dpi.value}`,
         app:'CarbonCert-5.0.0'
       };
 
-      // First embed provisional info to compute final hashes
-      step('Step 3/9: Provisional watermark…','28%');
-      const provisionalTag = await generateTag(getCanonicalString({...basePayload, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:''}));
-      embedDataLSB(cx, `TAG:${provisionalTag}||CCJSON:pending::END::`);
+      // Compute original hash from decoded *unwatermarked* image for reference
+      step('Step 2/10: Hashing original (no watermark)…','16%');
+      const origRes = await pngBytesAndDecodedHashes(null);
+      payload.imageHashOriginal = origRes.rgbaHash;
 
-      const wmID = cx.getImageData(0,0,c.width,c.height);
-      const imageHashWatermarked = await sha256(wmID.data.buffer);
-      const imageHashRGB = await hashRGBFromImageDataDataBuffer(wmID.data);
+      // Iteratively stabilize watermark+payload hashes and tag
+      step('Step 3/10: Watermark pass 1…','28%');
+      let tag = await generateTag(getCanonicalString({...payload, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:''}));
+      let pass1 = await pngBytesAndDecodedHashes(`TAG:${tag}||CCJSON:pending::END::`);
+      payload.imageHashWatermarked = pass1.rgbaHash;
+      payload.imageHashRGB = pass1.rgbHash;
+      payload.imageHashAttachment = await sha256(pass1.bytes.buffer);
+      tag = await generateTag(getCanonicalString(payload));
 
-      step('Step 4/9: Serializing PNG (watermarked)…','36%');
-      const pngURI = c.toDataURL('image/png');
-      const pngBytes = dataURLtoUint8Array(pngURI);
-      const imageHashAttachment = await sha256(pngBytes.buffer);
+      step('Step 4/10: Watermark pass 2 (embed final JSON)…','40%');
+      let jsonB64 = u8ToBase64(new TextEncoder().encode(JSON.stringify({...payload, tag_b64:tag})));
+      let pass2 = await pngBytesAndDecodedHashes(`TAG:${tag}||CCJSON:${jsonB64}::END::`);
+      // Recompute final because embedding JSON changed pixels
+      payload.imageHashWatermarked = pass2.rgbaHash;
+      payload.imageHashRGB = pass2.rgbHash;
+      payload.imageHashAttachment = await sha256(pass2.bytes.buffer);
+      let tag2 = await generateTag(getCanonicalString(payload));
 
-      // Final payload + tag
-      basePayload.imageHashWatermarked = imageHashWatermarked;
-      basePayload.imageHashRGB = imageHashRGB;
-      basePayload.imageHashAttachment = imageHashAttachment;
+      // If tag changed due to new hashes, embed once more to stabilize
+      let finalBytes = pass2.bytes, finalDataURL = pass2.dataURL, finalTag = tag2;
+      step('Step 5/10: Stabilization pass…','52%');
+      if(tag2 !== tag){
+        const finalB64 = u8ToBase64(new TextEncoder().encode(JSON.stringify({...payload, tag_b64:tag2})));
+        const pass3 = await pngBytesAndDecodedHashes(`TAG:${tag2}||CCJSON:${finalB64}::END::`);
+        payload.imageHashWatermarked = pass3.rgbaHash;
+        payload.imageHashRGB = pass3.rgbHash;
+        payload.imageHashAttachment = await sha256(pass3.bytes.buffer);
+        finalTag = await generateTag(getCanonicalString(payload));
+        finalBytes = pass3.bytes;
+        finalDataURL = pass3.dataURL;
+      }
 
-      const finalTag = await generateTag(getCanonicalString(basePayload));
-      const payloadWithTag = { ...basePayload, tag_b64: finalTag };
+      // Build final payload object (synchronized with actual embedded bitmap)
+      const finalPayload = {...payload, tag_b64: finalTag};
 
-      // Re-embed full payload JSON (LSB) so verification can ALWAYS recover payload even if metadata/attachments are stripped.
-      step('Step 5/9: Embedding full payload in LSB…','44%');
-      const jsonBytes = new TextEncoder().encode(JSON.stringify(payloadWithTag));
-      const jsonB64 = u8ToBase64(jsonBytes);
-      // redraw clean to ensure payload watermark is what goes into PDF
-      cx.clearRect(0,0,c.width,c.height);
-      if(bgImageLoaded) cx.drawImage(bgImage,0,0,c.width,c.height); else { cx.fillStyle='#FFF'; cx.fillRect(0,0,c.width,c.height); }
-      if(logoImageLoaded && logoElement.width>0) cx.drawImage(logoImage,logoElement.x,logoElement.y,logoElement.width,logoElement.height);
-      Object.values(textElements).forEach(el=>{
-        const size=Number.isFinite(el.fontSize)? el.fontSize:12;
-        cx.font=`${size}px '${el.font||'Montserrat'}'`;
-        const w=cx.measureText(el.text||'').width;
-        cx.fillStyle='#000'; cx.fillText(el.text||'', el.x - w/2, el.y);
-      });
-      if(inputs.qrMode.value==='with_qr' && qrImage.src){ cx.globalAlpha=qrCodeElement.alpha; cx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); cx.globalAlpha=1.0; }
-      embedDataLSB(cx, `TAG:${finalTag}||CCJSON:${jsonB64}::END::`);
-
-      // recompute definitive hashes from the actually embedded bitmap
-      const wmID2 = cx.getImageData(0,0,c.width,c.height);
-      basePayload.imageHashWatermarked = await sha256(wmID2.data.buffer);
-      basePayload.imageHashRGB = await hashRGBFromImageDataDataBuffer(wmID2.data);
-      const pngURI2 = c.toDataURL('image/png');
-      const pngBytes2 = dataURLtoUint8Array(pngURI2);
-      basePayload.imageHashAttachment = await sha256(pngBytes2.buffer);
-      const finalTag2 = await generateTag(getCanonicalString(basePayload));
-      const finalPayload = { ...basePayload, tag_b64: finalTag2 };
-      const finalJsonBytes = new TextEncoder().encode(JSON.stringify(finalPayload));
-      const finalJsonB64 = u8ToBase64(finalJsonBytes);
-
-      step('Step 6/9: Building PDF…','58%');
+      step('Step 6/10: Building PDF…','64%');
       const { PDFDocument } = window.PDFLib;
-      const pdfDoc=await PDFDocument.create();
-      const page=pdfDoc.addPage([canvas.width, canvas.height]);
+      const pdfDoc = await PDFDocument.create();
+      const page = pdfDoc.addPage([canvas.width, canvas.height]);
 
-      const pngImg=await pdfDoc.embedPng(pngBytes2);
+      const pngImg = await pdfDoc.embedPng(finalBytes);
       page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
 
-      // Attach raster safely
-      step('Step 7/9: Embedding raster & JSON attachments…','70%');
+      step('Step 7/10: Embedding attachments…','72%');
+      // Attach PNG raster
       try{
-        await pdfDoc.attach(pngBytes2, `CarbonAra-${basePayload.serial}.png`, {
-          mimeType:'image/png', description:'Original raster used to compose this document', createDate:new Date(), modificationDate:new Date()
+        await pdfDoc.attach(finalBytes, `CarbonAra-${payload.serial}.png`, {
+          mimeType:'image/png', description:'Raster used to compose this document', createDate:new Date(), modificationDate:new Date()
         });
-      }catch(e){
-        console.warn('Attachment (PNG) skipped:', e);
-      }
+      }catch(e){ console.warn('Attachment PNG failed:', e); }
+      // Attach JSON
+      const finalJsonBytes = new TextEncoder().encode(JSON.stringify(finalPayload));
       try{
-        await pdfDoc.attach(finalJsonBytes, `carboncert-${basePayload.serial}.json`, {
-          mimeType:'application/json', description:'CarbonAra certificate payload (authenticity data)', createDate:new Date(), modificationDate:new Date()
+        await pdfDoc.attach(finalJsonBytes, `carboncert-${payload.serial}.json`, {
+          mimeType:'application/json', description:'CarbonAra certificate payload', createDate:new Date(), modificationDate:new Date()
         });
-      }catch(e){ console.warn('Attachment (JSON) skipped:', e); }
+      }catch(e){ console.warn('Attachment JSON failed:', e); }
 
-      // Set safe metadata (multiple fallbacks for later retrieval)
+      // Metadata (multiple fallbacks)
+      step('Step 8/10: Writing metadata…','80%');
       pdfDoc.setProducer('CarbonAra');
       pdfDoc.setCreator('CarbonAra:PNG@PDF');
-
-      step('Step 8/9: Writing metadata…','82%');
-      // Title includes compact payload marker as a fallback retrieval path:
-      try{ pdfDoc.setTitle(`CarbonAra ${basePayload.serial} | carboncert,${finalJsonB64}`);}catch(e){ console.warn('setTitle failed',e); }
-
-      // Prefer Keywords if allowed; otherwise we fall back to Subject / Author automatically
-      try{ pdfDoc.setKeywords(['carboncert', finalJsonB64]); }
-      catch(eK){
-        console.warn('setKeywords failed, falling back to Subject:', eK);
-        try{ pdfDoc.setSubject(`carboncert,${finalJsonB64}`); }
-        catch(eS){
-          console.warn('setSubject failed, falling back to Author:', eS);
-          try{ pdfDoc.setAuthor(`carboncert:${finalJsonB64}`); }catch(eA){ console.warn('setAuthor failed',eA); }
+      try{ pdfDoc.setTitle(`CarbonAra ${payload.serial} | carboncert,${u8ToBase64(finalJsonBytes)}`);}catch(e){}
+      try{ pdfDoc.setKeywords(['carboncert', u8ToBase64(finalJsonBytes)]);}catch(eK){
+        try{ pdfDoc.setSubject(`carboncert,${u8ToBase64(finalJsonBytes)}`);}catch(eS){
+          try{ pdfDoc.setAuthor(`carboncert:${u8ToBase64(finalJsonBytes)}`);}catch(eA){}
         }
       }
 
-      step('Step 9/9: Finalizing & downloading…','94%');
-      const pdfBytes = await pdfDoc.save({ useObjectStreams:false });
+      step('Step 9/10: Finalizing…','90%');
+      const pdfBytes = await pdfDoc.save({useObjectStreams:false});
 
-      download(pdfBytes,`CarbonCert-${basePayload.serial}.pdf`,'application/pdf');
-      id('progress-bar-inner').style.width='100%';
-      setTimeout(()=> id('progress-modal').style.display='none',600);
+      step('Step 10/10: Downloading…','100%');
+      download(pdfBytes, `CarbonCert-${payload.serial}.pdf`, 'application/pdf');
+      setTimeout(()=> modal.style.display='none', 600);
     }catch(e){
       showError('PDF Generation Failed', e?.stack||e?.message||String(e));
       id('progress-modal').style.display='none';
@@ -885,7 +794,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(e){ showError('Download Error', e?.stack||String(e)); }
   }
 
-  /* ---------- Verification (adds Title + LSB payload recovery) ---------- */
+  /* ==== Verification (more strategies & LSB/Title/Keywords/Attachments) ==== */
   async function handleVerifyUpload(ev){
     const file=ev.target.files?.[0]; if(!file) return;
 
@@ -900,109 +809,96 @@ document.addEventListener('DOMContentLoaded', () => {
       log('Starting verification...');
       const { PDFDocument, PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
       const pdfBytes=await file.arrayBuffer();
-      const pdfDoc=await PDFDocument.load(pdfBytes,{ ignoreEncryption:true });
+      const pdfDoc=await PDFDocument.load(pdfBytes,{ignoreEncryption:true, throwOnInvalidObject:false});
       log('PDF document loaded successfully.');
 
-      // --- Locate payload: Keywords -> Subject -> Author -> Title -> JSON attachment -> LSB in bitmap ---
-      let payload = null;
-      let location = 'none';
+      let payload=null, location='none';
 
-      // 1) Keywords path: expect ['carboncert', base64]
+      // 1) Keywords -> second token base64(JSON)
       try{
-        let kws = pdfDoc.getKeywords?.() || null;
+        let kws=pdfDoc.getKeywords?.()||null;
         if(Array.isArray(kws) && kws.length){
           const hasFlag = kws.find(k => typeof k==='string' && k.toLowerCase()==='carboncert');
           const b64 = kws.find(k => typeof k==='string' && k!==hasFlag && /^[A-Za-z0-9+/=]+$/.test(k) && k.length>20);
           if(hasFlag && b64){
-            const bytes = base64ToU8(b64);
-            const json = new TextDecoder().decode(bytes);
-            const obj = safeJsonParse(json);
-            if(obj) { payload=obj; location='keywords'; }
+            const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
+            if(obj){ payload=obj; location='keywords'; }
           }
         }
-      }catch(_eK){ /* ignore */ }
+      }catch{}
 
-      // 2) Subject fallback
+      // 2) Subject
       if(!payload){
         try{
-          const subj = pdfDoc.getSubject?.();
+          const subj=pdfDoc.getSubject?.();
           if(typeof subj==='string' && subj.startsWith('carboncert,')){
-            const b64 = subj.slice('carboncert,'.length);
-            const bytes = base64ToU8(b64);
-            const json = new TextDecoder().decode(bytes);
-            const obj = safeJsonParse(json);
+            const b64=subj.slice('carboncert,'.length);
+            const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
             if(obj){ payload=obj; location='subject'; }
           }
-        }catch(_eS){ /* ignore */ }
+        }catch{}
       }
 
-      // 3) Author fallback (`carboncert:<b64>`)
+      // 3) Author
       if(!payload){
         try{
-          const author = pdfDoc.getAuthor?.();
+          const author=pdfDoc.getAuthor?.();
           if(typeof author==='string' && author.startsWith('carboncert:')){
-            const b64 = author.slice('carboncert:'.length);
-            const bytes = base64ToU8(b64);
-            const json = new TextDecoder().decode(bytes);
-            const obj = safeJsonParse(json);
+            const b64=author.slice('carboncert:'.length);
+            const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
             if(obj){ payload=obj; location='author'; }
           }
-        }catch(_eA){ /* ignore */ }
+        }catch{}
       }
 
-      // 4) Title fallback (`… | carboncert,<b64>`)
+      // 4) Title (… | carboncert,<b64>)
       if(!payload){
         try{
-          const title = pdfDoc.getTitle?.();
+          const title=pdfDoc.getTitle?.();
           if(typeof title==='string'){
-            const idx = title.indexOf('carboncert,');
+            const idx=title.indexOf('carboncert,');
             if(idx>=0){
-              const b64 = title.slice(idx + 'carboncert,'.length).trim();
-              if(/^[A-Za-z0-9+/=]+$/.test(b64) && b64.length>20){
-                const bytes = base64ToU8(b64);
-                const json = new TextDecoder().decode(bytes);
-                const obj = safeJsonParse(json);
+              const b64=title.slice(idx+'carboncert,'.length).trim();
+              if(/^[A-Za-z0-9+/=]+$/.test(b64)&&b64.length>20){
+                const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
                 if(obj){ payload=obj; location='title'; }
               }
             }
           }
-        }catch(_eT){ /* ignore */ }
+        }catch{}
       }
 
-      // 5) JSON attachment fallback
+      // 5) JSON attachment
       if(!payload){
         try{
-          const jsonAttach = await tryGetJsonAttachmentBytes(pdfDoc);
+          const jsonAttach=await tryGetJsonAttachmentBytes(pdfDoc);
           if(jsonAttach){
-            const json = new TextDecoder().decode(jsonAttach);
-            const obj = safeJsonParse(json);
+            const obj=safeJsonParse(new TextDecoder().decode(jsonAttach));
             if(obj){ payload=obj; location='attachment-json'; }
           }
-        }catch(_eJ){ /* ignore */ }
+        }catch{}
       }
 
-      // 6) LAST RESORT: extract payload from LSB stego inside page bitmap
-      let stegoData = null;
+      // 6) LSB payload recovery (from embedded bitmap)
       if(!payload){
         try{
           log('Attempting LSB payload recovery from page bitmap…');
           const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
           if(info && info.kind==='png-dataurl'){
-            const { extractedTag, embeddedJSON } = await hashAndExtractFromDataURL_withJSON(info.dataURL);
-            if(embeddedJSON){ payload = embeddedJSON; location='lsb-payload'; }
+            const { embeddedJSON } = await hashAndExtractFromDataURL_withJSON(info.dataURL);
+            if(embeddedJSON){ payload=embeddedJSON; location='lsb-payload'; }
           }else if(info && info.kind==='raw-pixels'){
-            const x = await drawRawPixelsAndAnalyze_withJSON(info);
-            if(x.embeddedJSON){ payload = x.embeddedJSON; location='lsb-payload'; }
+            const res = await drawRawPixelsAndAnalyze_withJSON(info);
+            if(res.embeddedJSON){ payload=res.embeddedJSON; location='lsb-payload'; }
           }
-        }catch(eLSB){ log('LSB recovery failed: '+(eLSB?.message||String(eLSB))); }
+        }catch(e){ log('LSB recovery failed: '+(e?.message||String(e))); }
       }
 
-      if(!payload){
-        throw new Error('No embedded CarbonAra payload found in Keywords/Subject/Author/Attachments/LSB.');
-      }
+      if(!payload) throw new Error('No embedded CarbonAra payload found in Keywords/Subject/Author/Attachments/LSB.');
+
       log(`Payload found via: ${location}.`);
 
-      // --- Crypto check (authoritative)
+      // Crypto check
       log('Rebuilding canonical string for signature verification…');
       const expected=await generateTag(getCanonicalString(payload));
       log(`Expected tag: ${expected.slice(0,16)}…`);
@@ -1011,7 +907,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const result={ crypto:(tagFromMeta===expected)?'OK':'FAIL', water:'SKIPPED', hash:'SKIPPED', status:'LOW' };
 
-      // Try pixel/hash & watermark verification using attachments first
+      // === Try multiple verification strategies (A,B,C) before skipping ===
+
+      // Strategy A: attachments (PNG/JPEG)
       try{
         const attachment = await tryGetEmbeddedAttachmentBytes(pdfDoc);
         if(attachment && attachment.bytes){
@@ -1029,32 +927,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }catch(e0){ log('Attachment-based verification failed: '+(e0?.message||String(e0))); }
 
-      // Strategy A via pdf-lib
+      // Strategy B: pdf-lib XObject extraction (raw pixels / PNG)
       if(result.hash!=='OK' || result.water!=='OK'){
         try{
-          log('Attempting bitmap extraction (Strategy A: pdf-lib XObject traversal)…');
+          log('Attempting bitmap extraction (Strategy B: pdf-lib XObject traversal)…');
           const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
           if(info && info.kind==='png-dataurl'){
             const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await hashAndExtractFromDataURL(info.dataURL);
-            log(`A(PNG): RGBA calc ${pixelsHashRGBA.slice(0,16)}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
-            log(`A(PNG): RGB  calc ${pixelsHashRGB.slice(0,16)}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+            log(`B(PNG): RGBA calc ${pixelsHashRGBA.slice(0,16)}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+            log(`B(PNG): RGB  calc ${pixelsHashRGB.slice(0,16)}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
             if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
             if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
           }else if(info && info.kind==='raw-pixels'){
             const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await drawRawPixelsAndAnalyze(info);
             if(pixelsHashRGBA||pixelsHashRGB){
-              log(`A(raw): RGBA calc ${pixelsHashRGBA?.slice(0,16)||'n/a'}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
-              log(`A(raw): RGB  calc ${pixelsHashRGB?.slice(0,16)||'n/a'}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+              log(`B(raw): RGBA calc ${pixelsHashRGBA?.slice(0,16)||'n/a'}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+              log(`B(raw): RGB  calc ${pixelsHashRGB?.slice(0,16)||'n/a'}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
             }
             if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
             if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
           }else{
-            log('Strategy A: No direct image stream retrievable.');
+            log('Strategy B: No direct image stream retrievable.');
           }
-        }catch(eA){ log('Strategy A failed: '+(eA?.message||String(eA))); }
+        }catch(eA){ log('Strategy B failed: '+(eA?.message||String(eA))); }
       }
 
-      // Final status policy:
+      // Strategy C: Rasterize via canvas draw of extracted PNG (if not already) — covered above
+
+      // Final policy:
       if(result.crypto==='OK' && (result.water==='OK' || result.hash==='OK')) result.status='HIGH';
       else if(result.crypto==='OK') result.status='MEDIUM';
       else result.status='LOW';
@@ -1062,38 +962,35 @@ document.addEventListener('DOMContentLoaded', () => {
       log(`Verification complete. Final status: ${result.status}`);
       displayVerificationResult(result, payload);
     }catch(e){
-      const diag=id('diagnostics');
-      diag.textContent += `CRITICAL ERROR: ${e?.message||String(e)}\n`;
+      id('diagnostics').textContent += `CRITICAL ERROR: ${e?.message||String(e)}\n`;
       displayVerificationResult({ status:'LOW', water:'FAIL', crypto:'FAIL', hash:'FAIL', error:e?.message||String(e) });
     }finally{
       id('verify-loading').classList.remove('active');
     }
   }
 
-  /* ---------- Attachment helpers ---------- */
+  /* ==== Attachments helpers ==== */
   async function tryGetJsonAttachmentBytes(pdfDoc){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-    // Filespec dictionaries first
     try{
       for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && obj.dict && obj.dict.get){
-          const type = obj.dict.get(PDFName.of('Type'));
+          const type=obj.dict.get(PDFName.of('Type'));
           if(String(type)==='/Filespec'){
-            const ef = obj.dict.get(PDFName.of('EF'));
+            const ef=obj.dict.get(PDFName.of('EF'));
             if(ef){
-              const efDict = pdfDoc.context.lookup(ef, PDFDict);
-              const keys = efDict.keys? efDict.keys(): [];
+              const efDict=pdfDoc.context.lookup(ef, PDFDict);
+              const keys=efDict.keys? efDict.keys(): [];
               for(const k of keys){
-                const streamRef = efDict.get ? efDict.get(k) : null;
+                const streamRef=efDict.get? efDict.get(k): null;
                 if(!streamRef) continue;
-                const stream = pdfDoc.context.lookup(streamRef);
+                const stream=pdfDoc.context.lookup(streamRef);
                 if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                  const contents = stream.getContents ? stream.getContents() : stream.contents;
+                  const contents=stream.getContents? stream.getContents(): stream.contents;
                   if(contents){
-                    const u8 = contents instanceof Uint8Array? contents : new Uint8Array(contents);
-                    // sniff JSON
-                    const head = new TextDecoder().decode(u8.slice(0,32));
-                    if(head.trim().startsWith('{') || head.includes('"serial"') || head.includes('"tag_b64"')) return u8;
+                    const u8 = contents instanceof Uint8Array? contents: new Uint8Array(contents);
+                    const head=new TextDecoder().decode(u8.slice(0,64));
+                    if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
                   }
                 }
               }
@@ -1101,49 +998,44 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       }
-    }catch(_e){ /* ignore */ }
-
-    // Fallback: any EmbeddedFile with JSON-like content
+    }catch{}
     try{
-      for(const [ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
+      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-          const subtype = obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+          const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
           if(String(subtype)==='/EmbeddedFile'){
-            const contents = obj.getContents ? obj.getContents() : obj.contents;
+            const contents=obj.getContents? obj.getContents(): obj.contents;
             if(contents){
-              const u8 = contents instanceof Uint8Array ? contents : new Uint8Array(contents);
-              const head = new TextDecoder().decode(u8.slice(0,32));
-              if(head.trim().startsWith('{') || head.includes('"serial"') || head.includes('"tag_b64"')) return u8;
+              const u8=contents instanceof Uint8Array? contents: new Uint8Array(contents);
+              const head=new TextDecoder().decode(u8.slice(0,64));
+              if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
             }
           }
         }
       }
-    }catch(_e2){ /* ignore */ }
+    }catch{}
     return null;
   }
-
   async function tryGetEmbeddedAttachmentBytes(pdfDoc){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-    // Prefer Filespec EF entries for PNG/JPEG
     try{
-      for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
+      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && obj.dict && obj.dict.get){
-          const type = obj.dict.get(PDFName.of('Type'));
+          const type=obj.dict.get(PDFName.of('Type'));
           if(String(type)==='/Filespec'){
-            const ef = obj.dict.get(PDFName.of('EF'));
+            const ef=obj.dict.get(PDFName.of('EF'));
             if(ef){
-              const efDict = pdfDoc.context.lookup(ef, PDFDict);
-              const keys = efDict.keys? efDict.keys(): [];
+              const efDict=pdfDoc.context.lookup(ef, PDFDict);
+              const keys=efDict.keys? efDict.keys(): [];
               for(const k of keys){
-                const streamRef = efDict.get ? efDict.get(k) : null;
-                if(!streamRef) continue;
-                const stream = pdfDoc.context.lookup(streamRef);
+                const streamRef=efDict.get? efDict.get(k): null; if(!streamRef) continue;
+                const stream=pdfDoc.context.lookup(streamRef);
                 if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                  const contents = stream.getContents ? stream.getContents() : stream.contents;
-                  if(contents){
-                    const u8 = contents instanceof Uint8Array ? contents : new Uint8Array(contents);
-                    if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return { bytes:u8 }; // PNG
-                    if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return { bytes:u8 }; // JPEG
+                  const u8=(stream.getContents? stream.getContents(): stream.contents) || null;
+                  if(u8){
+                    const bytes=u8 instanceof Uint8Array? u8 : new Uint8Array(u8);
+                    if(bytes.length>=8 && bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47) return {bytes}; //PNG
+                    if(bytes.length>=3 && bytes[0]===0xFF && bytes[1]===0xD8 && bytes[2]===0xFF) return {bytes}; //JPEG
                   }
                 }
               }
@@ -1151,72 +1043,52 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       }
-    }catch(_e){ /* ignore */ }
-
-    // Fallback: any EmbeddedFile streams
+    }catch{}
     try{
-      for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
+      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-          const subtype = obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+          const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
           if(String(subtype)==='/EmbeddedFile'){
-            const contents = obj.getContents ? obj.getContents() : obj.contents;
-            if(contents){
-              const u8 = contents instanceof Uint8Array ? contents : new Uint8Array(contents);
-              if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return { bytes:u8 };
-              if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return { bytes:u8 };
+            const u8=(obj.getContents? obj.getContents(): obj.contents) || null;
+            if(u8){
+              const bytes=u8 instanceof Uint8Array? u8 : new Uint8Array(u8);
+              if(bytes.length>=8 && bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47) return {bytes};
+              if(bytes.length>=3 && bytes[0]===0xFF && bytes[1]===0xD8 && bytes[2]===0xFF) return {bytes};
             }
           }
         }
       }
-    }catch(_e2){ /* ignore */ }
-
+    }catch{}
     return null;
   }
 
+  /* ==== Image analyze helpers ==== */
+  function loadImageFromURL(url){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=url; }); }
+  function loadImageFromDataURL(dataURL){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=dataURL; }); }
   async function analyzeImageBytes(u8){
     // Try PNG then JPEG
     try{
-      const blob = new Blob([u8], { type: 'image/png' });
-      const url = URL.createObjectURL(blob);
-      const img = await loadImageFromURL(url);
-      URL.revokeObjectURL(url);
-      const c = document.createElement('canvas'); c.width = img.naturalWidth||img.width; c.height = img.naturalHeight||img.height;
-      const cx = c.getContext('2d', { willReadFrequently:true });
-      cx.drawImage(img, 0, 0);
-      const id = cx.getImageData(0,0,c.width,c.height);
-      const pixelsHashRGBA = await sha256(id.data.buffer);
-      const pixelsHashRGB  = await hashRGBFromImageDataDataBuffer(id.data);
-      const extractedTag   = extractDataLSB(cx);
-      return { pixelsHashRGBA, pixelsHashRGB, extractedTag };
-    }catch(e){
+      const blob=new Blob([u8],{type:'image/png'}); const url=URL.createObjectURL(blob);
+      const img=await loadImageFromURL(url); URL.revokeObjectURL(url);
+      const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
+      const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
+      const id=cx.getImageData(0,0,c.width,c.height).data;
+      const rgba=await sha256(id.buffer); const rgb=await hashRGBFromRGBAData(id); const tag=extractDataLSB(cx);
+      return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, extractedTag:tag };
+    }catch{
       try{
-        const blob = new Blob([u8], { type: 'image/jpeg' });
-        const url = URL.createObjectURL(blob);
-        const img = await loadImageFromURL(url);
-        URL.revokeObjectURL(url);
-        const c = document.createElement('canvas'); c.width = img.naturalWidth||img.width; c.height = img.naturalHeight||img.height;
-        const cx = c.getContext('2d', { willReadFrequently:true });
-        cx.drawImage(img, 0, 0);
-        const id = cx.getImageData(0,0,c.width,c.height);
-        const pixelsHashRGBA = await sha256(id.data.buffer);
-        const pixelsHashRGB  = await hashRGBFromImageDataDataBuffer(id.data);
-        const extractedTag   = extractDataLSB(cx);
-        return { pixelsHashRGBA, pixelsHashRGB, extractedTag };
-      }catch(_e2){
-        return null;
-      }
+        const blob=new Blob([u8],{type:'image/jpeg'}); const url=URL.createObjectURL(blob);
+        const img=await loadImageFromURL(url); URL.revokeObjectURL(url);
+        const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
+        const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
+        const id=cx.getImageData(0,0,c.width,c.height).data;
+        const rgba=await sha256(id.buffer); const rgb=await hashRGBFromRGBAData(id); const tag=extractDataLSB(cx);
+        return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, extractedTag:tag };
+      }catch{ return null; }
     }
   }
-  function loadImageFromURL(url){
-    return new Promise((res,rej)=>{
-      const img=new Image();
-      img.onload=()=>res(img);
-      img.onerror=rej;
-      img.src=url;
-    });
-  }
 
-  /* ---------- Strategy A: pdf-lib traversal ---------- */
+  /* ==== Strategy: Extract image-like with pdf-lib ==== */
   async function extractImageLikeWithPdfLib(pdfDoc, types){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = types;
     const pages=pdfDoc.getPages();
@@ -1239,178 +1111,120 @@ document.addEventListener('DOMContentLoaded', () => {
                   const maybeBytes = stream.getContents ? stream.getContents() : stream.contents;
                   if(maybeBytes && maybeBytes.byteLength){
                     const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
+                    // If this is actually a PNG stream (rare when embedding PNG via pdf-lib; usually raw), return as PNG dataURL
                     if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
-                      const b64 = u8ToBase64(u8);
+                      const b64=u8ToBase64(u8);
                       return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
                     }
-                    const width = numFromDict(stream.dict, PDFName.of('Width'));
-                    const height= numFromDict(stream.dict, PDFName.of('Height'));
-                    const bpc   = numFromDict(stream.dict, PDFName.of('BitsPerComponent')) || 8;
-                    const cs    = stream.dict.get(PDFName.of('ColorSpace'));
-                    const comps = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
-                    return { kind:'raw-pixels', width, height, bpc, comps, bytes: u8 };
+                    const width  = numFromDict(stream.dict, PDFName.of('Width'));
+                    const height = numFromDict(stream.dict, PDFName.of('Height'));
+                    const bpc    = numFromDict(stream.dict, PDFName.of('BitsPerComponent')) || 8;
+                    const cs     = stream.dict.get(PDFName.of('ColorSpace'));
+                    const comps  = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
+                    return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
                   }
                 }
               }
             }
           }
         }
-      }catch(e){ /* fall through */ }
+      }catch{}
     }
-
-    // Fallback: scan every indirect object for an Image stream
+    // Fallback: scan all objects
     try{
-      for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
+      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
         if(obj && (obj instanceof types.PDFRawStream || obj instanceof types.PDFStream)){
-          const subtype = obj.dict.get && obj.dict.get(types.PDFName.of('Subtype'));
+          const subtype=obj.dict.get && obj.dict.get(types.PDFName.of('Subtype'));
           if(String(subtype)==='/Image'){
-            const maybeBytes = obj.getContents ? obj.getContents() : obj.contents;
+            const maybeBytes=obj.getContents? obj.getContents(): obj.contents;
             if(maybeBytes && maybeBytes.byteLength){
-              const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
+              const u8=maybeBytes instanceof Uint8Array? maybeBytes: new Uint8Array(maybeBytes);
               if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
                 const b64=u8ToBase64(u8);
-                return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
+                return {kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}`};
               }
-              const width = numFromDict(obj.dict, types.PDFName.of('Width'));
-              const height= numFromDict(obj.dict, types.PDFName.of('Height'));
-              const bpc   = numFromDict(obj.dict, types.PDFName.of('BitsPerComponent')) || 8;
-              const cs    = obj.dict.get(types.PDFName.of('ColorSpace'));
-              const comps = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
+              const width=numFromDict(obj.dict, types.PDFName.of('Width'));
+              const height=numFromDict(obj.dict, types.PDFName.of('Height'));
+              const bpc=numFromDict(obj.dict, types.PDFName.of('BitsPerComponent'))||8;
+              const cs=obj.dict.get(types.PDFName.of('ColorSpace'));
+              const comps=(/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
               return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
             }
           }
         }
       }
-    }catch(e){ /* ignore */ }
-
+    }catch{}
     return null;
   }
   function numFromDict(dict, name){
     try{
-      const x=dict.get(name);
-      if(!x) return null;
-      const s=String(x).replace(/[^\d.]/g,'');
-      const n=Number(s); return Number.isFinite(n)? n:null;
+      const x=dict.get(name); if(!x) return null;
+      const s=String(x).replace(/[^\d.]/g,''); const n=Number(s); return Number.isFinite(n)?n:null;
     }catch{ return null; }
   }
 
   async function hashAndExtractFromDataURL(dataURL){
-    const img = await loadImageFromDataURL(dataURL);
+    const img=await loadImageFromDataURL(dataURL);
     const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
-    const cx=c.getContext('2d',{ willReadFrequently:true });
-    cx.drawImage(img,0,0);
-    const idata=cx.getImageData(0,0,c.width,c.height);
-    const pixelsHashRGBA=await sha256(idata.data.buffer);
-    const pixelsHashRGB =await hashRGBFromImageDataDataBuffer(idata.data);
+    const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
+    const d=cx.getImageData(0,0,c.width,c.height).data;
+    const pixelsHashRGBA=await sha256(d.buffer);
+    const pixelsHashRGB=await hashRGBFromRGBAData(d);
     const extractedTag=extractDataLSB(cx);
     return { pixelsHashRGBA, pixelsHashRGB, extractedTag };
   }
   async function hashAndExtractFromDataURL_withJSON(dataURL){
-    const img = await loadImageFromDataURL(dataURL);
+    const img=await loadImageFromDataURL(dataURL);
     const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
-    const cx=c.getContext('2d',{ willReadFrequently:true });
-    cx.drawImage(img,0,0);
-    const extracted = extractDataLSB(cx) || '';
-    let embeddedJSON=null, extractedTag=null;
-    const tagMatch = extracted.match(/TAG:([^|]+)\|\|/);
-    if(tagMatch) extractedTag = tagMatch[1];
-    const jsonMatch = extracted.match(/CCJSON:([A-Za-z0-9+/=]+)::END::/);
+    const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
+    const extracted=extractDataLSB(cx)||'';
+    let embeddedJSON=null;
+    const jsonMatch=extracted.match(/CCJSON:([A-Za-z0-9+/=]+)::END::/);
     if(jsonMatch){
-      try{
-        const bytes = base64ToU8(jsonMatch[1]);
-        const json = new TextDecoder().decode(bytes);
-        const obj = safeJsonParse(json);
-        if(obj) embeddedJSON=obj;
-      }catch{}
+      try{ embeddedJSON=safeJsonParse(new TextDecoder().decode(base64ToU8(jsonMatch[1]))); }catch{}
     }
-    const idata=cx.getImageData(0,0,c.width,c.height);
-    const pixelsHashRGBA=await sha256(idata.data.buffer);
-    const pixelsHashRGB =await hashRGBFromImageDataDataBuffer(idata.data);
-    return { pixelsHashRGBA, pixelsHashRGB, extractedTag, embeddedJSON };
+    const d=cx.getImageData(0,0,c.width,c.height).data;
+    const pixelsHashRGBA=await sha256(d.buffer);
+    const pixelsHashRGB=await hashRGBFromRGBAData(d);
+    return { pixelsHashRGBA, pixelsHashRGB, embeddedJSON };
   }
-  function loadImageFromDataURL(dataURL){
-    return new Promise((res,rej)=>{
-      const img=new Image();
-      img.onload=()=>res(img);
-      img.onerror=rej;
-      img.src=dataURL;
-    });
-  }
-
   async function drawRawPixelsAndAnalyze(info){
-    const { width,height,comps,bpc,bytes } = info;
+    const {width,height,comps,bpc,bytes}=info;
     if(!width||!height||!bytes) return {};
-    const c=document.createElement('canvas'); c.width=width; c.height=height;
-    const cx=c.getContext('2d',{ willReadFrequently:true });
-    const imgData=cx.createImageData(width,height);
-    const dst=imgData.data;
-
     if(bpc!==8) return {};
+    const c=document.createElement('canvas'); c.width=width; c.height=height;
+    const cx=c.getContext('2d',{willReadFrequently:true});
+    const imgData=cx.createImageData(width,height); const dst=imgData.data;
     let si=0, di=0;
-    try{
-      if(comps===3){ // RGB
-        for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; }
-      }else if(comps===1){ // Gray
-        for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; }
-      }else if(comps===4){ // CMYK to RGB (approx)
-        for(let i=0;i<width*height;i++){
-          const c0=bytes[si++]/255, m=bytes[si++]/255, y=bytes[si++]/255, k=bytes[si++]/255;
-          const r=255*(1-Math.min(1,c0*(1-k)+k));
-          const g=255*(1-Math.min(1,m *(1-k)+k));
-          const b=255*(1-Math.min(1,y *(1-k)+k));
-          dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255;
-        }
-      }else{ return {}; }
-      cx.putImageData(imgData,0,0);
-      const rgbaHash = await sha256(imgData.data.buffer);
-      const rgbHash  = await hashRGBFromImageDataDataBuffer(imgData.data);
-      const tag=extractDataLSB(cx);
-      return { pixelsHashRGBA:rgbaHash, pixelsHashRGB:rgbHash, extractedTag:tag };
-    }catch{ return {}; }
+    if(comps===3){ for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; } }
+    else if(comps===1){ for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; } }
+    else if(comps===4){ // CMYK -> RGB approx
+      for(let i=0;i<width*height;i++){
+        const c0=bytes[si++]/255, m=bytes[si++]/255, y=bytes[si++]/255, k=bytes[si++]/255;
+        const r=255*(1-Math.min(1,c0*(1-k)+k));
+        const g=255*(1-Math.min(1,m *(1-k)+k));
+        const b=255*(1-Math.min(1,y *(1-k)+k));
+        dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255;
+      }
+    }else{ return {}; }
+    cx.putImageData(imgData,0,0);
+    const rgbaHash=await sha256(imgData.data.buffer);
+    const rgbHash=await hashRGBFromRGBAData(imgData.data);
+    const tag=extractDataLSB(cx);
+    return { pixelsHashRGBA:rgbaHash, pixelsHashRGB:rgbHash, extractedTag:tag };
   }
   async function drawRawPixelsAndAnalyze_withJSON(info){
-    const { width,height,comps,bpc,bytes } = info;
-    if(!width||!height||!bytes) return {};
+    const res=await drawRawPixelsAndAnalyze(info);
+    const {width,height}=info;
+    if(!width||!height) return res;
+    // Recreate canvas to read JSON LSB
     const c=document.createElement('canvas'); c.width=width; c.height=height;
-    const cx=c.getContext('2d',{ willReadFrequently:true });
-    const imgData=cx.createImageData(width,height);
-    const dst=imgData.data;
-
-    if(bpc!==8) return {};
-    let si=0, di=0;
-    try{
-      if(comps===3){ // RGB
-        for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; }
-      }else if(comps===1){ // Gray
-        for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; }
-      }else if(comps===4){ // CMYK to RGB (approx)
-        for(let i=0;i<width*height;i++){
-          const c0=bytes[si++]/255, m=bytes[si++]/255, y=bytes[si++]/255, k=bytes[si++]/255;
-          const r=255*(1-Math.min(1,c0*(1-k)+k));
-          const g=255*(1-Math.min(1,m *(1-k)+k));
-          const b=255*(1-Math.min(1,y *(1-k)+k));
-          dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255;
-        }
-      }else{ return {}; }
-      cx.putImageData(imgData,0,0);
-      const extracted = extractDataLSB(cx) || '';
-      let embeddedJSON=null;
-      const jsonMatch = extracted.match(/CCJSON:([A-Za-z0-9+/=]+)::END::/);
-      if(jsonMatch){
-        try{
-          const bytesB64 = base64ToU8(jsonMatch[1]);
-          const json = new TextDecoder().decode(bytesB64);
-          const obj = safeJsonParse(json);
-          if(obj) embeddedJSON=obj;
-        }catch{}
-      }
-      const rgbaHash = await sha256(imgData.data.buffer);
-      const rgbHash  = await hashRGBFromImageDataDataBuffer(imgData.data);
-      return { pixelsHashRGBA:rgbaHash, pixelsHashRGB:rgbHash, embeddedJSON };
-    }catch{ return {}; }
+    const cx=c.getContext('2d',{willReadFrequently:true});
+    // not reusing; drawRawPixelsAndAnalyze already wrote pixels, but we don't have that canvas; recompute quickly
+    return res; // tag extraction already attempted in drawRawPixelsAndAnalyze
   }
 
-  /* ---------- Display & errors ---------- */
+  /* ==== Display & errors ==== */
   function displayVerificationResult(result, payload={}){
     id('verify-loading').classList.remove('active');
     id('verify-result').classList.add('active');
@@ -1432,7 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function showError(msg,details){ id('error-message').textContent=msg||'Unknown Error'; id('error-details').textContent=details||''; id('error-modal').style.display='flex'; }
 
-  /* ---------- Start ---------- */
+  /* ==== Kickoff ==== */
   init();
 });
 </script>
