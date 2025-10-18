@@ -1,8 +1,3 @@
-Got you. I rewired the verification so it **first validates against the embedded PNG/JPEG attachment** (pixel hashes + watermark extraction from the attachment image itself), then falls back to XObject/raw-image scraping if no attachment is present. That fixes the “pixel hash mismatch” + “watermark skipped” issues you were seeing and keeps **ALL** prior features intact (UI, QR, metadata paths, AF annotations, ECC LSB, dual-pass tagging, etc.).
-
-Paste this whole file as-is (single HTML). It will produce **HIGH** when the file is genuinely produced by this app, with **✓ Cryptographic Signature, ✓ Image Hash (Attachment), ✓ Watermark Integrity, ✓ Pixel Hash Consistency**.
-
-```html
 <!DOCTYPE html>
 <html lang="sv" data-theme="light">
 <head>
