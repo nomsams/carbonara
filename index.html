@@ -100,12 +100,15 @@
       background:var(--bg-color);padding:15px;border-radius:4px;text-align:left;white-space:pre-wrap;word-wrap:break-word;font-family:monospace;font-size:12px;border:1px solid var(--border-color);max-height:300px;overflow-y:auto;
     }
     hr{border:none;border-top:1px solid var(--border-color);margin:20px 0}
+
+    /* Generation modal */
     #progress-modal,#error-modal{
       display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center;
     }
     .modal-content{background:var(--fg-color);padding:30px;border-radius:8px;text-align:center;width:90%;max-width:450px}
-    #progress-bar{width:100%;height:10px;background:var(--border-color);border-radius:5px;overflow:hidden;margin-top:15px}
-    #progress-bar-inner{width:0%;height:100%;background:var(--primary-color);transition:width .3s}
+    #progress-bar,#verify-progress-bar{width:100%;height:10px;background:var(--border-color);border-radius:5px;overflow:hidden;margin-top:15px}
+    #progress-bar-inner,#verify-progress-bar-inner{width:0%;height:100%;background:var(--primary-color);transition:width .3s}
+
     #error-details{max-height:200px;overflow-y:auto;background:var(--bg-color);border:1px solid var(--border-color);padding:10px;margin-top:15px;text-align:left;font-family:monospace;font-size:12px}
     @media (max-width:900px){
       body{overflow:auto}
@@ -290,11 +293,15 @@
           <input id="file-upload-verify" type="file" accept=".pdf" style="display:none;"/>
           <button type="button" onclick="document.getElementById('file-upload-verify').click();">Select PDF to Verify</button>
         </div>
+
+        <!-- Loading pane now has granular progress -->
         <div id="verify-loading">
           <div class="verification-icon" aria-hidden="true">⏳</div>
           <h3>Analyzing Certificate...</h3>
-          <p>Extracting cryptographic signatures and metadata. Please wait.</p>
+          <p id="verify-progress-status">Initializing…</p>
+          <div id="verify-progress-bar"><div id="verify-progress-bar-inner"></div></div>
         </div>
+
         <div id="verify-result">
           <div id="auth-animation"></div>
           <h3 id="auth-prob"></h3>
@@ -327,6 +334,7 @@
   </section>
 </main>
 
+<!-- Generation progress modal -->
 <div id="progress-modal" role="dialog" aria-modal="true" aria-labelledby="progress-title">
   <div class="modal-content">
     <h3 id="progress-title">Generating PDF...</h3>
@@ -467,6 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   let textElements={}, logoElement={}, qrCodeElement={};
+  let autoGenParam = false;
 
   async function init(){
     // robust date default across browsers
@@ -482,16 +491,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (res.ok) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
-        bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent='✅ image.png loaded'; setupCanvas(bgImage.naturalWidth,bgImage.naturalHeight); URL.revokeObjectURL(url); };
-        bgImage.onerror=()=>{ id('bg-image-status').textContent='⚠️ image.png failed, using blank canvas'; setupCanvas(1414,2000); URL.revokeObjectURL(url); };
+        bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent='✅ image.png loaded'; setupCanvas(bgImage.naturalWidth,bgImage.naturalHeight); URL.revokeObjectURL(url); maybeAutoGen(); };
+        bgImage.onerror=()=>{ id('bg-image-status').textContent='⚠️ image.png failed, using blank canvas'; setupCanvas(1414,2000); URL.revokeObjectURL(url); maybeAutoGen(); };
         bgImage.src=url;
       } else {
         id('bg-image-status').textContent='ℹ️ No image.png found (upload one)';
         setupCanvas(1414,2000);
+        maybeAutoGen();
       }
     } catch {
       id('bg-image-status').textContent='ℹ️ image.png unavailable (upload one)';
       setupCanvas(1414,2000);
+      maybeAutoGen();
     }
 
     handleUrlParams();
@@ -698,6 +709,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleUrlParams(){
     const p=new URLSearchParams(location.search);
     const encoded=p.get('verify');
+    autoGenParam = p.get('autogen') === '1';
     if(!encoded) return;
     try{
       const dec=atob(encoded.replace(/-/g,'+').replace(/_/g,'/'));
@@ -713,6 +725,12 @@ document.addEventListener('DOMContentLoaded', () => {
         <p><em>Upload the corresponding PDF for full cryptographic verification.</em></p>`;
       id('verify-prompt').textContent=`Ready to verify serial: ${qrData.s||'N/A'}.`;
     }catch{ showError('Invalid QR Code Link','Verification link is corrupted or invalid.'); }
+  }
+  function maybeAutoGen(){
+    if(autoGenParam){
+      // give the UI a tick to settle, then export
+      setTimeout(()=>{ exportPdf(); }, 50);
+    }
   }
   function buildQR(){
     try{
@@ -880,34 +898,34 @@ document.addEventListener('DOMContentLoaded', () => {
       step('Step 7/12: Embedding FileAttachment annotation + AF…','64%');
       try{
         const ctx = pdfDoc.context;
-        const efPng = ctx.stream(finalPngBytes, { Type: PDFName.of('EmbeddedFile'), Subtype: PDFName.of('image#2Fpng') });
+        const efPng = ctx.stream(finalPngBytes, { Type: PDFLib.PDFName.of('EmbeddedFile'), Subtype: PDFLib.PDFName.of('image#2Fpng') });
         const efPngRef = ctx.register(efPng);
-        const fsPng = ctx.obj({ Type: PDFName.of('Filespec'),
-          F: PDFString.of(`CarbonAra-${payload.serial}.png`),
-          UF: PDFString.of(`CarbonAra-${payload.serial}.png`),
+        const fsPng = ctx.obj({ Type: PDFLib.PDFName.of('Filespec'),
+          F: PDFLib.PDFString.of(`CarbonAra-${payload.serial}.png`),
+          UF: PDFLib.PDFString.of(`CarbonAra-${payload.serial}.png`),
           EF: ctx.obj({ F: efPngRef })
         });
         const fsPngRef = ctx.register(fsPng);
 
-        const efJson = ctx.stream(finalJsonBytes, { Type: PDFName.of('EmbeddedFile'), Subtype: PDFName.of('application#2Fjson') });
+        const efJson = ctx.stream(finalJsonBytes, { Type: PDFLib.PDFName.of('EmbeddedFile'), Subtype: PDFLib.PDFName.of('application#2Fjson') });
         const efJsonRef = ctx.register(efJson);
-        const fsJson = ctx.obj({ Type: PDFName.of('Filespec'),
-          F: PDFString.of(`carboncert-${payload.serial}.json`),
-          UF: PDFString.of(`carboncert-${payload.serial}.json`),
+        const fsJson = ctx.obj({ Type: PDFLib.PDFName.of('Filespec'),
+          F: PDFLib.PDFString.of(`carboncert-${payload.serial}.json`),
+          UF: PDFLib.PDFString.of(`carboncert-${payload.serial}.json`),
           EF: ctx.obj({ F: efJsonRef })
         });
         const fsJsonRef = ctx.register(fsJson);
 
-        pdfDoc.catalog.set(PDFName.of('AF'), ctx.obj([ fsJsonRef, fsPngRef ]));
+        pdfDoc.catalog.set(PDFLib.PDFName.of('AF'), ctx.obj([ fsJsonRef, fsPngRef ]));
 
         const rect = [10, 10, 22, 22];
         const annotDict = ctx.obj({
-          Type: PDFName.of('Annot'), Subtype: PDFName.of('FileAttachment'),
-          Rect: ctx.obj(rect), FS: fsPngRef, Name: PDFName.of('PushPin'), C: ctx.obj([1,1,0])
+          Type: PDFLib.PDFName.of('Annot'), Subtype: PDFLib.PDFName.of('FileAttachment'),
+          Rect: ctx.obj(rect), FS: fsPngRef, Name: PDFLib.PDFName.of('PushPin'), C: ctx.obj([1,1,0])
         });
         const annotRef = ctx.register(annotDict);
         const annots = page.node.Annots();
-        if (annots) { annots.push(annotRef); } else { page.node.set(PDFName.of('Annots'), ctx.obj([annotRef])); }
+        if (annots) { annots.push(annotRef); } else { page.node.set(PDFLib.PDFName.of('Annots'), ctx.obj([annotRef])); }
       }catch(e){ console.warn('file attachment annotation failed', e); }
 
       step('Step 8/12: Metadata…','74%');
@@ -943,23 +961,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(e){ showError('Download Error', e?.stack||String(e)); }
   }
 
-  /* ---------- Verification ---------- */
+  /* ---------- Verification with progress ---------- */
   async function verifyPdf(ev){
     const file=ev.target.files?.[0]; if(!file) return;
     const vc=id('verify-container');
     vc.querySelector('#verify-idle').classList.remove('active');
     vc.querySelector('#verify-loading').classList.add('active');
 
+    const vStatus = id('verify-progress-status');
+    const vBar = id('verify-progress-bar-inner');
+    const vstep = (msg, pct) => { vStatus.textContent = msg; vBar.style.width = pct; };
+
     const diag=id('diagnostics'); diag.textContent='';
     const log=(m)=> diag.textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`;
 
     try{
+      vstep('Loading PDF…', '8%'); await delay(0);
       const { PDFDocument, PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
       const pdfBytes=await file.arrayBuffer();
       const pdfDoc=await PDFDocument.load(pdfBytes,{ ignoreEncryption:true, throwOnInvalidObject:false });
       log('PDF document loaded successfully.');
 
       // 1) Locate payload (title → keywords → subject → author → JSON attachment → LSB)
+      vstep('Locating embedded payload…', '18%'); await delay(0);
       let payload=null, foundVia='none';
 
       // Title
@@ -988,6 +1012,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }catch{}
       }
+      vstep('Checking document metadata…', '28%'); await delay(0);
       // Subject
       if(!payload){
         try{
@@ -1010,6 +1035,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }catch{}
       }
+      vstep('Scanning for JSON attachments…', '38%'); await delay(0);
       // JSON attachment
       if(!payload){
         try{
@@ -1021,6 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }catch{}
       }
 
+      vstep('Attempting watermark recovery…', '48%'); await delay(0);
       // LSB fallback
       if(!payload){
         try{
@@ -1054,13 +1081,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       log(`Payload found via: ${foundVia}.`);
 
-      // 2) Cryptographic signature check
+      vstep('Validating cryptographic signature…', '58%'); await delay(0);
       const expected = await tagFor(canonicalString(payload));
       log(`Expected tag: ${expected.slice(0,16)}…`);
       log(`Metadata tag: ${(payload.tag_b64||'').slice(0,16)}…`);
       const cryptoOK = (payload.tag_b64 === expected);
 
-      // 3) Attachment-first verification (pixels + watermark from attachment)
+      vstep('Cross-checking embedded image & watermark…', '70%'); await delay(0);
       let attachOK=false, pixelOK=false, watermarkOK=false;
       try{
         const att = await findImageAttachmentAny(pdfDoc);
@@ -1079,8 +1106,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }catch(e){ log('Attachment decode failed: '+(e?.message||String(e))); }
 
-      // 4) If needed, attempt XObject/raw extraction as fallback
       if(!(pixelOK && watermarkOK)){
+        vstep('Analyzing page XObject/raw pixels…', '82%'); await delay(0);
         try{
           const info = await extractFirstImageWithPdfLib(pdfDoc, {PDFName, PDFDict, PDFRawStream, PDFStream});
           if(info){
@@ -1116,12 +1143,14 @@ document.addEventListener('DOMContentLoaded', () => {
       else if(cryptoOK) result.status='MEDIUM';
       else result.status='LOW';
 
+      vstep('Finalizing report…', '96%'); await delay(0);
       log(`Verification complete. Final status: ${result.status}`);
       showVerifyResult(result, payload);
     }catch(e){
       id('diagnostics').textContent += `CRITICAL ERROR: ${e?.message||String(e)}\n`;
       showVerifyResult({status:'LOW',crypto:'FAIL',attachment:'FAIL',water:'FAIL',pixel:'FAIL',error:e?.message||String(e)}, {});
     }finally{
+      vstep('Done.', '100%');
       id('verify-loading').classList.remove('active');
       id('verify-result').classList.add('active');
     }
