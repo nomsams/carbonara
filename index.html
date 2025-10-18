@@ -80,6 +80,7 @@
     button:active{transform:scale(.98)}
     .secondary-button{background:#6c757d}
     .secondary-button:hover{background:#5a6268}
+
     #verify-container{text-align:center}
     #verify-idle,#verify-loading,#verify-result{display:none}
     #verify-idle.active,#verify-loading.active,#verify-result.active{display:block}
@@ -305,7 +306,7 @@
           </div>
         </div>
 
-        <!-- Loading pane: PROGRESS + substeps + cancel + timer -->
+        <!-- Loading pane -->
         <div id="verify-loading">
           <div class="verification-icon" aria-hidden="true">⏳</div>
           <h3>Analyzing Certificate...</h3>
@@ -319,7 +320,7 @@
             <li><span class="dot" id="vstep-pixels"></span> Scan page image / raw pixels & watermark</li>
             <li><span class="dot" id="vstep-final"></span> Finalize report</li>
           </ul>
-          <p id="verify-hint">This process performs cryptographic and pixel-level checks and <strong>can take some time</strong> on large files.</p>
+          <p id="verify-hint">This performs cryptographic + pixel checks and <strong>can take some time</strong> on large files.</p>
           <p id="verify-elapsed">Elapsed: <span id="verify-elapsed-span">0.0s</span></p>
           <div class="input-group" style="margin-top:10px">
             <button id="verify-cancel-btn" class="secondary-button" type="button">Stop Verification</button>
@@ -395,7 +396,7 @@ async function hashRGBOnly(rgba){
 function loadImageFromURL(url){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.crossOrigin='anonymous'; img.src=url; }); }
 function loadImageFromDataURL(dataURL){ return loadImageFromURL(dataURL); }
 
-/* ---------- Robust LSB Watermark (v2) with ECC + Legacy v1 ---------- */
+/* ---------- Watermark helpers ---------- */
 const WM_V2 = { header:"CC2|", footer:"|END2", repeat:7, stride:3 };
 function crc32(str){
   let c = ~0, table = crc32.table;
@@ -455,7 +456,6 @@ function extractLSBv2(ctx2d){
   const ok = crc32(msg) === crc;
   return { ok, message: msg, crc };
 }
-// Legacy v1
 function embedLSBv1(ctx2d, str){
   const term="::END::";
   const bits = Array.from(str+term).map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join('');
@@ -628,13 +628,14 @@ document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(()=>{ try{ updateFromInputs(); draw(); } finally { isRendering=false; } });
   }
   function draw(){
+    const dark = (document.documentElement.getAttribute('data-theme')==='dark');
     ctx.textBaseline='top';
     ctx.clearRect(0,0,canvas.width,canvas.height);
     if(bgImageLoaded) ctx.drawImage(bgImage,0,0,canvas.width,canvas.height);
-    else { ctx.fillStyle = (document.documentElement.getAttribute('data-theme')==='dark')?'#1e1e1e':'#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+    else { ctx.fillStyle = dark?'#1e1e1e':'#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
     if(logoImageLoaded && logoElement.width>0) ctx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
 
-    const color = (document.documentElement.getAttribute('data-theme')==='dark')?'#e0e0e0':'#212529';
+    const color = dark?'#e0e0e0':'#212529';
     Object.values(textElements).forEach(el=>{
       const size=Number.isFinite(el.fontSize)? el.fontSize:12;
       ctx.font=`${size}px '${el.font||'Montserrat'}'`; ctx.fillStyle=color;
@@ -797,7 +798,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   async function tagFor(canon){ const key=await reconstructMasterKey(); const data=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon)); const sig=await crypto.subtle.sign('HMAC',key,data); return btoa(String.fromCharCode(...new Uint8Array(sig))); }
 
-  /* ---------- Export (unchanged, with progress modal + auto download) ---------- */
+  /* ---------- Export (with progress modal) ---------- */
   async function exportPdf(){
     const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
     modal.style.display='flex';
@@ -988,7 +989,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(e){ showError('Download Error', e?.stack||String(e)); }
   }
 
-  /* ---------- VERIFICATION: Web Worker (non-blocking) ---------- */
+  /* ---------- VERIFICATION: Classic Web Worker (non-blocking) ---------- */
 
   function startVerification(ev){
     const file=ev.target.files?.[0]; if(!file) return;
@@ -998,6 +999,15 @@ document.addEventListener('DOMContentLoaded', () => {
     verifyWorker = createVerifierWorker();
     verifyStartTs = performance.now();
     startElapsedTimer();
+
+    // Heartbeat: UI keeps moving even during heavy parse
+    const hb = setInterval(()=>{
+      if(!verifyWorker){ clearInterval(hb); return; }
+      const bar = id('verify-progress-bar-inner');
+      const cur = parseFloat(bar.style.width||'0');
+      const bump = Math.min(cur + 0.3, 90); // never exceed 90% before real updates
+      bar.style.width = bump + '%';
+    }, 500);
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -1015,11 +1025,13 @@ document.addEventListener('DOMContentLoaded', () => {
         stopElapsedTimer();
         showVerifyResult(msg.result, msg.payload);
         hideVerifyLoadingUI();
+        stopExistingWorker();
       } else if(msg.type === 'error'){
         stopElapsedTimer();
         appendDiag('CRITICAL ERROR: '+ (msg.message||'Unknown error'));
         showVerifyResult({status:'LOW',crypto:'FAIL',attachment:'FAIL',water:'FAIL',pixel:'FAIL',error:msg.message||'Unknown error'},{});
         hideVerifyLoadingUI();
+        stopExistingWorker();
       }
     };
 
@@ -1028,6 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
       appendDiag('WORKER ERROR: ' + (err.message||String(err)));
       showVerifyResult({status:'LOW',crypto:'FAIL',attachment:'FAIL',water:'FAIL',pixel:'FAIL',error:err.message||String(err)},{});
       hideVerifyLoadingUI();
+      stopExistingWorker();
     };
   }
 
@@ -1035,7 +1048,6 @@ document.addEventListener('DOMContentLoaded', () => {
     appendDiag('Verification cancelled by user.');
     stopExistingWorker();
     stopElapsedTimer();
-    // Go back to idle
     id('verify-loading').classList.remove('active');
     id('verify-idle').classList.add('active');
   }
@@ -1055,10 +1067,10 @@ document.addEventListener('DOMContentLoaded', () => {
     vc.querySelector('#verify-idle').classList.remove('active');
     vc.querySelector('#verify-result').classList.remove('active');
     vc.querySelector('#verify-loading').classList.add('active');
-    setVerifyProgress('Initializing…','0%');
+    setVerifyProgress('Initializing…','0%','vstep-load');
     resetSubsteps();
     setSubstep('vstep-load','active');
-    id('verify-hint').innerHTML = 'This process performs cryptographic and pixel-level checks and <strong>can take some time</strong> on large files.';
+    id('verify-hint').innerHTML = 'This performs cryptographic + pixel checks and <strong>can take some time</strong> on large files.';
   }
   function hideVerifyLoadingUI(){
     const vc=id('verify-container');
@@ -1067,9 +1079,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function setVerifyProgress(msg, pct, stepKey){
     id('verify-progress-status').textContent = msg || '';
-    id('verify-progress-bar-inner').style.width = pct || '0%';
+    if(pct){ id('verify-progress-bar-inner').style.width = pct; }
     if(stepKey){
-      // mark prior step done, current active
       const order=['vstep-load','vstep-locate','vstep-sign','vstep-attach','vstep-pixels','vstep-final'];
       const idx = order.indexOf(stepKey);
       order.forEach((k,i)=>{
@@ -1082,8 +1093,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function resetSubsteps(){
     ['vstep-load','vstep-locate','vstep-sign','vstep-attach','vstep-pixels','vstep-final'].forEach(k=>{
-      const el=id(k);
-      el.classList.remove('done','active');
+      const el=id(k); el.classList.remove('done','active');
     });
   }
   function startElapsedTimer(){
@@ -1099,6 +1109,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function createVerifierWorker(){
     const code = `
+      // Classic worker (NOT module). importScripts works here.
       self.importScripts('https://unpkg.com/pdf-lib/dist/pdf-lib.min.js');
       const delay = ms => new Promise(r => setTimeout(r, ms));
       const textDec = new TextDecoder();
@@ -1116,7 +1127,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function b64ToU8(b64){ const bin = atob(b64); const u8 = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
       function safeJson(s){ try{ return JSON.parse(s); }catch{ return null; } }
 
-      // CRC + LSB utils (same as main)
+      // Watermark helpers
       const WM_V2 = { header:"CC2|", footer:"|END2", repeat:7, stride:3 };
       function crc32(str){
         let c = ~0, table = crc32.table;
@@ -1165,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
       }
 
-      // Canonical & HMAC (mirror)
+      // Canonical & HMAC
       const masterKeySalt="CarbonCertSaltV1", pbkdf2Iterations=100000;
       async function reconstructMasterKey(){
         const fragments=['fragA','fragB','fragC','fragD'];
@@ -1202,8 +1213,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }catch{ return null; }
       }
 
+      const CAN_PIX = (typeof OffscreenCanvas!=='undefined');
+
       async function pixelsAndWmFromImageBytes(u8){
-        // Try PNG then JPEG using OffscreenCanvas + createImageBitmap
+        if(!CAN_PIX || !self.createImageBitmap){ return { skipped:true }; }
         try{
           const blob=new Blob([u8],{type:'image/png'});
           const bmp=await createImageBitmap(blob);
@@ -1233,11 +1246,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if(v2.ok && /CCJSON:/.test(v2.message)) v2OK=true; else { const v1=extractLSBv1FromCtx(cx); if(v1&&/CCJSON:/.test(v1)) v2OK=true; }
             bmp.close();
             return { rgbaHash, rgbHash, v2OK };
-          }catch{ return { }; }
+          }catch{ return { skipped:true }; }
         }
       }
 
       async function hashAndTryECCFromPNGBytes(u8){
+        if(!CAN_PIX || !self.createImageBitmap){ return { skipped:true }; }
         const blob = new Blob([u8],{type:'image/png'});
         const bmp = await createImageBitmap(blob);
         const c=new OffscreenCanvas(bmp.width,bmp.height);
@@ -1255,8 +1269,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       async function drawRawAndTryECC(info){
+        if(!CAN_PIX){ return { skipped:true }; }
         const {width,height,comps,bpc,bytes}=info;
-        if(!width||!height||!bytes||bpc!==8) return { };
+        if(!width||!height||!bytes||bpc!==8) return { skipped:true };
         const c=new OffscreenCanvas(width,height);
         const cx=c.getContext('2d',{willReadFrequently:true});
         const imgData=cx.createImageData(width,height);
@@ -1264,7 +1279,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(comps===3){ for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; } }
         else if(comps===1){ for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; } }
         else if(comps===4){ for(let i=0;i<width*height;i++){ const c0=bytes[si++]/255,m=bytes[si++]/255,y=bytes[si++]/255,k=bytes[si++]/255; const r=255*(1-Math.min(1,c0*(1-k)+k)); const g=255*(1-Math.min(1,m*(1-k)+k)); const b=255*(1-Math.min(1,y*(1-k)+k)); dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255; } }
-        else { return {}; }
+        else { return { skipped:true }; }
         cx.putImageData(imgData,0,0);
         const rgba=await sha256(imgData.data.buffer);
         const rgb=await hashRGBOnly(imgData.data);
@@ -1317,16 +1332,16 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
         try{
-          const af = pdfDoc.catalog.get(PDFName.of('AF'));
+          const af = pdfDoc.catalog.get(PDFLib.PDFName.of('AF'));
           if(af){
             const afArr = pdfDoc.context.lookup(af);
             const arr = afArr.array || [];
             for(const fs of arr){
               const fsDict = pdfDoc.context.lookup(fs, PDFDict);
-              const ef = fsDict.get && fsDict.get(PDFName.of('EF'));
+              const ef = fsDict.get && fsDict.get(PDFLib.PDFName.of('EF'));
               if(ef){
                 const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const streamRef=efDict.get && efDict.get(PDFName.of('F'));
+                const streamRef=efDict.get && efDict.get(PDFLib.PDFName.of('F'));
                 const stream=pdfDoc.context.lookup(streamRef);
                 if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
                   const u8 = stream.getContents? stream.getContents(): stream.contents;
@@ -1384,16 +1399,16 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
         try{
-          const af = pdfDoc.catalog.get(PDFName.of('AF'));
+          const af = pdfDoc.catalog.get(PDFLib.PDFName.of('AF'));
           if(af){
             const afArr = pdfDoc.context.lookup(af);
             const arr = afArr.array || [];
             for(const fs of arr){
               const fsDict = pdfDoc.context.lookup(fs, PDFDict);
-              const ef = fsDict.get && fsDict.get(PDFName.of('EF'));
+              const ef = fsDict.get && fsDict.get(PDFLib.PDFName.of('EF'));
               if(ef){
                 const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const streamRef=efDict.get && efDict.get(PDFName.of('F'));
+                const streamRef=efDict.get && efDict.get(PDFLib.PDFName.of('F'));
                 const stream=pdfDoc.context.lookup(streamRef);
                 if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
                   const bytes = stream.getContents? stream.getContents(): stream.contents;
@@ -1415,13 +1430,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const arr = annots?.array || [];
             for(const a of arr){
               const ad = pdfDoc.context.lookup(a, PDFDict);
-              const fs = ad.get && ad.get(PDFName.of('FS'));
+              const fs = ad.get && ad.get(PDFLib.PDFName.of('FS'));
               if(fs){
                 const fsD = pdfDoc.context.lookup(fs, PDFDict);
-                const ef = fsD.get && fsD.get(PDFName.of('EF'));
+                const ef = fsD.get && fsD.get(PDFLib.PDFName.of('EF'));
                 if(ef){
                   const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                  const streamRef=efDict.get && efDict.get(PDFName.of('F'));
+                  const streamRef=efDict.get && efDict.get(PDFLib.PDFName.of('F'));
                   const stream=pdfDoc.context.lookup(streamRef);
                   if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
                     const bytes = stream.getContents? stream.getContents(): stream.contents;
@@ -1567,16 +1582,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if(!payload){
             try{
               const info = await extractFirstImageWithPdfLib(pdfDoc);
-              if(info?.kind==='png-bytes'){
-                const { pixelsHashRGBA, pixelsHashRGB, v2OK } = await hashAndTryECCFromPNGBytes(info.bytes);
-                if(v2OK){
-                  // watermark should carry CCJSON; but we only know it by extracting text — done in main UI path;
-                  // Here, we rely on payload having been embedded as JSON in watermark as Base64
-                  // Try decode directly
-                  // Heuristic: we can't read text from v2 here; skip — already attempted hashes.
-                }
-                // Try to read CCJSON directly via ECC again with text extraction:
-                // Build a canvas & re-run v2 to extract message:
+              if(info?.kind==='png-bytes' && CAN_PIX && self.createImageBitmap){
                 const bmp=await createImageBitmap(new Blob([info.bytes],{type:'image/png'}));
                 const c=new OffscreenCanvas(bmp.width,bmp.height);
                 const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(bmp,0,0); bmp.close();
@@ -1599,10 +1605,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   }
                 }
               } else if(info?.kind==='raw-pixels'){
-                const r = await drawRawAndTryECC(info);
-                if(r.v2OK){
-                  // Not extracting JSON here; hashes/path below will confirm pixels
-                }
+                // JSON can't be read without decoding watermark text; keep fallback paths below.
               }
             }catch{}
           }
@@ -1625,12 +1628,15 @@ document.addEventListener('DOMContentLoaded', () => {
               const attHash = await sha256(att.buffer);
               if(attHash === (payload.imageHashAttachment||'')) attachOK = true;
 
-              const { rgbaHash, rgbHash, v2OK } = await pixelsAndWmFromImageBytes(att);
-              if(rgbaHash===payload.imageHashWatermarked || rgbHash===payload.imageHashRGB) pixelOK=true;
-              if(v2OK) watermarkOK=true;
-
-              log(\`Attachment RGBA \${(rgbaHash||'').slice(0,16)} vs payload \${(payload.imageHashWatermarked||'').slice(0,16)}\`);
-              log(\`Attachment  RGB \${(rgbHash||'').slice(0,16)} vs payload \${(payload.imageHashRGB||'').slice(0,16)}\`);
+              const R = await pixelsAndWmFromImageBytes(att);
+              if(!R.skipped){
+                if(R.rgbaHash===payload.imageHashWatermarked || R.rgbHash===payload.imageHashRGB) pixelOK=true;
+                if(R.v2OK) watermarkOK=true;
+                log(\`Attachment RGBA \${(R.rgbaHash||'').slice(0,16)} vs payload \${(payload.imageHashWatermarked||'').slice(0,16)}\`);
+                log(\`Attachment  RGB \${(R.rgbHash||'').slice(0,16)} vs payload \${(payload.imageHashRGB||'').slice(0,16)}\`);
+              } else {
+                log('Attachment pixel scan skipped (no OffscreenCanvas/ImageBitmap).');
+              }
             } else {
               log('No PNG/JPEG attachment present.');
             }
@@ -1642,20 +1648,28 @@ document.addEventListener('DOMContentLoaded', () => {
               const info = await extractFirstImageWithPdfLib(pdfDoc);
               if(info){
                 if(info.kind==='png-bytes'){
-                  const { pixelsHashRGBA, pixelsHashRGB, v2OK } = await hashAndTryECCFromPNGBytes(info.bytes);
-                  if(!pixelOK && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) pixelOK = true;
-                  if(!watermarkOK && v2OK) watermarkOK = true;
-                  if(!pixelOK){
-                    log(\`B(PNG): RGBA \${(pixelsHashRGBA||'').slice(0,16)} vs \${(payload.imageHashWatermarked||'').slice(0,16)}\`);
-                    log(\`B(PNG): RGB  \${(pixelsHashRGB||'').slice(0,16)} vs \${(payload.imageHashRGB||'').slice(0,16)}\`);
+                  const R = await hashAndTryECCFromPNGBytes(info.bytes);
+                  if(!R.skipped){
+                    if(!pixelOK && (R.pixelsHashRGBA===payload.imageHashWatermarked || R.pixelsHashRGB===payload.imageHashRGB)) pixelOK = true;
+                    if(!watermarkOK && R.v2OK) watermarkOK = true;
+                    if(!pixelOK){
+                      log(\`B(PNG): RGBA \${(R.pixelsHashRGBA||'').slice(0,16)} vs \${(payload.imageHashWatermarked||'').slice(0,16)}\`);
+                      log(\`B(PNG): RGB  \${(R.pixelsHashRGB||'').slice(0,16)} vs \${(payload.imageHashRGB||'').slice(0,16)}\`);
+                    }
+                  } else {
+                    log('PNG pixel scan skipped (no OffscreenCanvas/ImageBitmap).');
                   }
                 } else if(info.kind==='raw-pixels'){
-                  const { pixelsHashRGBA, pixelsHashRGB, v2OK } = await drawRawAndTryECC(info);
-                  if(!pixelOK && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) pixelOK=true;
-                  if(!watermarkOK && v2OK) watermarkOK=true;
-                  if(!pixelOK){
-                    log(\`B(raw): RGBA \${(pixelsHashRGBA||'').slice(0,16)} vs \${(payload.imageHashWatermarked||'').slice(0,16)}\`);
-                    log(\`B(raw): RGB  \${(pixelsHashRGB||'').slice(0,16)} vs \${(payload.imageHashRGB||'').slice(0,16)}\`);
+                  const R = await drawRawAndTryECC(info);
+                  if(!R.skipped){
+                    if(!pixelOK && (R.pixelsHashRGBA===payload.imageHashWatermarked || R.pixelsHashRGB===payload.imageHashRGB)) pixelOK=true;
+                    if(!watermarkOK && R.v2OK) watermarkOK=true;
+                    if(!pixelOK){
+                      log(\`B(raw): RGBA \${(R.pixelsHashRGBA||'').slice(0,16)} vs \${(payload.imageHashWatermarked||'').slice(0,16)}\`);
+                      log(\`B(raw): RGB  \${(R.pixelsHashRGB||'').slice(0,16)} vs \${(payload.imageHashRGB||'').slice(0,16)}\`);
+                    }
+                  } else {
+                    log('Raw pixel scan skipped (no OffscreenCanvas).');
                   }
                 }
               }
@@ -1683,9 +1697,9 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     const blob = new Blob([code], { type:'application/javascript' });
     const url = URL.createObjectURL(blob);
-    const w = new Worker(url, { type:'module' });
-    // Revoke later (can’t immediately because worker needs it)
-    setTimeout(()=> URL.revokeObjectURL(url), 3000);
+    const w = new Worker(url); // classic worker (not module)
+    // revoke later
+    setTimeout(()=> URL.revokeObjectURL(url), 5000);
     return w;
   }
 
