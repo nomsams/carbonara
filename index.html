@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="sv" data-theme="light">
 <head>
@@ -364,49 +365,32 @@ function loadImageFromURL(url){ return new Promise((res,rej)=>{ const img=new Im
 function loadImageFromDataURL(dataURL){ return loadImageFromURL(dataURL); }
 
 /* ---------- Robust LSB Watermark (v2) with ECC (repetition + stride + CRC) + Legacy v1 ---------- */
-const WM_V2 = {
-  header:"CC2|", footer:"|END2",
-  repeat:7,    // majority vote on groups of 7 bits
-  stride:3,    // spread over every 3rd pixel to reduce localized damage
-};
+const WM_V2 = { header:"CC2|", footer:"|END2", repeat:7, stride:3 };
 function crc32(str){
-  // Small CRC32 implementation for quick integrity check
   let c = ~0, table = crc32.table;
   if(!table){
     table = crc32.table = new Uint32Array(256);
-    for(let n=0;n<256;n++){
-      let c2=n;
-      for(let k=0;k<8;k++){ c2 = (c2&1)? (0xEDB88320 ^ (c2>>>1)) : (c2>>>1); }
-      table[n]=c2>>>0;
-    }
+    for(let n=0;n<256;n++){ let c2=n; for(let k=0;k<8;k++) c2=(c2&1)?(0xEDB88320^(c2>>>1)):(c2>>>1); table[n]=c2>>>0; }
   }
   for(let i=0;i<str.length;i++) c = table[(c^str.charCodeAt(i))&0xFF] ^ (c>>>8);
   return (~c>>>0).toString(16).padStart(8,'0');
 }
-function toBitString(str){
-  return Array.from(str).map(ch => ch.charCodeAt(0).toString(2).padStart(8,'0')).join('');
-}
-function fromBitString(bits){
-  const bytes = bits.match(/.{1,8}/g) || [];
-  return bytes.map(b => String.fromCharCode(parseInt(b,2))).join('');
-}
+function toBitString(str){ return Array.from(str).map(ch=>ch.charCodeAt(0).toString(2).padStart(8,'0')).join(''); }
+function fromBitString(bits){ const bytes=bits.match(/.{1,8}/g)||[]; return bytes.map(b=>String.fromCharCode(parseInt(b,2))).join(''); }
 function embedLSBv2(ctx2d, payloadStr){
   const img = ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height);
   const d = img.data;
   const crc = crc32(payloadStr);
   const full = WM_V2.header + payloadStr + '|' + crc + WM_V2.footer;
   const bits = toBitString(full);
-
-  // capacity check
-  const cap = Math.floor(d.length/4 / WM_V2.stride); // blue channel per stride
+  const cap = Math.floor(d.length/4 / WM_V2.stride);
   const need = Math.ceil(bits.length * WM_V2.repeat);
   if(need > cap) throw new Error(`Watermark too large (${need} > capacity ${cap})`);
-
   let ptr = 0;
   for(let i=0;i<bits.length;i++){
     const bit = bits[i] === '1' ? 1 : 0;
     for(let rep=0; rep<WM_V2.repeat; rep++){
-      const pxIndex = (ptr++ * WM_V2.stride) * 4; // stride in pixels
+      const pxIndex = (ptr++ * WM_V2.stride) * 4;
       if(pxIndex+2 >= d.length) break;
       d[pxIndex+2] = (d[pxIndex+2] & 0xFE) | bit;
     }
@@ -416,21 +400,18 @@ function embedLSBv2(ctx2d, payloadStr){
 function extractLSBv2(ctx2d){
   const img = ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height);
   const d = img.data;
-  // Collect LSBs with stride
   const bits = [];
   for(let p=0; p<Math.floor(d.length/4/WM_V2.stride); p++){
     const blue = d[(p*WM_V2.stride)*4 + 2];
     bits.push(blue & 1 ? '1':'0');
   }
-  // Majority vote on groups of repeat
   const groups = Math.floor(bits.length / WM_V2.repeat);
   let dec = '';
   for(let g=0; g<groups; g++){
     let ones=0;
-    for(let j=0;j<WM_V2.repeat;j++){ if(bits[g*WM_V2.repeat + j]==='1') ones++; }
+    for(let j=0;j<WM_V2.repeat;j++) if(bits[g*WM_V2.repeat + j]==='1') ones++;
     dec += (ones > WM_V2.repeat/2) ? '1' : '0';
   }
-  // Convert to text and find header/footer
   const raw = fromBitString(dec);
   const sidx = raw.indexOf(WM_V2.header);
   const eidx = raw.indexOf(WM_V2.footer, sidx>=0 ? sidx : 0);
@@ -443,7 +424,7 @@ function extractLSBv2(ctx2d){
   const ok = crc32(msg) === crc;
   return { ok, message: msg, crc };
 }
-// Legacy v1 (no ECC; last resort)
+// Legacy v1
 function embedLSBv1(ctx2d, str){
   const term="::END::";
   const bits = Array.from(str+term).map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join('');
@@ -494,7 +475,6 @@ document.addEventListener('DOMContentLoaded', () => {
     addEventListeners();
     await document.fonts.ready;
 
-    // font warmup
     const tmp = inputs.name.value; inputs.name.value='Rendering…'; requestRedraw(); await delay(60); inputs.name.value=tmp;
 
     bgImage.crossOrigin='anonymous';
@@ -548,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
       catch{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('Diagnostics copied.'); }
     });
 
-    // drag elements
+    // drag
     let dragging=false, key=null, offset={x:0,y:0};
     canvas.addEventListener('mousedown', e=>{
       const p = getMouse(e);
@@ -616,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const h = logoImage.height ? (logoImage.height * (w/Math.max(1,logoImage.width))) : 0;
       logoElement = { x:num(inputs.xLogo.value), y:num(inputs.yLogo.value), width:w, height:h, draggable:true };
     } else {
-      logoElement = { x:0,y:0,width:0,height:0,draggable:false };
+      logoElement = { x:0,y:0,width:0,draggable:false };
     }
     qrCodeElement = {
       x:num(inputs.xQr.value), y:num(inputs.yQr.value), alpha:clamp01(parseFloat(inputs.alphaQr.value)), size:150, draggable: inputs.qrMode.value==='with_qr'
@@ -733,14 +713,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   async function tagFor(canon){ const key=await reconstructMasterKey(); const data=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon)); const sig=await crypto.subtle.sign('HMAC',key,data); return btoa(String.fromCharCode(...new Uint8Array(sig))); }
 
-  /* ---------- Export (stabilized) ---------- */
+  /* ---------- Export (stabilized + dual-attachment path) ---------- */
   async function exportPdf(){
     const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
     modal.style.display='flex';
     const step=(m,p)=>{ status.textContent=m; bar.style.width=p; };
 
     try{
-      step('Step 1/10: Drawing base…','6%'); await delay(5);
+      step('Step 1/12: Drawing base…','6%'); await delay(5);
 
       function drawInto(ctx2){
         ctx2.textBaseline='top';
@@ -801,35 +781,34 @@ document.addEventListener('DOMContentLoaded', () => {
         app:'CarbonCert-5.0.0'
       };
 
-      // Pass A (no watermark) -> hash
-      step('Step 2/10: Hashing original…','14%');
+      // Pass A (no watermark)
+      step('Step 2/12: Hashing original…','14%');
       const A = await pngAndHashes(null, true);
       payload.imageHashOriginal = A.rgbaHash;
 
-      // Tag for provisional (watermarked unknown)
+      // Provisional tag
       let canon = canonicalString({...payload, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:''});
       let tag = await tagFor(canon);
 
-      // Pass B with v2 ECC watermark (TAG + JSON placeholder)
-      step('Step 3/10: Embedding ECC watermark…','26%');
+      // Pass B with ECC watermark placeholder
+      step('Step 3/12: Embedding ECC watermark…','24%');
       const placeholderMsg = `TAG:${tag}||CCJSON:pending`;
       const B = await pngAndHashes(placeholderMsg, true);
       payload.imageHashWatermarked = B.rgbaHash;
       payload.imageHashRGB = B.rgbHash;
       payload.imageHashAttachment = await sha256(B.bytes.buffer);
 
-      // Recompute tag with hashes known
+      // Recompute tag with hashes
       canon = canonicalString(payload);
       tag = await tagFor(canon);
 
-      // Pass C with final JSON (base64) inside ECC watermark
-      step('Step 4/10: Finalizing watermark content…','38%');
+      // Pass C final JSON in watermark
+      step('Step 4/12: Finalizing watermark…','34%');
       const fullJson = JSON.stringify({...payload, tag_b64:tag});
       const fullB64 = u8ToB64(new TextEncoder().encode(fullJson));
       const Cmsg = `TAG:${tag}||CCJSON:${fullB64}`;
       const C = await pngAndHashes(Cmsg, true);
 
-      // Stabilization (rare)
       payload.imageHashWatermarked = C.rgbaHash;
       payload.imageHashRGB = C.rgbHash;
       payload.imageHashAttachment = await sha256(C.bytes.buffer);
@@ -838,42 +817,95 @@ document.addEventListener('DOMContentLoaded', () => {
       const finalJsonBytes = new TextEncoder().encode(JSON.stringify(finalPayload));
       const finalPngBytes = C.bytes;
 
-      step('Step 5/10: Building PDF…','50%');
-      const { PDFDocument } = window.PDFLib;
+      step('Step 5/12: Building PDF page…','44%');
+      const { PDFDocument, PDFName, PDFString, PDFHexString } = window.PDFLib;
       const pdfDoc = await PDFDocument.create();
       const page = pdfDoc.addPage([canvas.width, canvas.height]);
-
       const pngImg = await pdfDoc.embedPng(finalPngBytes);
       page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
 
-      step('Step 6/10: Embedding attachments…','62%');
+      step('Step 6/12: Embedding attachments (name tree)…','54%');
+      // Primary attachment path (pdf-lib high level)
+      let attach1=false, attach2=false;
       try{
         await pdfDoc.attach(finalPngBytes, `CarbonAra-${payload.serial}.png`, {
           mimeType:'image/png', description:'Raster used to compose this document', createDate:new Date(), modificationDate:new Date()
-        });
-      }catch(e){ console.warn('Attachment PNG failed:', e); }
+        }); attach1=true;
+      }catch(e){ console.warn('attach(png) failed', e); }
       try{
         await pdfDoc.attach(finalJsonBytes, `carboncert-${payload.serial}.json`, {
           mimeType:'application/json', description:'CarbonAra certificate payload', createDate:new Date(), modificationDate:new Date()
-        });
-      }catch(e){ console.warn('Attachment JSON failed:', e); }
+        }); attach2=true;
+      }catch(e){ console.warn('attach(json) failed', e); }
 
-      step('Step 7/10: Metadata…','74%');
-      // Redundant metadata slots with base64(JSON)
+      step('Step 7/12: Embedding file attachment annotation…','64%');
+      // Secondary attachment path (explicit FileAttachment annotation + /AF association)
+      try{
+        const ctx = pdfDoc.context;
+        const efPng = ctx.stream(finalPngBytes, {
+          Type: PDFName.of('EmbeddedFile'),
+          Subtype: PDFName.of('image#2Fpng'),
+        });
+        const efPngRef = ctx.register(efPng);
+
+        const fsPng = ctx.obj({
+          Type: PDFName.of('Filespec'),
+          F: PDFString.of(`CarbonAra-${payload.serial}.png`),
+          UF: PDFString.of(`CarbonAra-${payload.serial}.png`),
+          EF: ctx.obj({ F: efPngRef })
+        });
+        const fsPngRef = ctx.register(fsPng);
+
+        const efJson = ctx.stream(finalJsonBytes, {
+          Type: PDFName.of('EmbeddedFile'),
+          Subtype: PDFName.of('application#2Fjson'),
+        });
+        const efJsonRef = ctx.register(efJson);
+
+        const fsJson = ctx.obj({
+          Type: PDFName.of('Filespec'),
+          F: PDFString.of(`carboncert-${payload.serial}.json`),
+          UF: PDFString.of(`carboncert-${payload.serial}.json`),
+          EF: ctx.obj({ F: efJsonRef })
+        });
+        const fsJsonRef = ctx.register(fsJson);
+
+        // Add /AF (Associated Files) on catalog
+        const afArray = ctx.obj([ fsJsonRef, fsPngRef ]);
+        pdfDoc.catalog.set(PDFName.of('AF'), afArray);
+
+        // Add a visible (tiny) FileAttachment annotation at bottom-left
+        const rect = [10, 10, 22, 22];
+        const annotDict = ctx.obj({
+          Type: PDFName.of('Annot'),
+          Subtype: PDFName.of('FileAttachment'),
+          Rect: ctx.obj(rect),
+          FS: fsPngRef,
+          Name: PDFName.of('PushPin'),
+          C: ctx.obj([1,1,0]) // optional color
+        });
+        const annotRef = ctx.register(annotDict);
+        const annots = page.node.Annots();
+        if (annots) { annots.push(annotRef); } else { page.node.set(PDFName.of('Annots'), ctx.obj([annotRef])); }
+
+        attach1 = true; attach2 = true;
+      }catch(e){ console.warn('file attachment annotation failed', e); }
+
+      step('Step 8/12: Metadata…','74%');
       pdfDoc.setProducer('CarbonAra');
       pdfDoc.setCreator('CarbonAra:PNG@PDF');
       try{ pdfDoc.setTitle(`CarbonAra ${payload.serial} | carboncert,${u8ToB64(finalJsonBytes)}`);}catch{}
-      let keywordsOK=false;
-      try{ pdfDoc.setKeywords(['carboncert', u8ToB64(finalJsonBytes)]); keywordsOK=true; }catch{}
-      if(!keywordsOK){
+      let kwOK=false;
+      try{ pdfDoc.setKeywords(['carboncert', u8ToB64(finalJsonBytes)]); kwOK=true; }catch{}
+      if(!kwOK){
         try{ pdfDoc.setSubject(`carboncert,${u8ToB64(finalJsonBytes)}`);}catch{}
         try{ pdfDoc.setAuthor(`carboncert:${u8ToB64(finalJsonBytes)}`);}catch{}
       }
 
-      step('Step 8/10: Save…','86%');
+      step('Step 9/12: Save…','84%');
       const pdfBytes = await pdfDoc.save({ useObjectStreams:false });
 
-      step('Step 9/10: Download…','96%');
+      step('Step 10/12: Download…','94%');
       download(pdfBytes, `CarbonCert-${payload.serial}.pdf`, 'application/pdf');
 
       step('Done','100%'); setTimeout(()=> modal.style.display='none', 500);
@@ -903,7 +935,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const log=(m)=> diag.textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`;
 
     try{
-      const { PDFDocument, PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
+      const { PDFDocument, PDFName, PDFDict, PDFRawStream, PDFStream, PDFArray } = window.PDFLib;
       const pdfBytes=await file.arrayBuffer();
       const pdfDoc=await PDFDocument.load(pdfBytes,{ ignoreEncryption:true, throwOnInvalidObject:false });
       log('PDF document loaded successfully.');
@@ -959,10 +991,10 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }catch{}
       }
-      // JSON attachment
+      // JSON attachment via EmbeddedFile or Filespec EF or Catalog /AF
       if(!payload){
         try{
-          const jsonBytes = await findJsonAttachment(pdfDoc);
+          const jsonBytes = await findJsonAttachmentAny(pdfDoc);
           if(jsonBytes){
             const obj = safeJson(new TextDecoder().decode(jsonBytes));
             if(obj){ payload=obj; foundVia='attachment-json'; }
@@ -970,7 +1002,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }catch{}
       }
 
-      // If still no payload: attempt LSB ECC from page image
+      // LSB (ECC) fallback
       if(!payload){
         try{
           const imageInfo = await extractFirstImageWithPdfLib(pdfDoc, {PDFName, PDFDict, PDFRawStream, PDFStream});
@@ -980,8 +1012,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
             const v2 = extractLSBv2(cx);
             if(v2.ok){
-              const obj = safeJson(new TextDecoder().decode(b64ToU8(v2.message.replace(/^.*CCJSON:/,'').trim())));
-              if(obj){ payload=obj; foundVia='lsb-ecc'; }
+              const maybe = (v2.message.match(/CCJSON:([A-Za-z0-9+/=]+)/)||[])[1];
+              if(maybe){
+                const obj = safeJson(new TextDecoder().decode(b64ToU8(maybe)));
+                if(obj){ payload=obj; foundVia='lsb-ecc'; }
+              }
             }else{
               const v1 = extractLSBv1(cx);
               if(v1 && /CCJSON:/.test(v1)){
@@ -1006,10 +1041,10 @@ document.addEventListener('DOMContentLoaded', () => {
       log(`Metadata tag: ${(payload.tag_b64||'').slice(0,16)}…`);
       const cryptoOK = (payload.tag_b64 === expected);
 
-      // 3) Attachment check (if present)
-      let attachOK = false;
+      // 3) Attachment check - scan multiple places
+      let attachOK=false;
       try{
-        const pngBytes = await findImageAttachmentBytes(pdfDoc);
+        const pngBytes = await findImageAttachmentAny(pdfDoc);
         if(pngBytes){
           const h = await sha256(pngBytes.buffer);
           if(h === (payload.imageHashAttachment||'')) attachOK = true;
@@ -1018,24 +1053,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }catch(e){ log('Attachment check failed: '+(e?.message||String(e))); }
 
-      // 4) Watermark (ECC) extraction & CRC check (from embedded image)
+      // 4) Watermark & pixel hashes
       let watermarkOK = false;
       let pixelOK = false;
       try{
         const info = await extractFirstImageWithPdfLib(pdfDoc, {PDFName, PDFDict, PDFRawStream, PDFStream});
         if(info){
           if(info.kind==='png-dataurl'){
-            const { pixelsHashRGBA, pixelsHashRGB, v2OK } = await hashAndTryECC(info.dataURL, payload);
+            const { pixelsHashRGBA, pixelsHashRGB, v2OK } = await hashAndTryECC(info.dataURL);
             pixelOK = (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB);
             watermarkOK = v2OK;
-            if(!pixelOK) log(`PNG rgba ${pixelsHashRGBA?.slice(0,16)||'n/a'} vs payload ${payload.imageHashWatermarked?.slice(0,16)||'n/a'}`);
+            if(!pixelOK) log(`B(PNG): RGBA ${pixelsHashRGBA?.slice(0,16)||'n/a'} vs ${payload.imageHashWatermarked?.slice(0,16)||'n/a'}`);
           } else if(info.kind==='raw-pixels'){
-            const { pixelsHashRGBA, pixelsHashRGB, v2OK } = await drawRawAndTryECC(info, payload);
+            const { pixelsHashRGBA, pixelsHashRGB, v2OK } = await drawRawAndTryECC(info);
             pixelOK = (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB);
             watermarkOK = v2OK;
             if(!pixelOK){
-              log(`B(raw): RGBA calc ${pixelsHashRGBA?.slice(0,16)||'n/a'}… vs payload ${payload.imageHashWatermarked?.slice(0,16)||'n/a'}…`);
-              log(`B(raw): RGB  calc ${pixelsHashRGB?.slice(0,16)||'n/a'}… vs payload ${payload.imageHashRGB?.slice(0,16)||'n/a'}…`);
+              log(`B(raw): RGBA ${pixelsHashRGBA?.slice(0,16)||'n/a'} vs ${payload.imageHashWatermarked?.slice(0,16)||'n/a'}`);
+              log(`B(raw): RGB  ${pixelsHashRGB?.slice(0,16)||'n/a'} vs ${payload.imageHashRGB?.slice(0,16)||'n/a'}`);
             }
           }
         }
@@ -1048,7 +1083,6 @@ document.addEventListener('DOMContentLoaded', () => {
         pixel: pixelOK ? 'OK':'FAIL',
         status:'LOW'
       };
-      // Promote to HIGH if crypto OK + (any artifact OK)
       if(cryptoOK && (attachOK || watermarkOK || pixelOK)) result.status='HIGH';
       else if(cryptoOK) result.status='MEDIUM';
       else result.status='LOW';
@@ -1064,45 +1098,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function findJsonAttachment(pdfDoc){
+  async function findJsonAttachmentAny(pdfDoc){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-    try{
-      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-        if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-          const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
-          if(String(subtype)==='/EmbeddedFile'){
-            const bytes = obj.getContents? obj.getContents(): obj.contents;
-            if(bytes){
-              const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
-              const head = new TextDecoder().decode(u8.slice(0,64));
-              if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
+
+    // 1) EmbeddedFile streams
+    for(const [_r,obj] of pdfDoc.context.enumerateIndirectObjects()){
+      if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
+        const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+        if(String(subtype)==='/EmbeddedFile'){
+          const bytes = obj.getContents? obj.getContents(): obj.contents;
+          if(bytes){
+            const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
+            const head = new TextDecoder().decode(u8.slice(0,64));
+            if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
+          }
+        }
+      }
+    }
+    // 2) Filespec EF
+    for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
+      if(obj && obj.dict && obj.dict.get){
+        const type = obj.dict.get(PDFName.of('Type'));
+        if(String(type)==='/Filespec'){
+          const ef = obj.dict.get(PDFName.of('EF'));
+          if(ef){
+            const efDict=pdfDoc.context.lookup(ef, PDFDict);
+            const keys = efDict.keys? efDict.keys(): [];
+            for(const k of keys){
+              const streamRef=efDict.get? efDict.get(k): null;
+              if(!streamRef) continue;
+              const stream=pdfDoc.context.lookup(streamRef);
+              if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+                const contents = stream.getContents? stream.getContents(): stream.contents;
+                if(contents){
+                  const u8 = contents instanceof Uint8Array? contents : new Uint8Array(contents);
+                  const head = new TextDecoder().decode(u8.slice(0,64));
+                  if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
+                }
+              }
             }
           }
         }
       }
-    }catch{}
-    // Filespec route
+    }
+    // 3) Catalog /AF
     try{
-      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-        if(obj && obj.dict && obj.dict.get){
-          const type = obj.dict.get(PDFName.of('Type'));
-          if(String(type)==='/Filespec'){
-            const ef = obj.dict.get(PDFName.of('EF'));
-            if(ef){
-              const efDict=pdfDoc.context.lookup(ef, PDFDict);
-              const keys = efDict.keys? efDict.keys(): [];
-              for(const k of keys){
-                const streamRef=efDict.get? efDict.get(k): null;
-                if(!streamRef) continue;
-                const stream=pdfDoc.context.lookup(streamRef);
-                if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                  const contents = stream.getContents? stream.getContents(): stream.contents;
-                  if(contents){
-                    const u8 = contents instanceof Uint8Array? contents : new Uint8Array(contents);
-                    const head = new TextDecoder().decode(u8.slice(0,64));
-                    if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
-                  }
-                }
+      const af = pdfDoc.catalog.get(PDFName.of('AF'));
+      if(af){
+        const afArr = pdfDoc.context.lookup(af);
+        const items = afArr.lookup ? afArr.lookup() : [];
+        const iter = afArr.array || items || [];
+        for(const fs of iter){
+          const fsDict = pdfDoc.context.lookup(fs, PDFDict);
+          const ef = fsDict.get && fsDict.get(PDFName.of('EF'));
+          if(ef){
+            const efDict=pdfDoc.context.lookup(ef, PDFDict);
+            const streamRef=efDict.get && efDict.get(PDFName.of('F'));
+            const stream=pdfDoc.context.lookup(streamRef);
+            if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+              const u8 = stream.getContents? stream.getContents(): stream.contents;
+              if(u8){
+                const U8 = u8 instanceof Uint8Array? u8 : new Uint8Array(u8);
+                const head = new TextDecoder().decode(U8.slice(0,64));
+                if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return U8;
               }
             }
           }
@@ -1111,23 +1169,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch{}
     return null;
   }
-  async function findImageAttachmentBytes(pdfDoc){
+
+  async function findImageAttachmentAny(pdfDoc){
     const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-    // EmbeddedFile streams
-    for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
+    // EmbeddedFile
+    for(const [_r,obj] of pdfDoc.context.enumerateIndirectObjects()){
       if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
         const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
         if(String(subtype)==='/EmbeddedFile'){
           const bytes = obj.getContents? obj.getContents(): obj.contents;
           if(bytes){
             const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
-            if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8; // PNG
-            if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8; // JPG
+            if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
+            if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8;
           }
         }
       }
     }
-    // Filespec route
+    // Filespec EF
     for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
       if(obj && obj.dict && obj.dict.get){
         const type = obj.dict.get(PDFName.of('Type'));
@@ -1144,8 +1203,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const contents = stream.getContents? stream.getContents(): stream.contents;
                 if(contents){
                   const u8 = contents instanceof Uint8Array? contents : new Uint8Array(contents);
-                  if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8; // PNG
-                  if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8; // JPG
+                  if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
+                  if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8;
                 }
               }
             }
@@ -1153,6 +1212,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     }
+    // Catalog /AF
+    try{
+      const af = pdfDoc.catalog.get(PDFName.of('AF'));
+      if(af){
+        const afArr = pdfDoc.context.lookup(af);
+        const arr = afArr.array || [];
+        for(const fs of arr){
+          const fsDict = pdfDoc.context.lookup(fs, PDFDict);
+          const ef = fsDict.get && fsDict.get(PDFName.of('EF'));
+          if(ef){
+            const efDict=pdfDoc.context.lookup(ef, PDFDict);
+            const streamRef=efDict.get && efDict.get(PDFName.of('F'));
+            const stream=pdfDoc.context.lookup(streamRef);
+            if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+              const bytes = stream.getContents? stream.getContents(): stream.contents;
+              if(bytes){
+                const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
+                if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
+                if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8;
+              }
+            }
+          }
+        }
+      }
+    }catch{}
+    // Page annotations (FileAttachment) -> fetch FS->EF->F
+    try{
+      const pages=pdfDoc.getPages();
+      if(pages.length){
+        const p = pages[0];
+        const annots = p.node.Annots && p.node.Annots();
+        const arr = annots?.array || [];
+        for(const a of arr){
+          const ad = pdfDoc.context.lookup(a, PDFDict);
+          const fs = ad.get && ad.get(PDFName.of('FS'));
+          if(fs){
+            const fsD = pdfDoc.context.lookup(fs, PDFDict);
+            const ef = fsD.get && fsD.get(PDFName.of('EF'));
+            if(ef){
+              const efDict=pdfDoc.context.lookup(ef, PDFDict);
+              const streamRef=efDict.get && efDict.get(PDFName.of('F'));
+              const stream=pdfDoc.context.lookup(streamRef);
+              if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+                const bytes = stream.getContents? stream.getContents(): stream.contents;
+                if(bytes){
+                  const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
+                  if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
+                  if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8;
+                }
+              }
+            }
+          }
+        }
+      }
+    }catch{}
     return null;
   }
 
@@ -1179,7 +1293,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
                       return { kind:'png-dataurl', dataURL:`data:image/png;base64,${u8ToB64(u8)}` };
                     }
-                    // raw pixels (likely Flate-decoded already handled by pdf-lib when embedding? We try to interpret)
                     const width = getNum(obj.dict, PDFName.of('Width'));
                     const height= getNum(obj.dict, PDFName.of('Height'));
                     const bpc   = getNum(obj.dict, PDFName.of('BitsPerComponent')) || 8;
@@ -1194,7 +1307,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }catch{}
     }
-    // fallback: scan all objs
     for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
       if(obj && (obj instanceof types.PDFRawStream || obj instanceof types.PDFStream)){
         const st = obj.dict.get && obj.dict.get(types.PDFName.of('Subtype'));
@@ -1224,7 +1336,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch{ return null; }
   }
 
-  async function hashAndTryECC(dataURL, payload){
+  async function hashAndTryECC(dataURL){
     const img=await loadImageFromDataURL(dataURL);
     const c=document.createElement('canvas'); c.width=img.width; c.height=img.height;
     const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
@@ -1233,17 +1345,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const rgb=await hashRGBOnly(d);
     let v2OK=false;
     const v2 = extractLSBv2(cx);
-    if(v2.ok){
-      // If CCJSON present and CRC is okay, consider it OK watermark
-      if(/CCJSON:/.test(v2.message)) v2OK = true;
-    }else{
-      // Attempt v1
-      const v1 = extractLSBv1(cx);
-      if(v1 && /CCJSON:/.test(v1)) v2OK = true; // legacy acceptance
-    }
+    if(v2.ok && /CCJSON:/.test(v2.message)) v2OK = true;
+    else { const v1 = extractLSBv1(cx); if(v1 && /CCJSON:/.test(v1)) v2OK=true; }
     return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, v2OK };
   }
-  async function drawRawAndTryECC(info, payload){
+  async function drawRawAndTryECC(info){
     const {width,height,comps,bpc,bytes}=info;
     if(!width||!height||!bytes||bpc!==8) return { };
     const c=document.createElement('canvas'); c.width=width; c.height=height;
@@ -1251,22 +1357,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const imgData=cx.createImageData(width,height); const dst=imgData.data; let si=0, di=0;
     if(comps===3){ for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; } }
     else if(comps===1){ for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; } }
-    else if(comps===4){
-      // CMYK -> rough RGB
-      for(let i=0;i<width*height;i++){
-        const c0=bytes[si++]/255, m=bytes[si++]/255, y=bytes[si++]/255, k=bytes[si++]/255;
-        const r=255*(1-Math.min(1,c0*(1-k)+k));
-        const g=255*(1-Math.min(1,m *(1-k)+k));
-        const b=255*(1-Math.min(1,y *(1-k)+k));
-        dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255;
-      }
-    } else { return {}; }
+    else if(comps===4){ for(let i=0;i<width*height;i++){ const c0=bytes[si++]/255,m=bytes[si++]/255,y=bytes[si++]/255,k=bytes[si++]/255; const r=255*(1-Math.min(1,c0*(1-k)+k)); const g=255*(1-Math.min(1,m*(1-k)+k)); const b=255*(1-Math.min(1,y*(1-k)+k)); dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255; } }
+    else { return {}; }
     cx.putImageData(imgData,0,0);
     const rgba=await sha256(imgData.data.buffer);
     const rgb=await hashRGBOnly(imgData.data);
     let v2OK=false;
     const v2 = extractLSBv2(cx);
-    if(v2.ok){ if(/CCJSON:/.test(v2.message)) v2OK=true; }
+    if(v2.ok && /CCJSON:/.test(v2.message)) v2OK=true;
     else { const v1=extractLSBv1(cx); if(v1&&/CCJSON:/.test(v1)) v2OK=true; }
     return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, v2OK };
   }
@@ -1274,11 +1372,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function showVerifyResult(result, payload){
     const head = id('auth-prob');
     head.textContent = `Authenticity: ${result.status}`;
-
     const cls = result.status==='HIGH'?'high':(result.status==='MEDIUM'?'medium':'low');
     const details = id('result-card-details');
     details.className = `result-card ${cls}`;
-
     const icon = result.status==='HIGH'?'✓':(result.status==='MEDIUM'?'⚠️':'✗');
 
     details.innerHTML = `
@@ -1306,3 +1402,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+```
