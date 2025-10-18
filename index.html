@@ -1,336 +1,363 @@
 <!DOCTYPE html>
 <html lang="sv" data-theme="light">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>CarbonAra - Secure Certificate Environment</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CarbonAra - Secure Certificate Environment</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet"/>
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrious/dist/qrious.min.js"></script>
 
-  <!-- Core libs -->
-  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrious/dist/qrious.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f8f9fa; --fg-color: #ffffff; --text-color: #212529;
+            --text-light-color: #6c757d; --border-color: #dee2e6; --primary-color: #0d6efd;
+            --primary-hover-color: #0b5ed7; --header-bg: #ffffff; --shadow-color: rgba(0, 0, 0, 0.05);
+            --success-color: #198754; --warning-color: #ffc107; --danger-color: #dc3545;
+            --font-main: 'Montserrat', sans-serif; --font-display: 'Great Vibes', cursive;
+        }
 
-  <style>
-    :root{
-      --bg-color:#f8f9fa;--fg-color:#ffffff;--text-color:#212529;
-      --text-light-color:#6c757d;--border-color:#dee2e6;--primary-color:#0d6efd;
-      --primary-hover-color:#0b5ed7;--header-bg:#ffffff;--shadow-color:rgba(0,0,0,.05);
-      --success-color:#198754;--warning-color:#ffc107;--danger-color:#dc3545;
-      --font-main:'Montserrat',sans-serif;--font-display:'Great Vibes',cursive;
-    }
-    [data-theme="dark"]{
-      --bg-color:#121212;--fg-color:#1e1e1e;--text-color:#e0e0e0;
-      --text-light-color:#8e8e8e;--border-color:#3a3a3a;--primary-color:#4dabf7;
-      --primary-hover-color:#74c0fc;--header-bg:#1e1e1e;--shadow-color:rgba(0,0,0,.3);
-    }
-    *,*::before,*::after{box-sizing:border-box}
-    body{font-family:var(--font-main);margin:0;background:var(--bg-color);color:var(--text-color);transition:background-color .3s,color .3s;font-size:14px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;overflow:hidden}
+        [data-theme="dark"] {
+            --bg-color: #121212; --fg-color: #1e1e1e; --text-color: #e0e0e0;
+            --text-light-color: #8e8e8e; --border-color: #3a3a3a; --primary-color: #4dabf7;
+            --primary-hover-color: #74c0fc; --header-bg: #1e1e1e; --shadow-color: rgba(0, 0, 0, 0.3);
+        }
 
-    .header{display:flex;justify-content:space-between;align-items:center;padding:12px 30px;background:var(--header-bg);border-bottom:1px solid var(--border-color);box-shadow:0 2px 8px var(--shadow-color);position:sticky;top:0;z-index:100}
-    .logo{display:flex;align-items:center;gap:12px}
-    .logo svg{width:32px;height:32px;fill:var(--primary-color)}
-    .logo h1{margin:0;font-size:22px;font-weight:700}
-    .controls{display:flex;align-items:center;gap:20px}
-    #theme-toggle{cursor:pointer;background:none;border:1px solid var(--border-color);border-radius:20px;padding:6px;display:flex;align-items:center;font-size:18px;line-height:1;transition:transform .2s,background-color .2s}
-    #theme-toggle:hover{transform:scale(1.1);background:var(--bg-color)}
+        *, *::before, *::after { box-sizing: border-box; }
 
-    .main-container{display:flex;height:calc(100vh - 65px)}
-    .sidebar{width:400px;min-width:400px;padding:20px;background:var(--fg-color);border-right:1px solid var(--border-color);overflow-y:auto}
-    .preview-area{flex-grow:1;padding:30px;display:flex;justify-content:center;align-items:center;overflow:auto;background:var(--bg-color)}
-    .preview-frame{padding:20px;background:var(--fg-color);border-radius:8px;box-shadow:0 10px 30px var(--shadow-color);transform-origin:center center}
-    #previewCanvas{border:1px solid var(--border-color);object-fit:contain;cursor:grab}
-    #previewCanvas:active{cursor:grabbing}
-    .preview-controls{display:flex;justify-content:space-between;align-items:center;padding:10px 0;font-size:12px;color:var(--text-light-color)}
-    .zoom-controls{display:flex;align-items:center;gap:10px}
-    .zoom-controls button{all:unset;cursor:pointer;padding:5px;font-weight:bold;font-size:18px}
+        body {
+            font-family: var(--font-main); margin: 0; background-color: var(--bg-color);
+            color: var(--text-color); transition: background-color 0.3s, color 0.3s; font-size: 14px;
+            -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overflow: hidden;
+        }
 
-    .tabs{display:flex;margin-bottom:20px;border-bottom:1px solid var(--border-color)}
-    .tab-button{padding:12px 18px;cursor:pointer;border:none;background:none;font-size:16px;color:var(--text-light-color);border-bottom:3px solid transparent;font-weight:500}
-    .tab-button.active{color:var(--primary-color);border-bottom-color:var(--primary-color)}
-    .tab-content{display:none}
-    .tab-content.active{display:block}
+        .header {
+            display: flex; justify-content: space-between; align-items: center; padding: 12px 30px;
+            background-color: var(--header-bg); border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px var(--shadow-color); position: sticky; top: 0; z-index: 100;
+        }
 
-    details{margin-bottom:10px;border:1px solid var(--border-color);border-radius:5px;transition:background-color .2s}
-    details:hover{background-color:rgba(128,128,128,.03)}
-    summary{cursor:pointer;padding:12px;font-weight:bold;background-color:rgba(128,128,128,.05);list-style:revert}
-    details[open]>summary{border-bottom:1px solid var(--border-color)}
-    .details-content{padding:15px}
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo svg { width: 32px; height: 32px; fill: var(--primary-color); }
+        .logo h1 { margin: 0; font-size: 22px; font-weight: 700; }
 
-    .form-group{margin-bottom:18px}
-    label{display:block;margin-bottom:6px;font-weight:bold;font-size:12px;text-transform:uppercase;color:var(--text-light-color)}
-    .label-group{display:flex;justify-content:space-between;align-items:center}
-    .label-group small{font-size:11px;font-weight:normal;text-transform:none}
-    input,select{width:100%;padding:10px;background:var(--bg-color);border:1px solid var(--border-color);border-radius:4px;color:var(--text-color)}
-    input:focus{border-color:var(--primary-color);outline:none;box-shadow:0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent)}
-    .coord-group{display:flex;gap:10px;align-items:center}
-    .input-group{display:flex;gap:10px;align-items:center}
-    .input-group input{flex-grow:1}
-    .input-group button{width:auto;padding:8px;font-size:16px}
+        .controls { display: flex; align-items: center; gap: 20px; }
+        #theme-toggle {
+            cursor: pointer; background: none; border: 1px solid var(--border-color);
+            border-radius: 20px; padding: 6px; display: flex; align-items: center; font-size: 18px;
+            line-height: 1; transition: transform 0.2s, background-color 0.2s;
+        }
+        #theme-toggle:hover { transform: scale(1.1); background-color: var(--bg-color); }
 
-    button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;background:var(--primary-color);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:16px;font-weight:bold;transition:background-color .2s,transform .1s;width:100%}
-    button:hover{background:var(--primary-hover-color)}
-    button:active{transform:scale(.98)}
-    .secondary-button{background:#6c757d}
-    .secondary-button:hover{background:#5a6268}
+        .main-container { display: flex; height: calc(100vh - 65px); }
+        .sidebar {
+            width: 400px; min-width: 400px; padding: 20px; background-color: var(--fg-color);
+            border-right: 1px solid var(--border-color); overflow-y: auto;
+        }
+        .preview-area {
+            flex-grow: 1; padding: 30px; display: flex;
+            justify-content: center; align-items: center; overflow: auto; background-color: var(--bg-color);
+        }
+        .preview-frame {
+            padding: 20px; background: var(--fg-color); border-radius: 8px;
+            box-shadow: 0 10px 30px var(--shadow-color); transform-origin: center center;
+        }
+        #previewCanvas {
+            border: 1px solid var(--border-color);
+            object-fit: contain; cursor: grab;
+        }
+        #previewCanvas:active { cursor: grabbing; }
+        .preview-controls {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 0; font-size: 12px; color: var(--text-light-color);
+        }
+        .zoom-controls { display: flex; align-items: center; gap: 10px; }
+        .zoom-controls button { all: unset; cursor: pointer; padding: 5px; font-weight: bold; font-size: 18px; }
 
-    #verify-container{text-align:center}
-    #verify-idle,#verify-loading,#verify-result{display:none}
-    #verify-idle.active,#verify-loading.active,#verify-result.active{display:block}
-    .verification-icon{font-size:60px;margin-bottom:20px}
-    .result-card{padding:20px;border-radius:8px;margin-top:20px;text-align:left}
-    .result-card h4{margin-top:0}
-    .result-card.high{border:1px solid var(--success-color);background:rgba(25,135,84,.1)}
-    .result-card.medium{border:1px solid var(--warning-color);background:rgba(255,193,7,.1)}
-    .result-card.low{border:1px solid var(--danger-color);background:rgba(220,53,69,.1)}
-    .verification-breakdown{list-style:none;padding:0}
-    .verification-breakdown li{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-    .verification-breakdown .icon{font-size:20px}
-    .verification-breakdown .icon.ok{color:var(--success-color)}
-    .verification-breakdown .icon.fail{color:var(--danger-color)}
-    #quick-scan-info{border:1px dashed var(--primary-color);padding:15px;margin-bottom:20px;border-radius:5px;text-align:left}
-    #quick-scan-info p{margin:5px 0}
+        .tabs { display: flex; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+        .tab-button {
+            padding: 12px 18px; cursor: pointer; border: none; background: none; font-size: 16px;
+            color: var(--text-light-color); border-bottom: 3px solid transparent; font-weight: 500;
+        }
+        .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
 
-    #diagnostics{background:var(--bg-color);padding:15px;border-radius:4px;text-align:left;white-space:pre-wrap;word-wrap:break-word;font-family:monospace;font-size:12px;border:1px solid var(--border-color);max-height:300px;overflow-y:auto}
+        details { margin-bottom: 10px; border: 1px solid var(--border-color); border-radius: 5px; transition: background-color 0.2s; }
+        details:hover { background-color: rgba(128,128,128,0.03); }
+        summary { cursor: pointer; padding: 12px; font-weight: bold; background-color: rgba(128,128,128,0.05); list-style: revert; }
+        details[open] > summary { border-bottom: 1px solid var(--border-color); }
+        .details-content { padding: 15px; }
 
-    hr{border:none;border-top:1px solid var(--border-color);margin:20px 0}
+        .form-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 12px; text-transform: uppercase; color: var(--text-light-color); }
+        .label-group { display: flex; justify-content: space-between; align-items: center; }
+        .label-group small { font-size: 11px; font-weight: normal; text-transform: none; }
+        input, select {
+            width: 100%; padding: 10px; box-sizing: border-box; background-color: var(--bg-color);
+            border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color);
+        }
+        input:focus { border-color: var(--primary-color); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent); }
+        .coord-group { display: flex; gap: 10px; align-items: center; }
+        .input-group { display: flex; gap: 10px; align-items: center; }
+        .input-group input { flex-grow: 1; }
+        .input-group button { width: auto; padding: 8px; font-size: 16px; }
 
-    #progress-modal,#error-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center}
-    .modal-content{background:var(--fg-color);padding:30px;border-radius:8px;text-align:center;width:90%;max-width:450px}
-    #progress-bar{width:100%;height:10px;background:var(--border-color);border-radius:5px;overflow:hidden;margin-top:15px}
-    #progress-bar-inner{width:0%;height:100%;background:var(--primary-color);transition:width .3s}
-    #error-details{max-height:200px;overflow-y:auto;background:var(--bg-color);border:1px solid var(--border-color);padding:10px;margin-top:15px;text-align:left;font-family:monospace;font-size:12px}
+        button {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 18px; background-color: var(--primary-color); color: white;
+            border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;
+            transition: background-color 0.2s, transform 0.1s; width: 100%;
+        }
+        button:hover { background-color: var(--primary-hover-color); }
+        button:active { transform: scale(0.98); }
+        .secondary-button { background-color: #6c757d; }
+        .secondary-button:hover { background-color: #5a6268; }
 
-    @media (max-width:900px){
-      body{overflow:auto}
-      .main-container{flex-direction:column;height:auto}
-      .sidebar{width:100%;min-width:unset;border-right:none;border-bottom:1px solid var(--border-color)}
-      .preview-area{padding:15px}
-      .preview-frame{padding:10px}
-      .header h1{font-size:18px}
-      .logo svg{width:24px;height:24px}
-    }
-  </style>
+        #verify-container { text-align: center; }
+        #verify-idle, #verify-loading, #verify-result { display: none; }
+        #verify-idle.active, #verify-loading.active, #verify-result.active { display: block; }
+        .verification-icon { font-size: 60px; margin-bottom: 20px; }
+        .result-card { padding: 20px; border-radius: 8px; margin-top: 20px; text-align: left; }
+        .result-card h4 { margin-top: 0; }
+        .result-card.high { border: 1px solid var(--success-color); background-color: rgba(25, 135, 84, 0.1); }
+        .result-card.medium { border: 1px solid var(--warning-color); background-color: rgba(255, 193, 7, 0.1); }
+        .result-card.low { border: 1px solid var(--danger-color); background-color: rgba(220, 53, 69, 0.1); }
+        .verification-breakdown { list-style: none; padding: 0; }
+        .verification-breakdown li { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .verification-breakdown .icon { font-size: 20px; }
+        .verification-breakdown .icon.ok { color: var(--success-color); }
+        .verification-breakdown .icon.fail { color: var(--danger-color); }
+        #quick-scan-info { border: 1px dashed var(--primary-color); padding: 15px; margin-bottom: 20px; border-radius: 5px; text-align: left; }
+        #quick-scan-info p { margin: 5px 0; }
+
+        #diagnostics {
+            background: var(--bg-color); padding: 15px; border-radius: 4px; text-align: left;
+            white-space: pre-wrap; word-wrap: break-word; font-family: monospace;
+            font-size: 12px; border: 1px solid var(--border-color); max-height: 300px; overflow-y: auto;
+        }
+        
+        hr { border: none; border-top: 1px solid var(--border-color); margin: 20px 0; }
+        
+        #progress-modal, #error-modal {
+            display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center;
+        }
+        .modal-content { background: var(--fg-color); padding: 30px; border-radius: 8px; text-align: center; width: 90%; max-width: 450px; }
+        #progress-bar { width: 100%; height: 10px; background: var(--border-color); border-radius: 5px; overflow: hidden; margin-top: 15px; }
+        #progress-bar-inner { width: 0%; height: 100%; background: var(--primary-color); transition: width 0.3s; }
+        #error-details { max-height: 200px; overflow-y: auto; background: var(--bg-color); border: 1px solid var(--border-color); padding: 10px; margin-top: 15px; text-align: left; font-family: monospace; font-size: 12px; }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 900px) {
+            body { overflow: auto; }
+            .main-container { flex-direction: column; height: auto; }
+            .sidebar { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid var(--border-color); }
+            .preview-area { padding: 15px; }
+            .preview-frame { padding: 10px; }
+            .header h1 { font-size: 18px; }
+            .logo svg { width: 24px; height: 24px; }
+        }
+    </style>
 </head>
 <body>
+
 <header class="header">
-  <div class="logo">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,16.5L6.5,12L7.91,10.59L11,13.67L16.09,8.59L17.5,10L11,16.5Z"></path></svg>
-    <h1>CarbonAra</h1>
-  </div>
-  <div class="controls">
-    <button id="theme-toggle" title="Växla mörkt/ljust läge" aria-label="Toggle theme">🌙</button>
-  </div>
+    <div class="logo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,16.5L6.5,12L7.91,10.59L11,13.67L16.09,8.59L17.5,10L11,16.5Z"></path></svg>
+        <h1>CarbonAra</h1>
+    </div>
+    <div class="controls">
+        <button id="theme-toggle" title="Växla mörkt/ljust läge" aria-label="Toggle theme">🌙</button>
+    </div>
 </header>
 
 <main class="main-container">
-  <aside class="sidebar">
-    <div class="tabs">
-      <button class="tab-button active" onclick="showTab('generate')">Generate</button>
-      <button class="tab-button" onclick="showTab('verify')">Verify</button>
-    </div>
+    <aside class="sidebar">
+        <div class="tabs">
+            <button class="tab-button active" onclick="showTab('generate')">Generate</button>
+            <button class="tab-button" onclick="showTab('verify')">Verify</button>
+        </div>
 
-    <div id="pane-generate" class="tab-content active">
-      <details open>
-        <summary><strong>1. Setup & Branding</strong></summary>
-        <div class="details-content">
-          <div class="form-group">
-            <div class="label-group">
-              <label for="image-upload">Background Image</label>
-              <small id="bg-image-status"></small>
-            </div>
-            <input type="file" id="image-upload" accept="image/png, image/jpeg"/>
-          </div>
-          <div class="form-group">
-            <label for="logo-upload">Branding Logo (Optional)</label>
-            <input type="file" id="logo-upload" accept="image/png, image/jpeg"/>
-          </div>
-        </div>
-      </details>
+        <div id="pane-generate" class="tab-content active">
+            <details open><summary><strong>1. Setup & Branding</strong></summary><div class="details-content">
+                <div class="form-group"><div class="label-group"><label for="image-upload">Background Image</label><small id="bg-image-status"></small></div><input type="file" id="image-upload" accept="image/png, image/jpeg"/></div>
+                <div class="form-group"><label for="logo-upload">Branding Logo (Optional)</label><input type="file" id="logo-upload" accept="image/png, image/jpeg"/></div>
+            </div></details>
+            
+            <details open><summary><strong>2. Certificate Data</strong></summary><div class="details-content">
+                <div class="form-group"><label for="input-name">Name</label><input type="text" id="input-name" value="John Doe"/></div>
+                <div class="form-group"><label for="input-amount">Amount</label><input type="text" id="input-amount" value="100"/></div>
+                <div class="form-group"><label for="input-date">Date</label><input type="date" id="input-date"/></div>
+                <div class="form-group"><label for="input-type">Type</label><input type="text" id="input-type" value="Carbon Credit"/></div>
+                <div class="form-group">
+                    <label for="input-serial">Serial Number</label>
+                    <div class="input-group">
+                        <input type="text" id="input-serial" readonly title="Unikt serienummer för spårbarhet"/>
+                        <button id="btn-generate-serial" title="Generera Nytt Serienummer" type="button">🔄</button>
+                    </div>
+                </div>
+            </div></details>
 
-      <details open>
-        <summary><strong>2. Certificate Data</strong></summary>
-        <div class="details-content">
-          <div class="form-group"><label for="input-name">Name</label><input type="text" id="input-name" value="John Doe"/></div>
-          <div class="form-group"><label for="input-amount">Amount</label><input type="text" id="input-amount" value="100"/></div>
-          <div class="form-group"><label for="input-date">Date</label><input type="date" id="input-date"/></div>
-          <div class="form-group"><label for="input-type">Type</label><input type="text" id="input-type" value="Carbon Credit"/></div>
-          <div class="form-group">
-            <label for="input-serial">Serial Number</label>
-            <div class="input-group">
-              <input type="text" id="input-serial" readonly title="Unikt serienummer för spårbarhet"/>
-              <button id="btn-generate-serial" title="Generera Nytt Serienummer" type="button">🔄</button>
-            </div>
-          </div>
-        </div>
-      </details>
+            <details><summary><strong>3. Layout & Style</strong></summary><div class="details-content">
+                <div class="form-group"><label for="input-fontsize-name">Name Font Size (px)</label><input type="number" id="input-fontsize-name" min="1"/></div>
+                <div class="form-group">
+                    <label>Name Position (X, Y)</label>
+                    <div class="coord-group">
+                        <input type="number" id="input-x-name" step="0.0001"/>
+                        <input type="number" id="input-y-name" step="0.0001"/>
+                        <button onclick="centerElement('name')" type="button" title="Centrera namnet horisontellt">🎯</button>
+                    </div>
+                </div>
+                <hr/>
+                <div class="form-group"><label for="input-fontsize-other">Data Font Size (px)</label><input type="number" id="input-fontsize-other" min="1"/></div>
+                <div class="form-group">
+                    <label>Amount Position (X, Y)</label>
+                    <div class="coord-group">
+                        <input type="number" id="input-x-amount" step="0.0001"/>
+                        <input type="number" id="input-y-amount" step="0.0001"/>
+                        <button onclick="centerElement('amount')" type="button" title="Centrera horisontellt">🎯</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Date Position (X, Y)</label>
+                    <div class="coord-group">
+                        <input type="number" id="input-x-date" step="0.0001"/>
+                        <input type="number" id="input-y-date" step="0.0001"/>
+                        <button onclick="centerElement('date')" type="button" title="Centrera horisontellt">🎯</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Type Position (X, Y)</label>
+                    <div class="coord-group">
+                        <input type="number" id="input-x-type" step="0.0001"/>
+                        <input type="number" id="input-y-type" step="0.0001"/>
+                        <button onclick="centerElement('type')" type="button" title="Centrera horisontellt">🎯</button>
+                    </div>
+                </div>
+                <button id="btn-align-x" class="secondary-button" type="button" style="margin-bottom:1rem;">Align X for Amount &amp; Type</button>
+                <hr/>
+                <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input type="number" id="input-fontsize-serial" min="1"/></div>
+                <div class="form-group">
+                    <label>Serial Nr. Position (X, Y)</label>
+                    <div class="coord-group">
+                        <input type="number" id="input-x-serial" step="0.0001"/>
+                        <input type="number" id="input-y-serial" step="0.0001"/>
+                        <button onclick="centerElement('serial')" type="button" title="Centrera horisontellt">🎯</button>
+                    </div>
+                </div>
+                <hr/>
+                <div class="form-group">
+                    <label>Logo Position &amp; Size (X, Y, Width)</label>
+                    <div class="coord-group">
+                        <input type="number" id="input-x-logo"/>
+                        <input type="number" id="input-y-logo"/>
+                        <input type="number" id="input-w-logo"/>
+                    </div>
+                </div>
+                <div class="input-group" style="margin-top:10px">
+                    <button id="btn-reset-all" class="secondary-button" type="button">Reset All Positions</button>
+                </div>
+            </div></details>
 
-      <details>
-        <summary><strong>3. Layout & Style</strong></summary>
-        <div class="details-content">
-          <div class="form-group"><label for="input-fontsize-name">Name Font Size (px)</label><input type="number" id="input-fontsize-name" min="1"/></div>
-          <div class="form-group">
-            <label>Name Position (X, Y)</label>
-            <div class="coord-group">
-              <input type="number" id="input-x-name" step="0.0001"/>
-              <input type="number" id="input-y-name" step="0.0001"/>
-              <button onclick="centerElement('name')" type="button" title="Centrera namnet horisontellt">🎯</button>
-            </div>
-          </div>
-          <hr/>
-          <div class="form-group"><label for="input-fontsize-other">Data Font Size (px)</label><input type="number" id="input-fontsize-other" min="1"/></div>
-          <div class="form-group">
-            <label>Amount Position (X, Y)</label>
-            <div class="coord-group">
-              <input type="number" id="input-x-amount" step="0.0001"/>
-              <input type="number" id="input-y-amount" step="0.0001"/>
-              <button onclick="centerElement('amount')" type="button" title="Centrera horisontellt">🎯</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Date Position (X, Y)</label>
-            <div class="coord-group">
-              <input type="number" id="input-x-date" step="0.0001"/>
-              <input type="number" id="input-y-date" step="0.0001"/>
-              <button onclick="centerElement('date')" type="button" title="Centrera horisontellt">🎯</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Type Position (X, Y)</label>
-            <div class="coord-group">
-              <input type="number" id="input-x-type" step="0.0001"/>
-              <input type="number" id="input-y-type" step="0.0001"/>
-              <button onclick="centerElement('type')" type="button" title="Centrera horisontellt">🎯</button>
-            </div>
-          </div>
-          <button id="btn-align-x" class="secondary-button" type="button" style="margin-bottom:1rem;">Align X for Amount &amp; Type</button>
-          <hr/>
-          <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input type="number" id="input-fontsize-serial" min="1"/></div>
-          <div class="form-group">
-            <label>Serial Nr. Position (X, Y)</label>
-            <div class="coord-group">
-              <input type="number" id="input-x-serial" step="0.0001"/>
-              <input type="number" id="input-y-serial" step="0.0001"/>
-              <button onclick="centerElement('serial')" type="button" title="Centrera horisontellt">🎯</button>
-            </div>
-          </div>
-          <hr/>
-          <div class="form-group">
-            <label>Logo Position &amp; Size (X, Y, Width)</label>
-            <div class="coord-group">
-              <input type="number" id="input-x-logo"/>
-              <input type="number" id="input-y-logo"/>
-              <input type="number" id="input-w-logo"/>
-            </div>
-          </div>
-          <div class="input-group" style="margin-top:10px">
-            <button id="btn-reset-all" class="secondary-button" type="button">Reset All Positions</button>
-          </div>
+            <details><summary><strong>4. Export Options</strong></summary><div class="details-content">
+                <div class="form-group">
+                    <label for="input-dpi">DPI</label>
+                    <select id="input-dpi">
+                        <option value="150">150</option>
+                        <option value="300" selected>300</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="qr-mode">QR Code</label>
+                    <select id="qr-mode">
+                        <option value="with_qr">With QR Code</option>
+                        <option value="no_qr">No QR Code</option>
+                    </select>
+                </div>
+                <div id="qr-controls">
+                    <div class="form-group">
+                        <label>QR Position (X, Y)</label>
+                        <div class="coord-group">
+                            <input type="number" id="input-x-qr"/>
+                            <input type="number" id="input-y-qr"/>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>QR Transparency</label>
+                        <input type="range" id="input-alpha-qr" min="0" max="1" step="0.05"/>
+                    </div>
+                    <button id="btn-reset-qr" class="secondary-button" type="button">Reset QR Position</button>
+                </div>
+                <hr/>
+                <button id="btn-export-pdf" type="button">🔒 Generate Single PDF</button>
+            </div></details>
         </div>
-      </details>
 
-      <details>
-        <summary><strong>4. Export Options</strong></summary>
-        <div class="details-content">
-          <div class="form-group">
-            <label for="input-dpi">DPI</label>
-            <select id="input-dpi">
-              <option value="150">150</option>
-              <option value="300" selected>300</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="qr-mode">QR Code</label>
-            <select id="qr-mode">
-              <option value="with_qr">With QR Code</option>
-              <option value="no_qr">No QR Code</option>
-            </select>
-          </div>
-          <div id="qr-controls">
-            <div class="form-group">
-              <label>QR Position (X, Y)</label>
-              <div class="coord-group">
-                <input type="number" id="input-x-qr"/>
-                <input type="number" id="input-y-qr"/>
-              </div>
+        <div id="pane-verify" class="tab-content">
+            <div id="verify-container">
+                <div id="verify-idle" class="active">
+                    <div id="quick-scan-info" style="display:none;"></div>
+                    <div class="verification-icon" aria-hidden="true">🛡️</div>
+                    <h3>Secure Verification</h3>
+                    <p id="verify-prompt">Upload a CarbonAra PDF to verify its authenticity.</p>
+                    <input type="file" id="file-upload-verify" accept=".pdf" style="display:none;"/>
+                    <button type="button" onclick="document.getElementById('file-upload-verify').click();">Select PDF to Verify</button>
+                </div>
+                <div id="verify-loading">
+                    <div class="verification-icon" aria-hidden="true">⏳</div>
+                    <h3>Analyzing Certificate...</h3>
+                    <p>Extracting cryptographic signatures and metadata. Please wait.</p>
+                </div>
+                <div id="verify-result">
+                    <div id="auth-animation"></div>
+                    <h3 id="auth-prob"></h3>
+                    <div id="result-card-details" class="result-card"></div>
+                </div>
             </div>
-            <div class="form-group">
-              <label>QR Transparency</label>
-              <input type="range" id="input-alpha-qr" min="0" max="1" step="0.05"/>
+            <hr/>
+            <details><summary><strong>Expert Diagnostics</strong></summary><div class="details-content">
+                <div id="diagnostics">No data available.</div>
+                <button id="copy-diag-report" class="secondary-button" style="margin-top:10px;" type="button">Copy Report</button>
+            </div></details>
+        </div>
+    </aside>
+
+    <section class="preview-area" id="preview-area">
+        <div class="preview-frame" id="preview-frame">
+            <canvas id="previewCanvas" aria-label="Certificate preview"></canvas>
+            <div class="preview-controls">
+                <div id="canvas-dimensions">...</div>
+                <div class="zoom-controls">
+                    <button id="zoom-out" title="Zoom Out" type="button" aria-label="Zoom out">-</button>
+                    <span id="zoom-level">100%</span>
+                    <button id="zoom-in" title="Zoom In" type="button" aria-label="Zoom in">+</button>
+                </div>
             </div>
-            <button id="btn-reset-qr" class="secondary-button" type="button">Reset QR Position</button>
-          </div>
-          <hr/>
-          <button id="btn-export-pdf" type="button">🔒 Generate Single PDF</button>
         </div>
-      </details>
-    </div>
-
-    <div id="pane-verify" class="tab-content">
-      <div id="verify-container">
-        <div id="verify-idle" class="active">
-          <div id="quick-scan-info" style="display:none;"></div>
-          <div class="verification-icon" aria-hidden="true">🛡️</div>
-          <h3>Secure Verification</h3>
-          <p id="verify-prompt">Upload a CarbonAra PDF to verify its authenticity.</p>
-          <input type="file" id="file-upload-verify" accept=".pdf" style="display:none;"/>
-          <button type="button" onclick="document.getElementById('file-upload-verify').click();">Select PDF to Verify</button>
-        </div>
-        <div id="verify-loading">
-          <div class="verification-icon" aria-hidden="true">⏳</div>
-          <h3>Analyzing Certificate...</h3>
-          <p>Extracting cryptographic signatures and metadata. Please wait.</p>
-        </div>
-        <div id="verify-result">
-          <div id="auth-animation"></div>
-          <h3 id="auth-prob"></h3>
-          <div id="result-card-details" class="result-card"></div>
-        </div>
-      </div>
-      <hr/>
-      <details>
-        <summary><strong>Expert Diagnostics</strong></summary>
-        <div class="details-content">
-          <div id="diagnostics">No data available.</div>
-          <button id="copy-diag-report" class="secondary-button" style="margin-top:10px;" type="button">Copy Report</button>
-        </div>
-      </details>
-    </div>
-  </aside>
-
-  <section class="preview-area" id="preview-area">
-    <div class="preview-frame" id="preview-frame">
-      <canvas id="previewCanvas" aria-label="Certificate preview"></canvas>
-      <div class="preview-controls">
-        <div id="canvas-dimensions">...</div>
-        <div class="zoom-controls">
-          <button id="zoom-out" title="Zoom Out" type="button" aria-label="Zoom out">-</button>
-          <span id="zoom-level">100%</span>
-          <button id="zoom-in" title="Zoom In" type="button" aria-label="Zoom in">+</button>
-        </div>
-      </div>
-    </div>
-  </section>
+    </section>
 </main>
 
 <div id="progress-modal" role="dialog" aria-modal="true" aria-labelledby="progress-title">
-  <div class="modal-content">
-    <h3 id="progress-title">Generating PDF...</h3>
-    <p id="progress-status">Initializing secure processes...</p>
-    <div id="progress-bar"><div id="progress-bar-inner"></div></div>
-  </div>
+    <div class="modal-content">
+        <h3 id="progress-title">Generating PDF...</h3>
+        <p id="progress-status">Initializing secure processes...</p>
+        <div id="progress-bar"><div id="progress-bar-inner"></div></div>
+    </div>
 </div>
 
 <div id="error-modal" role="dialog" aria-modal="true" aria-labelledby="error-title">
-  <div class="modal-content">
-    <h3 id="error-title">An Error Occurred</h3>
-    <p id="error-message"></p>
-    <pre id="error-details"></pre>
-    <button id="error-close-btn" type="button">Close</button>
-  </div>
+    <div class="modal-content">
+        <h3 id="error-title">An Error Occurred</h3>
+        <p id="error-message"></p>
+        <pre id="error-details"></pre>
+        <button id="error-close-btn" type="button">Close</button>
+    </div>
 </div>
 
 <script>
@@ -348,906 +375,896 @@ function num(v){ const n=parseFloat(v); return Number.isFinite(n)? n:0; }
 
 /* ===== Global ===== */
 document.addEventListener('DOMContentLoaded', () => {
-  const canvas = id('previewCanvas');
-  const ctx = canvas.getContext('2d',{willReadFrequently:true});
-  const bgImage = new Image();
-  const logoImage = new Image();
-  let qrImage = new Image();
+    const canvas = id('previewCanvas');
+    const ctx = canvas.getContext('2d',{willReadFrequently:true});
+    const bgImage = new Image();
+    const logoImage = new Image();
+    let qrImage = new Image();
 
-  let bgImageLoaded=false, logoImageLoaded=false, zoomLevel=1, isRendering=false;
+    let bgImageLoaded=false, logoImageLoaded=false, zoomLevel=1, isRendering=false;
 
-  const inputs = {
-    name: id('input-name'), amount: id('input-amount'), date: id('input-date'), type: id('input-type'), serial: id('input-serial'),
-    dpi: id('input-dpi'),
-    fontSizeName: id('input-fontsize-name'), fontSizeOther:id('input-fontsize-other'), fontSizeSerial:id('input-fontsize-serial'),
-    xName:id('input-x-name'), yName:id('input-y-name'),
-    xAmount:id('input-x-amount'), yAmount:id('input-y-amount'),
-    xDate:id('input-x-date'), yDate:id('input-y-date'),
-    xType:id('input-x-type'), yType:id('input-y-type'),
-    xSerial:id('input-x-serial'), ySerial:id('input-y-serial'),
-    xLogo:id('input-x-logo'), yLogo:id('input-y-logo'), wLogo:id('input-w-logo'),
-    qrMode:id('qr-mode'), xQr:id('input-x-qr'), yQr:id('input-y-qr'), alphaQr:id('input-alpha-qr'),
-  };
+    const inputs = {
+        name: id('input-name'), amount: id('input-amount'), date: id('input-date'), type: id('input-type'), serial: id('input-serial'),
+        dpi: id('input-dpi'),
+        fontSizeName: id('input-fontsize-name'), fontSizeOther:id('input-fontsize-other'), fontSizeSerial:id('input-fontsize-serial'),
+        xName:id('input-x-name'), yName:id('input-y-name'),
+        xAmount:id('input-x-amount'), yAmount:id('input-y-amount'),
+        xDate:id('input-x-date'), yDate:id('input-y-date'),
+        xType:id('input-x-type'), yType:id('input-y-type'),
+        xSerial:id('input-x-serial'), ySerial:id('input-y-serial'),
+        xLogo:id('input-x-logo'), yLogo:id('input-y-logo'), wLogo:id('input-w-logo'),
+        qrMode:id('qr-mode'), xQr:id('input-x-qr'), yQr:id('input-y-qr'), alphaQr:id('input-alpha-qr'),
+    };
 
-  let textElements={}, logoElement={}, qrCodeElement={};
+    let textElements={}, logoElement={}, qrCodeElement={};
 
-  /* ==== Init ==== */
-  async function init(){
-    inputs.date.valueAsDate = new Date();
-    generateNewSerial();
-    addEventListeners();
-    await document.fonts.ready;
+    /* ==== Init ==== */
+    async function init(){
+        inputs.date.valueAsDate = new Date();
+        generateNewSerial();
+        addEventListeners();
+        await document.fonts.ready;
 
-    const tmp=inputs.name.value; inputs.name.value='Rendering…'; requestRedraw(); await delay(60); inputs.name.value=tmp;
+        const tmp=inputs.name.value; inputs.name.value='Rendering…'; requestRedraw(); await delay(60); inputs.name.value=tmp;
 
-    bgImage.crossOrigin='anonymous';
-    bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent='✅ image.png loaded'; setupCanvas(bgImage.naturalWidth,bgImage.naturalHeight); };
-    bgImage.onerror=()=>{ id('bg-image-status').textContent='⚠️ No image.png'; setupCanvas(1414,2000); };
-    bgImage.src='image.png';
+        bgImage.crossOrigin='anonymous';
+        bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent='✅ image.png loaded'; setupCanvas(bgImage.naturalWidth,bgImage.naturalHeight); };
+        bgImage.onerror=()=>{ id('bg-image-status').textContent='⚠️ No image.png'; setupCanvas(1414,2000); };
+        bgImage.src='image.png';
 
-    handleUrlParams();
-  }
-
-  function setupCanvas(w,h){
-    canvas.width=Number.isFinite(w)&&w>0?Math.round(w):1414;
-    canvas.height=Number.isFinite(h)&&h>0?Math.round(h):2000;
-    id('canvas-dimensions').textContent = `${canvas.width} x ${canvas.height} px`;
-    resetAllPositions();
-    fitCanvasToView();
-    requestRedraw();
-  }
-
-  window.showTab=(tabName)=>{
-    document.querySelectorAll('.tab-content, .tab-button').forEach(el=>el.classList.remove('active'));
-    id(`pane-${tabName}`).classList.add('active');
-    document.querySelector(`.tab-button[onclick="showTab('${tabName}')"]`).classList.add('active');
-  };
-
-  id('theme-toggle').addEventListener('click',()=>{
-    const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
-    document.documentElement.setAttribute('data-theme',t);
-    id('theme-toggle').textContent= t==='dark'?'☀️':'🌙';
-    requestRedraw();
-  });
-
-  function addEventListeners(){
-    const debounced=debounce(requestRedraw,30);
-    Object.values(inputs).forEach(el=>el.addEventListener('input',debounced));
-
-    id('image-upload').addEventListener('change', handleImageUpload);
-    id('logo-upload').addEventListener('change', handleLogoUpload);
-    id('btn-reset-all').addEventListener('click', resetAllPositions);
-    id('btn-reset-qr').addEventListener('click', resetQrPosition);
-    id('btn-export-pdf').addEventListener('click', exportPdf);
-    id('btn-generate-serial').addEventListener('click', generateNewSerial);
-    id('btn-align-x').addEventListener('click', alignXValues);
-    id('file-upload-verify').addEventListener('change', handleVerifyUpload);
-    id('zoom-in').addEventListener('click', ()=>updateZoom(0.2));
-    id('zoom-out').addEventListener('click', ()=>updateZoom(-0.2));
-    id('error-close-btn').addEventListener('click',()=> id('error-modal').style.display='none');
-    id('copy-diag-report').addEventListener('click', async ()=>{
-      const txt=id('diagnostics').textContent||'';
-      try{ await navigator.clipboard.writeText(txt); alert('Diagnostics copied.'); }
-      catch{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('Diagnostics copied.'); }
-    });
-
-    window.addEventListener('resize', fitCanvasToView);
-
-    // canvas drag
-    let dragging=false, selectedKey=null, offset={x:0,y:0};
-    canvas.addEventListener('mousedown', e=>{
-      const pos=getCanvasMousePos(e);
-      const elements={...textElements, logo:logoElement, qr:qrCodeElement};
-      const keys=Object.keys(elements).reverse();
-      for(const key of keys){
-        const el=elements[key]; if(!el||!el.draggable) continue;
-        ctx.font=`${el.fontSize||12}px '${el.font||'Montserrat'}'`;
-        const w = key==='logo'? el.width : (key==='qr'? el.size : ctx.measureText(el.text||'').width);
-        const h = key==='logo'? el.height: (key==='qr'? el.size : (el.fontSize||12));
-        const x0=(key==='logo'||key==='qr')? el.x : el.x - w/2;
-        const y0=(key==='logo'||key==='qr')? el.y : el.y;
-        if(pos.x>=x0 && pos.x<=x0+w && pos.y>=y0 && pos.y<=y0+h){ dragging=true; selectedKey=key; offset={x:pos.x-el.x,y:pos.y-el.y}; canvas.style.cursor='grabbing'; return; }
-      }
-    });
-    window.addEventListener('mousemove', e=>{
-      if(!dragging||!selectedKey) return;
-      const pos=getCanvasMousePos(e);
-      const el = selectedKey==='logo'? logoElement : (selectedKey==='qr'? qrCodeElement : textElements[selectedKey]);
-      el.x = Math.max(0, Math.min(canvas.width  - (selectedKey==='logo'? el.width:0), pos.x - offset.x));
-      el.y = Math.max(0, Math.min(canvas.height - (selectedKey==='logo'? el.height:0), pos.y - offset.y));
-      updateCoordsFromCanvas(selectedKey);
-      requestRedraw();
-    });
-    window.addEventListener('mouseup',()=>{ dragging=false; selectedKey=null; canvas.style.cursor='grab'; });
-  }
-
-  function requestRedraw(){
-    if(isRendering) return;
-    isRendering=true;
-    requestAnimationFrame(()=>{
-      try{ updateElementsFromInputs(); drawCanvas(); } finally { isRendering=false; }
-    });
-  }
-  function drawCanvas(){
-    ctx.textBaseline='top';
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    if(bgImageLoaded) ctx.drawImage(bgImage,0,0,canvas.width,canvas.height);
-    else { ctx.fillStyle=(document.documentElement.getAttribute('data-theme')==='dark')?'#1e1e1e':'#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
-
-    if(logoImageLoaded && logoElement.width>0) ctx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
-
-    const color=(document.documentElement.getAttribute('data-theme')==='dark')?'#e0e0e0':'#212529';
-    Object.values(textElements).forEach(el=>{
-      const size=Number.isFinite(el.fontSize)? el.fontSize:12;
-      ctx.font=`${size}px '${el.font||'Montserrat'}'`;
-      const w=ctx.measureText(el.text||'').width;
-      ctx.fillStyle=color; ctx.fillText(el.text||'', el.x - w/2, el.y);
-    });
-
-    if(inputs.qrMode.value==='with_qr' && qrImage.src){
-      ctx.globalAlpha=qrCodeElement.alpha; ctx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); ctx.globalAlpha=1.0;
+        handleUrlParams();
     }
-  }
-  function updateElementsFromInputs(){
-    const fsOther=num(inputs.fontSizeOther.value);
-    textElements={
-      name:{text:(inputs.name.value||'').normalize('NFC'), x:num(inputs.xName.value), y:num(inputs.yName.value), font:'Great Vibes', fontSize:num(inputs.fontSizeName.value), draggable:true},
-      amount:{text:inputs.amount.value||'', x:num(inputs.xAmount.value), y:num(inputs.yAmount.value), font:'Montserrat', fontSize:fsOther, draggable:true},
-      date:{text:inputs.date.value||'', x:num(inputs.xDate.value), y:num(inputs.yDate.value), font:'Montserrat', fontSize:fsOther, draggable:true},
-      type:{text:(inputs.type.value||'').normalize('NFC'), x:num(inputs.xType.value), y:num(inputs.yType.value), font:'Montserrat', fontSize:fsOther, draggable:true},
-      serial:{text:inputs.serial.value||'', x:num(inputs.xSerial.value), y:num(inputs.ySerial.value), font:'Montserrat', fontSize:num(inputs.fontSizeSerial.value), draggable:true}
-    };
-    if(logoImageLoaded){
-      const w=num(inputs.wLogo.value);
-      const h = logoImage.height ? (logoImage.height*(w/Math.max(1,logoImage.width))) : 0;
-      logoElement={x:num(inputs.xLogo.value), y:num(inputs.yLogo.value), width:w, height:h, draggable:true};
-    }else{
-      logoElement={x:0,y:0,width:0,height:0,draggable:false};
+
+    function setupCanvas(w,h){
+        canvas.width=Number.isFinite(w)&&w>0?Math.round(w):1414;
+        canvas.height=Number.isFinite(h)&&h>0?Math.round(h):2000;
+        id('canvas-dimensions').textContent = `${canvas.width} x ${canvas.height} px`;
+        resetAllPositions();
+        fitCanvasToView();
+        requestRedraw();
     }
-    qrCodeElement={ x:num(inputs.xQr.value), y:num(inputs.yQr.value),
-      alpha:(()=>{ const a=parseFloat(inputs.alphaQr.value); return Number.isFinite(a)? Math.max(0,Math.min(1,a)) : 0.8; })(),
-      size:150, draggable: inputs.qrMode.value==='with_qr'
+
+    window.showTab=(tabName)=>{
+        document.querySelectorAll('.tab-content, .tab-button').forEach(el=>el.classList.remove('active'));
+        id(`pane-${tabName}`).classList.add('active');
+        document.querySelector(`.tab-button[onclick="showTab('${tabName}')"]`).classList.add('active');
     };
-    generateQrImage();
-  }
-  function resetAllPositions(){
-    const d={ fontSizeName:100, xName:705.6404, yName:1005.7899, fontSizeOther:33, xAmount:359.1387, yAmount:1531.1968, xDate:1068.8586, yDate:1527.7868, xType:359.1387, yType:1676.0735, fontSizeSerial:22, xSerial:516.0143, ySerial:1943.9245, xLogo:50, yLogo:50, wLogo:200 };
-    Object.entries(d).forEach(([k,v])=>{ if(inputs[k]) inputs[k].value=v; });
-    resetQrPosition();
-    requestRedraw();
-  }
-  function resetQrPosition(){
-    const margin=50, size=150;
-    inputs.xQr.value=String(Math.max(0,canvas.width-size-margin));
-    inputs.yQr.value=String(Math.max(0,canvas.height-size-margin));
-    inputs.alphaQr.value='0.8';
-    requestRedraw();
-  }
-  function getCanvasMousePos(e){
-    const r=canvas.getBoundingClientRect();
-    return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) };
-  }
-  function updateCoordsFromCanvas(key){
-    const el = key==='logo'? logoElement : (key==='qr'? qrCodeElement : textElements[key]);
-    const set=(idStr,val)=>{ const n=document.getElementById(`input-${idStr}`); if(n) n.value = typeof val==='number'? val.toFixed(4):val; };
-    set(`x-${key.toLowerCase()}`, el.x); set(`y-${key.toLowerCase()}`, el.y);
-  }
-  function handleImageUpload(ev){
-    const f=ev.target.files?.[0]; if(!f) return;
-    if(!/^image\/(png|jpeg)$/i.test(f.type)){ showError('Invalid Image','Please upload PNG or JPEG.'); return; }
-    const r=new FileReader();
-    r.onload=e=>{
-      bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent=`✅ ${f.name} loaded`; setupCanvas(bgImage.naturalWidth||canvas.width,bgImage.naturalHeight||canvas.height); };
-      bgImage.onerror=()=>showError('Image Load Error','Failed to load selected background.');
-      bgImage.src=e.target.result;
-    };
-    r.readAsDataURL(f);
-  }
-  function handleLogoUpload(ev){
-    const f=ev.target.files?.[0]; if(!f) return;
-    if(!/^image\/(png|jpeg)$/i.test(f.type)){ showError('Invalid Logo','Please upload PNG or JPEG.'); return; }
-    const r=new FileReader();
-    r.onload=e=>{
-      logoImage.onload=()=>{ logoImageLoaded=true; requestRedraw(); };
-      logoImage.onerror=()=>showError('Logo Load Error','Failed to load selected logo.');
-      logoImage.src=e.target.result;
-    };
-    r.readAsDataURL(f);
-  }
-  function generateNewSerial(){ inputs.serial.value=`SN-${Date.now()}-${Math.random().toString(36).slice(2,11).toUpperCase()}`; requestRedraw(); }
-  window.centerElement=(key)=>{ const t=`x${key.charAt(0).toUpperCase()+key.slice(1)}`; if(inputs[t]){ inputs[t].value=(canvas.width/2).toFixed(4); requestRedraw(); } }
-  function alignXValues(){ inputs.xType.value=inputs.xAmount.value; requestRedraw(); }
-  function fitCanvasToView(){
-    const area=id('preview-area'), frame=id('preview-frame');
-    const s=Math.min((area.clientHeight-60)/Math.max(1,frame.offsetHeight),(area.clientWidth-60)/Math.max(1,frame.offsetWidth),1);
-    zoomLevel=s; updateZoom(0);
-  }
-  function updateZoom(d){ zoomLevel=Math.max(.1,Math.min(3,zoomLevel+d)); id('preview-frame').style.transform=`scale(${zoomLevel})`; id('zoom-level').textContent=`${Math.round(zoomLevel*100)}%`; }
 
-  function handleUrlParams(){
-    const p=new URLSearchParams(location.search);
-    const encoded=p.get('verify');
-    if(!encoded) return;
-    try{
-      const dec=atob(encoded.replace(/-/g,'+').replace(/_/g,'/'));
-      const qrData=safeJsonParse(dec)||{};
-      showTab('verify');
-      const q=id('quick-scan-info'); q.style.display='block';
-      q.innerHTML=`<h4>Quick Scan Information</h4>
-        <p><strong>Serial:</strong> ${qrData.s||'N/A'}</p>
-        <p><strong>Name:</strong> ${qrData.n||'N/A'}</p>
-        <p><strong>Amount:</strong> ${qrData.a||'N/A'}</p>
-        <p><strong>Date:</strong> ${qrData.d||'N/A'}</p>
-        <p><strong>Type:</strong> ${qrData.t||'N/A'}</p>
-        <p><em>Upload the corresponding PDF for full cryptographic verification.</em></p>`;
-      id('verify-prompt').textContent=`Ready to verify serial: ${qrData.s||'N/A'}.`;
-    }catch{ showError('Invalid QR Code Link','Verification link is corrupted or invalid.'); }
-  }
-  function generateQrImage(){
-    try{
-      if(inputs.qrMode.value!=='with_qr'){ qrImage.src=''; return; }
-      const qrData={ s:inputs.serial.value, n:inputs.name.value, a:inputs.amount.value, d:inputs.date.value, t:inputs.type.value };
-      const encoded=btoa(JSON.stringify(qrData)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-      const value=`https://nomsams.github.io/carbonara/?verify=${encoded}`;
-      const qri=new QRious({ value, size:512 }); qrImage=new Image(); qrImage.src=qri.toDataURL();
-    }catch(e){ qrImage.src=''; }
-  }
+    id('theme-toggle').addEventListener('click',()=>{
+        const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+        document.documentElement.setAttribute('data-theme',t);
+        id('theme-toggle').textContent= t==='dark'?'☀️':'🌙';
+        requestRedraw();
+    });
 
-  /* ==== Crypto & canonical ==== */
-  const masterKeySalt="CarbonCertSaltV1", pbkdf2Iterations=100000;
-  async function reconstructMasterKey(){
-    const fragments=['fragA','fragB','fragC','fragD'];
-    const concatenated=fragments.join('')+'a-very-secret-pepper';
-    const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(concatenated), {name:'PBKDF2'}, false, ['deriveKey']);
-    return await crypto.subtle.deriveKey(
-      {name:'PBKDF2',salt:new TextEncoder().encode(masterKeySalt),iterations:pbkdf2Iterations,hash:'SHA-256'},
-      base, {name:'HMAC',hash:'SHA-256',length:256}, true, ['sign','verify']
-    );
-  }
-  function getCanonicalString(p){
-    return [
-      `v:${p.v}`,`serial:${p.serial}`,`name:${p.name}`,`amount:${p.amount}`,`date:${p.date}`,`type:${p.type}`,
-      `imageHashOriginal:${p.imageHashOriginal}`,`imageHashWatermarked:${p.imageHashWatermarked}`,`imageHashRGB:${p.imageHashRGB}`,`imageHashAttachment:${p.imageHashAttachment||''}`,
-      `posName:${p.posName.x},${p.posName.y}`,`posAmount:${p.posAmount.x},${p.posAmount.y}`,
-      `posDate:${p.posDate.x},${p.posDate.y}`,`posType:${p.posType.x},${p.posType.y}`,
-      `posSerial:${p.posSerial.x},${p.posSerial.y}`,`posLogo:${p.posLogo.x},${p.posLogo.y},${p.posLogo.w}`,
-      `fontName:${p.fontName}`,`fontOther:${p.fontOther}`,`fontSerial:${p.fontSerial}`,
-      `qrMode:${p.qrMode}`,`qrPos:${p.qrPos.x},${p.qrPos.y}`,`qrAlpha:${p.qrAlpha}`,
-      `canvas:${p.canvas}`,`app:${p.app}`
-    ].join('|');
-  }
-  async function generateTag(canon){ const key=await reconstructMasterKey(); const data=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon)); const sig=await crypto.subtle.sign('HMAC',key,data); return btoa(String.fromCharCode(...new Uint8Array(sig))); }
+    function addEventListeners(){
+        const debounced=debounce(requestRedraw,30);
+        Object.values(inputs).forEach(el=>el.addEventListener('input',debounced));
 
-  /* ==== LSB stego ==== */
-  function embedDataLSB(ctx2d, str){
-    const term="::END::";
-    const bits=Array.from(str+term).map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join('');
-    const img=ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height); const data=img.data;
-    const capacity=Math.floor(data.length/4);
-    if(bits.length>capacity) throw new Error(`Watermark too large. Need ${bits.length} bits, capacity ${capacity}.`);
-    for(let i=0;i<bits.length;i++){ const idx=i*4+2; data[idx]=(data[idx]&0xFE)|(bits[i]==='1'?1:0); }
-    ctx2d.putImageData(img,0,0);
-  }
-  function extractDataLSB(ctx2d){
-    const img=ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height);
-    const d=img.data; let bits='';
-    for(let i=0;i<d.length;i+=4) bits+=(d[i+2]&1);
-    const bytes=bits.match(/.{1,8}/g)||[]; let s='';
-    for(const b of bytes){ if(b.length<8) continue; s+=String.fromCharCode(parseInt(b,2)); if(s.endsWith('::END::')) return s.slice(0,-7); }
-    return null;
-  }
+        id('image-upload').addEventListener('change', handleImageUpload);
+        id('logo-upload').addEventListener('change', handleLogoUpload);
+        id('btn-reset-all').addEventListener('click', resetAllPositions);
+        id('btn-reset-qr').addEventListener('click', resetQrPosition);
+        id('btn-export-pdf').addEventListener('click', exportPdf);
+        id('btn-generate-serial').addEventListener('click', generateNewSerial);
+        id('btn-align-x').addEventListener('click', alignXValues);
+        id('file-upload-verify').addEventListener('change', handleVerifyUpload);
+        id('zoom-in').addEventListener('click', ()=>updateZoom(0.2));
+        id('zoom-out').addEventListener('click', ()=>updateZoom(-0.2));
+        id('error-close-btn').addEventListener('click',()=> id('error-modal').style.display='none');
+        id('copy-diag-report').addEventListener('click', async ()=>{
+            const txt=id('diagnostics').textContent||'';
+            try{ await navigator.clipboard.writeText(txt); alert('Diagnostics copied.'); }
+            catch{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('Diagnostics copied.'); }
+        });
 
-  /* ==== Export (two-pass stabilization; hashes from decoded PNG to match PDF raw) ==== */
-  async function exportPdf(){
-    const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
-    modal.style.display='flex';
-    const step=(m,p)=>{ status.textContent=m; bar.style.width=p; };
+        window.addEventListener('resize', fitCanvasToView);
 
-    try{
-      step('Step 1/10: Preparing draw…','8%'); await delay(10);
+        // canvas drag
+        let dragging=false, selectedKey=null, offset={x:0,y:0};
+        canvas.addEventListener('mousedown', e=>{
+            const pos=getCanvasMousePos(e);
+            const elements={...textElements, logo:logoElement, qr:qrCodeElement};
+            const keys=Object.keys(elements).reverse();
+            for(const key of keys){
+                const el=elements[key]; if(!el||!el.draggable) continue;
+                ctx.font=`${el.fontSize||12}px '${el.font||'Montserrat'}'`;
+                const w = key==='logo'? el.width : (key==='qr'? el.size : ctx.measureText(el.text||'').width);
+                const h = key==='logo'? el.height: (key==='qr'? el.size : (el.fontSize||12));
+                const x0=(key==='logo'||key==='qr')? el.x : el.x - w/2;
+                const y0=(key==='logo'||key==='qr')? el.y : el.y;
+                if(pos.x>=x0 && pos.x<=x0+w && pos.y>=y0 && pos.y<=y0+h){ dragging=true; selectedKey=key; offset={x:pos.x-el.x,y:pos.y-el.y}; canvas.style.cursor='grabbing'; return; }
+            }
+        });
+        window.addEventListener('mousemove', e=>{
+            if(!dragging||!selectedKey) return;
+            const pos=getCanvasMousePos(e);
+            const el = selectedKey==='logo'? logoElement : (selectedKey==='qr'? qrCodeElement : textElements[selectedKey]);
+            el.x = Math.max(0, Math.min(canvas.width  - (selectedKey==='logo'? el.width:0), pos.x - offset.x));
+            el.y = Math.max(0, Math.min(canvas.height - (selectedKey==='logo'? el.height:0), pos.y - offset.y));
+            updateCoordsFromCanvas(selectedKey);
+            requestRedraw();
+        });
+        window.addEventListener('mouseup',()=>{ dragging=false; selectedKey=null; canvas.style.cursor='grab'; });
+    }
 
-      function drawInto(ctx2){
-        ctx2.textBaseline='top';
-        if(bgImageLoaded) ctx2.drawImage(bgImage,0,0,canvas.width,canvas.height);
-        else { ctx2.fillStyle='#FFF'; ctx2.fillRect(0,0,canvas.width,canvas.height); }
-        if(logoImageLoaded && logoElement.width>0) ctx2.drawImage(logoImage,logoElement.x,logoElement.y,logoElement.width,logoElement.height);
+    function requestRedraw(){
+        if(isRendering) return;
+        isRendering=true;
+        requestAnimationFrame(()=>{
+            try{ updateElementsFromInputs(); drawCanvas(); } finally { isRendering=false; }
+        });
+    }
+    function drawCanvas(){
+        ctx.textBaseline='top';
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        if(bgImageLoaded) ctx.drawImage(bgImage,0,0,canvas.width,canvas.height);
+        else { ctx.fillStyle=(document.documentElement.getAttribute('data-theme')==='dark')?'#1e1e1e':'#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+
+        if(logoImageLoaded && logoElement.width>0) ctx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
+
+        const color=(document.documentElement.getAttribute('data-theme')==='dark')?'#e0e0e0':'#212529';
         Object.values(textElements).forEach(el=>{
-          const size=Number.isFinite(el.fontSize)? el.fontSize:12;
-          ctx2.font=`${size}px '${el.font||'Montserrat'}'`;
-          const w=ctx2.measureText(el.text||'').width;
-          ctx2.fillStyle='#000'; ctx2.fillText(el.text||'', el.x - w/2, el.y);
+            const size=Number.isFinite(el.fontSize)? el.fontSize:12;
+            ctx.font=`${size}px '${el.font||'Montserrat'}'`;
+            const w=ctx.measureText(el.text||'').width;
+            ctx.fillStyle=color; ctx.fillText(el.text||'', el.x - w/2, el.y);
         });
-        if(inputs.qrMode.value==='with_qr' && qrImage.src){ ctx2.globalAlpha=qrCodeElement.alpha; ctx2.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); ctx2.globalAlpha=1.0; }
-      }
 
-      async function pngBytesAndDecodedHashes(embedString){
-        const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
-        const cx=c.getContext('2d',{willReadFrequently:true});
-        drawInto(cx);
-        if(embedString) embedDataLSB(cx, embedString);
-        const dataURL=c.toDataURL('image/png');
-        const bytes=dataURLtoUint8Array(dataURL);
+        if(inputs.qrMode.value==='with_qr' && qrImage.src){
+            ctx.globalAlpha=qrCodeElement.alpha; ctx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); ctx.globalAlpha=1.0;
+        }
+    }
+    function updateElementsFromInputs(){
+        const fsOther=num(inputs.fontSizeOther.value);
+        textElements={
+            name:{text:(inputs.name.value||'').normalize('NFC'), x:num(inputs.xName.value), y:num(inputs.yName.value), font:'Great Vibes', fontSize:num(inputs.fontSizeName.value), draggable:true},
+            amount:{text:inputs.amount.value||'', x:num(inputs.xAmount.value), y:num(inputs.yAmount.value), font:'Montserrat', fontSize:fsOther, draggable:true},
+            date:{text:inputs.date.value||'', x:num(inputs.xDate.value), y:num(inputs.yDate.value), font:'Montserrat', fontSize:fsOther, draggable:true},
+            type:{text:(inputs.type.value||'').normalize('NFC'), x:num(inputs.xType.value), y:num(inputs.yType.value), font:'Montserrat', fontSize:fsOther, draggable:true},
+            serial:{text:inputs.serial.value||'', x:num(inputs.xSerial.value), y:num(inputs.ySerial.value), font:'Montserrat', fontSize:num(inputs.fontSizeSerial.value), draggable:true}
+        };
+        if(logoImageLoaded){
+            const w=num(inputs.wLogo.value);
+            const h = logoImage.height ? (logoImage.height*(w/Math.max(1,logoImage.width))) : 0;
+            logoElement={x:num(inputs.xLogo.value), y:num(inputs.yLogo.value), width:w, height:h, draggable:true};
+        }else{
+            logoElement={x:0,y:0,width:0,height:0,draggable:false};
+        }
+        qrCodeElement={ x:num(inputs.xQr.value), y:num(inputs.yQr.value),
+            alpha:(()=>{ const a=parseFloat(inputs.alphaQr.value); return Number.isFinite(a)? Math.max(0,Math.min(1,a)) : 0.8; })(),
+            size:150, draggable: inputs.qrMode.value==='with_qr'
+        };
+        generateQrImage();
+    }
+    function resetAllPositions(){
+        const d={ fontSizeName:100, xName:705.6404, yName:1005.7899, fontSizeOther:33, xAmount:359.1387, yAmount:1531.1968, xDate:1068.8586, yDate:1527.7868, xType:359.1387, yType:1676.0735, fontSizeSerial:22, xSerial:516.0143, ySerial:1943.9245, xLogo:50, yLogo:50, wLogo:200 };
+        Object.entries(d).forEach(([k,v])=>{ if(inputs[k]) inputs[k].value=v; });
+        resetQrPosition();
+        requestRedraw();
+    }
+    function resetQrPosition(){
+        const margin=50, size=150;
+        inputs.xQr.value=String(Math.max(0,canvas.width-size-margin));
+        inputs.yQr.value=String(Math.max(0,canvas.height-size-margin));
+        inputs.alphaQr.value='0.8';
+        requestRedraw();
+    }
+    function getCanvasMousePos(e){
+        const r=canvas.getBoundingClientRect();
+        return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) };
+    }
+    function updateCoordsFromCanvas(key){
+        const el = key==='logo'? logoElement : (key==='qr'? qrCodeElement : textElements[key]);
+        const set=(idStr,val)=>{ const n=document.getElementById(`input-${idStr}`); if(n) n.value = typeof val==='number'? val.toFixed(4):val; };
+        set(`x-${key.toLowerCase()}`, el.x); set(`y-${key.toLowerCase()}`, el.y);
+    }
+    function handleImageUpload(ev){
+        const f=ev.target.files?.[0]; if(!f) return;
+        if(!/^image\/(png|jpeg)$/i.test(f.type)){ showError('Invalid Image','Please upload PNG or JPEG.'); return; }
+        const r=new FileReader();
+        r.onload=e=>{
+            bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent=`✅ ${f.name} loaded`; setupCanvas(bgImage.naturalWidth||canvas.width,bgImage.naturalHeight||canvas.height); };
+            bgImage.onerror=()=>showError('Image Load Error','Failed to load selected background.');
+            bgImage.src=e.target.result;
+        };
+        r.readAsDataURL(f);
+    }
+    function handleLogoUpload(ev){
+        const f=ev.target.files?.[0]; if(!f) return;
+        if(!/^image\/(png|jpeg)$/i.test(f.type)){ showError('Invalid Logo','Please upload PNG or JPEG.'); return; }
+        const r=new FileReader();
+        r.onload=e=>{
+            logoImage.onload=()=>{ logoImageLoaded=true; requestRedraw(); };
+            logoImage.onerror=()=>showError('Logo Load Error','Failed to load selected logo.');
+            logoImage.src=e.target.result;
+        };
+        r.readAsDataURL(f);
+    }
+    function generateNewSerial(){ inputs.serial.value=`SN-${Date.now()}-${Math.random().toString(36).slice(2,11).toUpperCase()}`; requestRedraw(); }
+    window.centerElement=(key)=>{ const t=`x${key.charAt(0).toUpperCase()+key.slice(1)}`; if(inputs[t]){ inputs[t].value=(canvas.width/2).toFixed(4); requestRedraw(); } }
+    function alignXValues(){ inputs.xType.value=inputs.xAmount.value; requestRedraw(); }
+    function fitCanvasToView(){
+        const area=id('preview-area'), frame=id('preview-frame');
+        const s=Math.min((area.clientHeight-60)/Math.max(1,frame.offsetHeight),(area.clientWidth-60)/Math.max(1,frame.offsetWidth),1);
+        zoomLevel=s; updateZoom(0);
+    }
+    function updateZoom(d){ zoomLevel=Math.max(.1,Math.min(3,zoomLevel+d)); id('preview-frame').style.transform=`scale(${zoomLevel})`; id('zoom-level').textContent=`${Math.round(zoomLevel*100)}%`; }
 
-        // compute hashes from decoded PNG (to match PDF raw pixels)
+    function handleUrlParams(){
+        const p=new URLSearchParams(location.search);
+        const encoded=p.get('verify');
+        if(!encoded) return;
+        try{
+            const dec=atob(encoded.replace(/-/g,'+').replace(/_/g,'/'));
+            const qrData=safeJsonParse(dec)||{};
+            showTab('verify');
+            const q=id('quick-scan-info'); q.style.display='block';
+            q.innerHTML=`<h4>Quick Scan Information</h4>
+                <p><strong>Serial:</strong> ${qrData.s||'N/A'}</p>
+                <p><strong>Name:</strong> ${qrData.n||'N/A'}</p>
+                <p><strong>Amount:</strong> ${qrData.a||'N/A'}</p>
+                <p><strong>Date:</strong> ${qrData.d||'N/A'}</p>
+                <p><strong>Type:</strong> ${qrData.t||'N/A'}</p>
+                <p><em>Upload the corresponding PDF for full cryptographic verification.</em></p>`;
+            id('verify-prompt').textContent=`Ready to verify serial: ${qrData.s||'N/A'}.`;
+        }catch{ showError('Invalid QR Code Link','Verification link is corrupted or invalid.'); }
+    }
+    function generateQrImage(){
+        try{
+            if(inputs.qrMode.value!=='with_qr'){ qrImage.src=''; return; }
+            const qrData={ s:inputs.serial.value, n:inputs.name.value, a:inputs.amount.value, d:inputs.date.value, t:inputs.type.value };
+            const encoded=btoa(JSON.stringify(qrData)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+            const value=`https://nomsams.github.io/carbonara/?verify=${encoded}`;
+            const qri=new QRious({ value, size:512 }); qrImage=new Image(); qrImage.src=qri.toDataURL();
+        }catch(e){ qrImage.src=''; }
+    }
+
+    /* ==== Crypto & canonical ==== */
+    const masterKeySalt="CarbonCertSaltV1", pbkdf2Iterations=100000;
+    async function reconstructMasterKey(){
+        const fragments=['fragA','fragB','fragC','fragD'];
+        const concatenated=fragments.join('')+'a-very-secret-pepper';
+        const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(concatenated), {name:'PBKDF2'}, false, ['deriveKey']);
+        return await crypto.subtle.deriveKey(
+            {name:'PBKDF2',salt:new TextEncoder().encode(masterKeySalt),iterations:pbkdf2Iterations,hash:'SHA-256'},
+            base, {name:'HMAC',hash:'SHA-256',length:256}, true, ['sign','verify']
+        );
+    }
+    function getCanonicalString(p){
+        return [
+            `v:${p.v}`,`serial:${p.serial}`,`name:${p.name}`,`amount:${p.amount}`,`date:${p.date}`,`type:${p.type}`,
+            `imageHashOriginal:${p.imageHashOriginal}`,`imageHashWatermarked:${p.imageHashWatermarked}`,`imageHashRGB:${p.imageHashRGB}`,`imageHashAttachment:${p.imageHashAttachment||''}`,
+            `posName:${p.posName.x},${p.posName.y}`,`posAmount:${p.posAmount.x},${p.posAmount.y}`,
+            `posDate:${p.posDate.x},${p.posDate.y}`,`posType:${p.posType.x},${p.posType.y}`,
+            `posSerial:${p.posSerial.x},${p.posSerial.y}`,`posLogo:${p.posLogo.x},${p.posLogo.y},${p.posLogo.w}`,
+            `fontName:${p.fontName}`,`fontOther:${p.fontOther}`,`fontSerial:${p.fontSerial}`,
+            `qrMode:${p.qrMode}`,`qrPos:${p.qrPos.x},${p.qrPos.y}`,`qrAlpha:${p.qrAlpha}`,
+            `canvas:${p.canvas}`,`app:${p.app}`
+        ].join('|');
+    }
+    async function generateTag(canon){ const key=await reconstructMasterKey(); const data=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canon)); const sig=await crypto.subtle.sign('HMAC',key,data); return btoa(String.fromCharCode(...new Uint8Array(sig))); }
+
+    /* ==== LSB stego ==== */
+    function embedDataLSB(ctx2d, str){
+        const term="::END::";
+        const bits=Array.from(str+term).map(c=>c.charCodeAt(0).toString(2).padStart(8,'0')).join('');
+        const img=ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height); const data=img.data;
+        const capacity=Math.floor(data.length/4);
+        if(bits.length>capacity) throw new Error(`Watermark too large. Need ${bits.length} bits, capacity ${capacity}.`);
+        for(let i=0;i<bits.length;i++){ const idx=i*4+2; data[idx]=(data[idx]&0xFE)|(bits[i]==='1'?1:0); }
+        ctx2d.putImageData(img,0,0);
+    }
+    function extractDataLSB(ctx2d){
+        const img=ctx2d.getImageData(0,0,ctx2d.canvas.width,ctx2d.canvas.height);
+        const d=img.data; let bits='';
+        for(let i=0;i<d.length;i+=4) bits+=(d[i+2]&1);
+        const bytes=bits.match(/.{1,8}/g)||[]; let s='';
+        for(const b of bytes){ if(b.length<8) continue; s+=String.fromCharCode(parseInt(b,2)); if(s.endsWith('::END::')) return s.slice(0,-7); }
+        return null;
+    }
+
+    /* ==== Export (two-pass stabilization; hashes from decoded PNG to match PDF raw) ==== */
+    async function exportPdf(){
+        const modal=id('progress-modal'), status=id('progress-status'), bar=id('progress-bar-inner');
+        modal.style.display='flex';
+        const step=(m,p)=>{ status.textContent=m; bar.style.width=p; };
+
+        try{
+            step('Step 1/10: Preparing draw…','8%'); await delay(10);
+
+            function drawInto(ctx2){
+                ctx2.textBaseline='top';
+                if(bgImageLoaded) ctx2.drawImage(bgImage,0,0,canvas.width,canvas.height);
+                else { ctx2.fillStyle='#FFF'; ctx2.fillRect(0,0,canvas.width,canvas.height); }
+                if(logoImageLoaded && logoElement.width>0) ctx2.drawImage(logoImage,logoElement.x,logoElement.y,logoElement.width,logoElement.height);
+                Object.values(textElements).forEach(el=>{
+                    const size=Number.isFinite(el.fontSize)? el.fontSize:12;
+                    ctx2.font=`${size}px '${el.font||'Montserrat'}'`;
+                    const w=ctx2.measureText(el.text||'').width;
+                    ctx2.fillStyle='#000'; ctx2.fillText(el.text||'', el.x - w/2, el.y);
+                });
+                if(inputs.qrMode.value==='with_qr' && qrImage.src){ ctx2.globalAlpha=qrCodeElement.alpha; ctx2.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size); ctx2.globalAlpha=1.0; }
+            }
+
+            async function pngBytesAndDecodedHashes(embedString){
+                const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
+                const cx=c.getContext('2d',{willReadFrequently:true});
+                drawInto(cx);
+                if(embedString) embedDataLSB(cx, embedString);
+                const dataURL=c.toDataURL('image/png');
+                const bytes=dataURLtoUint8Array(dataURL);
+
+                const img=await loadImageFromDataURL(dataURL);
+                const t=document.createElement('canvas'); t.width=img.naturalWidth||img.width; t.height=img.naturalHeight||img.height;
+                const tx=t.getContext('2d',{willReadFrequently:true}); tx.drawImage(img,0,0);
+                const id=tx.getImageData(0,0,t.width,t.height).data;
+                const rgbaHash=await sha256(id.buffer);
+                const rgbHash =await hashRGBFromRGBAData(id);
+                return { bytes, dataURL, rgbaHash, rgbHash };
+            }
+
+            updateElementsFromInputs();
+            let payload = {
+                v:1, serial:inputs.serial.value, name:(inputs.name.value||'').normalize('NFC'), amount:inputs.amount.value||'',
+                date:inputs.date.value||'', type:(inputs.type.value||'').normalize('NFC'),
+                imageHashOriginal:'', imageHashWatermarked:'', imageHashRGB:'', imageHashAttachment:'',
+                posName:{x:Number(textElements.name.x).toFixed(4), y:Number(textElements.name.y).toFixed(4)},
+                posAmount:{x:Number(textElements.amount.x).toFixed(4), y:Number(textElements.amount.y).toFixed(4)},
+                posDate:{x:Number(textElements.date.x).toFixed(4), y:Number(textElements.date.y).toFixed(4)},
+                posType:{x:Number(textElements.type.x).toFixed(4), y:Number(textElements.type.y).toFixed(4)},
+                posSerial:{x:Number(textElements.serial.x).toFixed(4), y:Number(textElements.serial.y).toFixed(4)},
+                posLogo:{x:Number(logoElement.x||0).toFixed(4), y:Number(logoElement.y||0).toFixed(4), w:Number(logoElement.width||0).toFixed(4)},
+                fontName:`GreatVibes-${Number(textElements.name.fontSize||0)}px`,
+                fontOther:`Montserrat-${Number(textElements.amount.fontSize||0)}px`,
+                fontSerial:`Montserrat-${Number(textElements.serial.fontSize||0)}px`,
+                qrMode:inputs.qrMode.value, qrPos:{x:Number(qrCodeElement.x||0).toFixed(4), y:Number(qrCodeElement.y||0).toFixed(4)},
+                qrAlpha:Number(qrCodeElement.alpha||0).toFixed(2),
+                canvas:`${canvas.width}x${canvas.height}@${inputs.dpi.value}`,
+                app:'CarbonCert-5.0.0'
+            };
+
+            step('Step 2/10: Hashing original (no watermark)…','16%');
+            const origRes = await pngBytesAndDecodedHashes(null);
+            payload.imageHashOriginal = origRes.rgbaHash;
+
+            step('Step 3/10: Watermark pass 1…','28%');
+            let tag = await generateTag(getCanonicalString({...payload, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:''}));
+            let pass1 = await pngBytesAndDecodedHashes(`TAG:${tag}||CCJSON:pending::END::`);
+            payload.imageHashWatermarked = pass1.rgbaHash;
+            payload.imageHashRGB = pass1.rgbHash;
+            payload.imageHashAttachment = await sha256(pass1.bytes.buffer);
+            tag = await generateTag(getCanonicalString(payload));
+
+            step('Step 4/10: Watermark pass 2 (embed final JSON)…','40%');
+            let jsonB64 = u8ToBase64(new TextEncoder().encode(JSON.stringify({...payload, tag_b64:tag})));
+            let pass2 = await pngBytesAndDecodedHashes(`TAG:${tag}||CCJSON:${jsonB64}::END::`);
+            payload.imageHashWatermarked = pass2.rgbaHash;
+            payload.imageHashRGB = pass2.rgbHash;
+            payload.imageHashAttachment = await sha256(pass2.bytes.buffer);
+            let tag2 = await generateTag(getCanonicalString(payload));
+
+            let finalBytes = pass2.bytes, finalDataURL = pass2.dataURL, finalTag = tag2;
+            step('Step 5/10: Stabilization pass…','52%');
+            if(tag2 !== tag){
+                const finalB64 = u8ToBase64(new TextEncoder().encode(JSON.stringify({...payload, tag_b64:tag2})));
+                const pass3 = await pngBytesAndDecodedHashes(`TAG:${tag2}||CCJSON:${finalB64}::END::`);
+                payload.imageHashWatermarked = pass3.rgbaHash;
+                payload.imageHashRGB = pass3.rgbHash;
+                payload.imageHashAttachment = await sha256(pass3.bytes.buffer);
+                finalTag = await generateTag(getCanonicalString(payload));
+                finalBytes = pass3.bytes;
+                finalDataURL = pass3.dataURL;
+            }
+
+            const finalPayload = {...payload, tag_b64: finalTag};
+
+            step('Step 6/10: Building PDF…','64%');
+            const { PDFDocument } = window.PDFLib;
+            const pdfDoc = await PDFDocument.create();
+            const page = pdfDoc.addPage([canvas.width, canvas.height]);
+
+            const pngImg = await pdfDoc.embedPng(finalBytes);
+            page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
+
+            step('Step 7/10: Embedding attachments…','72%');
+            try{
+                await pdfDoc.attach(finalBytes, `CarbonAra-${payload.serial}.png`, {
+                    mimeType:'image/png', description:'Raster used to compose this document', createDate:new Date(), modificationDate:new Date()
+                });
+            }catch(e){ console.warn('Attachment PNG failed:', e); }
+            const finalJsonBytes = new TextEncoder().encode(JSON.stringify(finalPayload));
+            try{
+                await pdfDoc.attach(finalJsonBytes, `carboncert-${payload.serial}.json`, {
+                    mimeType:'application/json', description:'CarbonAra certificate payload', createDate:new Date(), modificationDate:new Date()
+                });
+            }catch(e){ console.warn('Attachment JSON failed:', e); }
+
+            step('Step 8/10: Writing metadata…','80%');
+            pdfDoc.setProducer('CarbonAra');
+            pdfDoc.setCreator('CarbonAra:PNG@PDF');
+            try{ pdfDoc.setTitle(`CarbonAra ${payload.serial} | carboncert,${u8ToBase64(finalJsonBytes)}`);}catch(e){}
+            try{ pdfDoc.setKeywords(['carboncert', u8ToBase64(finalJsonBytes)]);}catch(eK){
+                try{ pdfDoc.setSubject(`carboncert,${u8ToBase64(finalJsonBytes)}`);}catch(eS){
+                    try{ pdfDoc.setAuthor(`carboncert:${u8ToBase64(finalJsonBytes)}`);}catch(eA){}
+                }
+            }
+
+            step('Step 9/10: Finalizing…','90%');
+            const pdfBytes = await pdfDoc.save({useObjectStreams:false});
+
+            step('Step 10/10: Downloading…','100%');
+            download(pdfBytes, `CarbonCert-${payload.serial}.pdf`, 'application/pdf');
+            setTimeout(()=> modal.style.display='none', 600);
+        }catch(e){
+            showError('PDF Generation Failed', e?.stack||e?.message||String(e));
+            id('progress-modal').style.display='none';
+        }
+    }
+
+    function download(data,filename,type){
+        try{
+            const blob=new Blob([data],{type});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+            setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },0);
+        }catch(e){ showError('Download Error', e?.stack||String(e)); }
+    }
+
+    /* ==== Verification (more strategies & LSB/Title/Keywords/Attachments) ==== */
+    async function handleVerifyUpload(ev){
+        const file=ev.target.files?.[0]; if(!file) return;
+
+        const vc=id('verify-container');
+        vc.querySelector('#verify-idle').classList.remove('active');
+        vc.querySelector('#verify-loading').classList.add('active');
+
+        const diag=id('diagnostics'); diag.textContent='';
+        const log=(m)=> diag.textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`;
+
+        try{
+            log('Starting verification...');
+            const { PDFDocument, PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
+            const pdfBytes=await file.arrayBuffer();
+            const pdfDoc=await PDFDocument.load(pdfBytes,{ignoreEncryption:true, throwOnInvalidObject:false});
+            log('PDF document loaded successfully.');
+
+            let payload=null, location='none';
+
+            // 1) Keywords -> second token base64(JSON)
+            try{
+                let kws=pdfDoc.getKeywords?.()||null;
+                if(Array.isArray(kws) && kws.length){
+                    const hasFlag = kws.find(k => typeof k==='string' && k.toLowerCase()==='carboncert');
+                    const b64 = kws.find(k => typeof k==='string' && k!==hasFlag && /^[A-Za-z0-9+/=]+$/.test(k) && k.length>20);
+                    if(hasFlag && b64){
+                        const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
+                        if(obj){ payload=obj; location='keywords'; }
+                    }
+                }
+            }catch{}
+
+            // 2) Subject
+            if(!payload){
+                try{
+                    const subj=pdfDoc.getSubject?.();
+                    if(typeof subj==='string' && subj.startsWith('carboncert,')){
+                        const b64=subj.slice('carboncert,'.length);
+                        const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
+                        if(obj){ payload=obj; location='subject'; }
+                    }
+                }catch{}
+            }
+
+            // 3) Author
+            if(!payload){
+                try{
+                    const author=pdfDoc.getAuthor?.();
+                    if(typeof author==='string' && author.startsWith('carboncert:')){
+                        const b64=author.slice('carboncert:'.length);
+                        const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
+                        if(obj){ payload=obj; location='author'; }
+                    }
+                }catch{}
+            }
+
+            // 4) Title (… | carboncert,<b64>)
+            if(!payload){
+                try{
+                    const title=pdfDoc.getTitle?.();
+                    if(typeof title==='string'){
+                        const idx=title.indexOf('carboncert,');
+                        if(idx>=0){
+                            const b64=title.slice(idx+'carboncert,'.length).trim();
+                            if(/^[A-Za-z0-9+/=]+$/.test(b64)&&b64.length>20){
+                                const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
+                                if(obj){ payload=obj; location='title'; }
+                            }
+                        }
+                    }
+                }catch{}
+            }
+
+            // 5) JSON attachment
+            if(!payload){
+                try{
+                    const jsonAttach=await tryGetJsonAttachmentBytes(pdfDoc);
+                    if(jsonAttach){
+                        const obj=safeJsonParse(new TextDecoder().decode(jsonAttach));
+                        if(obj){ payload=obj; location='attachment-json'; }
+                    }
+                }catch{}
+            }
+
+            // 6) LSB payload recovery (from embedded bitmap)
+            if(!payload){
+                try{
+                    log('Attempting LSB payload recovery from page bitmap…');
+                    const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
+                    if(info && info.kind==='png-dataurl'){
+                        const { embeddedJSON } = await hashAndExtractFromDataURL_withJSON(info.dataURL);
+                        if(embeddedJSON){ payload=embeddedJSON; location='lsb-payload'; }
+                    }else if(info && info.kind==='raw-pixels'){
+                        const res = await drawRawPixelsAndAnalyze_withJSON(info);
+                        if(res.embeddedJSON){ payload=res.embeddedJSON; location='lsb-payload'; }
+                    }
+                }catch(e){ log('LSB recovery failed: '+(e?.message||String(e))); }
+            }
+
+            if(!payload) throw new Error('No embedded CarbonAra payload found in Keywords/Subject/Author/Attachments/LSB.');
+
+            log(`Payload found via: ${location}.`);
+
+            // Crypto check
+            log('Rebuilding canonical string for signature verification…');
+            const expected=await generateTag(getCanonicalString(payload));
+            log(`Expected tag: ${expected.slice(0,16)}…`);
+            const tagFromMeta=payload.tag_b64||'';
+            log(`Metadata tag: ${tagFromMeta.slice(0,16)}…`);
+
+            const result={ crypto:(tagFromMeta===expected)?'OK':'FAIL', water:'SKIPPED', hash:'SKIPPED', status:'LOW' };
+
+            // === Try multiple verification strategies (A,B,C) before skipping ===
+
+            // Strategy A: attachments (PNG/JPEG)
+            try{
+                const attachment = await tryGetEmbeddedAttachmentBytes(pdfDoc);
+                if(attachment && attachment.bytes){
+                    const h = await sha256(attachment.bytes.buffer);
+                    log(`Attachment hash: ${h.slice(0,16)}… vs payload attachment ${(payload.imageHashAttachment||'').slice(0,16)}…`);
+                    if(h === (payload.imageHashAttachment||'')) result.hash='OK';
+                    const attAnalysis = await analyzeImageBytes(attachment.bytes);
+                    if(attAnalysis){
+                        const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = attAnalysis;
+                        if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
+                        if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
+                    }
+                } else {
+                    log('No embedded PNG/JPEG attachment found.');
+                }
+            }catch(e0){ log('Attachment-based verification failed: '+(e0?.message||String(e0))); }
+
+            // Strategy B: pdf-lib XObject extraction (raw pixels / PNG)
+            if(result.hash!=='OK' || result.water!=='OK'){
+                try{
+                    log('Attempting bitmap extraction (Strategy B: pdf-lib XObject traversal)…');
+                    const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
+                    if(info && info.kind==='png-dataurl'){
+                        const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await hashAndExtractFromDataURL(info.dataURL);
+                        log(`B(PNG): RGBA calc ${pixelsHashRGBA.slice(0,16)}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+                        log(`B(PNG): RGB  calc ${pixelsHashRGB.slice(0,16)}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+                        if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
+                        if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
+                    }else if(info && info.kind==='raw-pixels'){
+                        const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await drawRawPixelsAndAnalyze(info);
+                        if(pixelsHashRGBA||pixelsHashRGB){
+                            log(`B(raw): RGBA calc ${pixelsHashRGBA?.slice(0,16)||'n/a'}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
+                            log(`B(raw): RGB  calc ${pixelsHashRGB?.slice(0,16)||'n/a'}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
+                        }
+                        if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
+                        if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
+                    }else{
+                        log('Strategy B: No direct image stream retrievable.');
+                    }
+                }catch(eA){ log('Strategy B failed: '+(eA?.message||String(eA))); }
+            }
+
+            // Strategy C: Rasterize via canvas draw of extracted PNG (if not already) — covered above
+
+            // Final policy:
+            if(result.crypto==='OK' && (result.water==='OK' || result.hash==='OK')) result.status='HIGH';
+            else if(result.crypto==='OK') result.status='MEDIUM';
+            else result.status='LOW';
+
+            log(`Verification complete. Final status: ${result.status}`);
+            displayVerificationResult(result, payload);
+        }catch(e){
+            id('diagnostics').textContent += `CRITICAL ERROR: ${e?.message||String(e)}\n`;
+            displayVerificationResult({ status:'LOW', water:'FAIL', crypto:'FAIL', hash:'FAIL', error:e?.message||String(e) });
+        }finally{
+            id('verify-loading').classList.remove('active');
+        }
+    }
+
+    /* ==== Attachments helpers ==== */
+    async function tryGetJsonAttachmentBytes(pdfDoc){
+        const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
+        try{
+            for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
+                if(obj && obj.dict && obj.dict.get){
+                    const type=obj.dict.get(PDFName.of('Type'));
+                    if(String(type)==='/Filespec'){
+                        const ef=obj.dict.get(PDFName.of('EF'));
+                        if(ef){
+                            const efDict=pdfDoc.context.lookup(ef, PDFDict);
+                            const keys=efDict.keys? efDict.keys(): [];
+                            for(const k of keys){
+                                const streamRef=efDict.get? efDict.get(k): null;
+                                if(!streamRef) continue;
+                                const stream=pdfDoc.context.lookup(streamRef);
+                                if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+                                    const contents=stream.getContents? stream.getContents(): stream.contents;
+                                    if(contents){
+                                        const u8 = contents instanceof Uint8Array? contents: new Uint8Array(contents);
+                                        const head=new TextDecoder().decode(u8.slice(0,64));
+                                        if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }catch{}
+        try{
+            for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
+                if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
+                    const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+                    if(String(subtype)==='/EmbeddedFile'){
+                        const contents=obj.getContents? obj.getContents(): obj.contents;
+                        if(contents){
+                            const u8=contents instanceof Uint8Array? contents: new Uint8Array(contents);
+                            const head=new TextDecoder().decode(u8.slice(0,64));
+                            if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
+                        }
+                    }
+                }
+            }
+        }catch{}
+        return null;
+    }
+    async function tryGetEmbeddedAttachmentBytes(pdfDoc){
+        const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
+        try{
+            for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
+                if(obj && obj.dict && obj.dict.get){
+                    const type=obj.dict.get(PDFName.of('Type'));
+                    if(String(type)==='/Filespec'){
+                        const ef=obj.dict.get(PDFName.of('EF'));
+                        if(ef){
+                            const efDict=pdfDoc.context.lookup(ef, PDFDict);
+                            const keys=efDict.keys? efDict.keys(): [];
+                            for(const k of keys){
+                                const streamRef=efDict.get? efDict.get(k): null; if(!streamRef) continue;
+                                const stream=pdfDoc.context.lookup(streamRef);
+                                if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+                                    const u8=(stream.getContents? stream.getContents(): stream.contents) || null;
+                                    if(u8){
+                                        const bytes=u8 instanceof Uint8Array? u8 : new Uint8Array(u8);
+                                        if(bytes.length>=8 && bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47) return {bytes}; //PNG
+                                        if(bytes.length>=3 && bytes[0]===0xFF && bytes[1]===0xD8 && bytes[2]===0xFF) return {bytes}; //JPEG
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }catch{}
+        try{
+            for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
+                if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
+                    const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+                    if(String(subtype)==='/EmbeddedFile'){
+                        const u8=(obj.getContents? obj.getContents(): obj.contents) || null;
+                        if(u8){
+                            const bytes=u8 instanceof Uint8Array? u8 : new Uint8Array(u8);
+                            if(bytes.length>=8 && bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47) return {bytes};
+                            if(bytes.length>=3 && bytes[0]===0xFF && bytes[1]===0xD8 && bytes[2]===0xFF) return {bytes};
+                        }
+                    }
+                }
+            }
+        }catch{}
+        return null;
+    }
+
+    /* ==== Image analyze helpers ==== */
+    function loadImageFromURL(url){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=url; }); }
+    function loadImageFromDataURL(dataURL){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=dataURL; }); }
+    async function analyzeImageBytes(u8){
+        // Try PNG then JPEG
+        try{
+            const blob=new Blob([u8],{type:'image/png'}); const url=URL.createObjectURL(blob);
+            const img=await loadImageFromURL(url); URL.revokeObjectURL(url);
+            const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
+            const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
+            const id=cx.getImageData(0,0,c.width,c.height).data;
+            const rgba=await sha256(id.buffer); const rgb=await hashRGBFromRGBAData(id); const tag=extractDataLSB(cx);
+            return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, extractedTag:tag };
+        }catch{
+            try{
+                const blob=new Blob([u8],{type:'image/jpeg'}); const url=URL.createObjectURL(blob);
+                const img=await loadImageFromURL(url); URL.revokeObjectURL(url);
+                const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
+                const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
+                const id=cx.getImageData(0,0,c.width,c.height).data;
+                const rgba=await sha256(id.buffer); const rgb=await hashRGBFromRGBAData(id); const tag=extractDataLSB(cx);
+                return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, extractedTag:tag };
+            }catch{ return null; }
+        }
+    }
+
+    /* ==== Strategy: Extract image-like with pdf-lib ==== */
+    async function extractImageLikeWithPdfLib(pdfDoc, types){
+        const { PDFName, PDFDict, PDFRawStream, PDFStream } = types;
+        const pages=pdfDoc.getPages();
+        if(pages.length){
+            const page=pages[0];
+            try{
+                const Resources=page.node.Resources && page.node.Resources();
+                if(Resources){
+                    const xobjDict = Resources.lookup && Resources.lookup(PDFName.of('XObject'), PDFDict);
+                    if(xobjDict){
+                        const keys = xobjDict.keys ? xobjDict.keys() : [];
+                        for(const k of keys){
+                            let obj = xobjDict.lookup ? xobjDict.lookup(k) : null;
+                            if(!obj && xobjDict.get) obj = xobjDict.get(k);
+                            if(obj && pdfDoc.context.lookup) obj = pdfDoc.context.lookup(obj);
+                            const stream = obj;
+                            if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
+                                const subtype = stream.dict.get && stream.dict.get(PDFName.of('Subtype'));
+                                if(String(subtype)==='/Image'){
+                                    const maybeBytes = stream.getContents ? stream.getContents() : stream.contents;
+                                    if(maybeBytes && maybeBytes.byteLength){
+                                        const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
+                                        // If this is actually a PNG stream (rare when embedding PNG via pdf-lib; usually raw), return as PNG dataURL
+                                        if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
+                                            const b64=u8ToBase64(u8);
+                                            return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
+                                        }
+                                        const width  = numFromDict(stream.dict, PDFName.of('Width'));
+                                        const height = numFromDict(stream.dict, PDFName.of('Height'));
+                                        const bpc    = numFromDict(stream.dict, PDFName.of('BitsPerComponent')) || 8;
+                                        const cs     = stream.dict.get(PDFName.of('ColorSpace'));
+                                        const comps  = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
+                                        return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }catch{}
+        }
+        // Fallback: scan all objects
+        try{
+            for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
+                if(obj && (obj instanceof types.PDFRawStream || obj instanceof types.PDFStream)){
+                    const subtype=obj.dict.get && obj.dict.get(types.PDFName.of('Subtype'));
+                    if(String(subtype)==='/Image'){
+                        const maybeBytes=obj.getContents? obj.getContents(): obj.contents;
+                        if(maybeBytes && maybeBytes.byteLength){
+                            const u8=maybeBytes instanceof Uint8Array? maybeBytes: new Uint8Array(maybeBytes);
+                            if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
+                                const b64=u8ToBase64(u8);
+                                return {kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}`};
+                            }
+                            const width=numFromDict(obj.dict, types.PDFName.of('Width'));
+                            const height=numFromDict(obj.dict, types.PDFName.of('Height'));
+                            const bpc=numFromDict(obj.dict, types.PDFName.of('BitsPerComponent'))||8;
+                            const cs=obj.dict.get(types.PDFName.of('ColorSpace'));
+                            const comps=(/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
+                            return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
+                        }
+                    }
+                }
+            }
+        }catch{}
+        return null;
+    }
+    function numFromDict(dict, name){
+        try{
+            const x=dict.get(name); if(!x) return null;
+            const s=String(x).replace(/[^\d.]/g,''); const n=Number(s); return Number.isFinite(n)?n:null;
+        }catch{ return null; }
+    }
+
+    async function hashAndExtractFromDataURL(dataURL){
         const img=await loadImageFromDataURL(dataURL);
-        const t=document.createElement('canvas'); t.width=img.naturalWidth||img.width; t.height=img.naturalHeight||img.height;
-        const tx=t.getContext('2d',{willReadFrequently:true}); tx.drawImage(img,0,0);
-        const id=tx.getImageData(0,0,t.width,t.height).data;
-        const rgbaHash=await sha256(id.buffer);
-        const rgbHash =await hashRGBFromRGBAData(id);
-        return { bytes, dataURL, rgbaHash, rgbHash };
-      }
-
-      updateElementsFromInputs();
-      // Base payload skeleton
-      let payload = {
-        v:1, serial:inputs.serial.value, name:(inputs.name.value||'').normalize('NFC'), amount:inputs.amount.value||'',
-        date:inputs.date.value||'', type:(inputs.type.value||'').normalize('NFC'),
-        imageHashOriginal:'', imageHashWatermarked:'', imageHashRGB:'', imageHashAttachment:'',
-        posName:{x:Number(textElements.name.x).toFixed(4), y:Number(textElements.name.y).toFixed(4)},
-        posAmount:{x:Number(textElements.amount.x).toFixed(4), y:Number(textElements.amount.y).toFixed(4)},
-        posDate:{x:Number(textElements.date.x).toFixed(4), y:Number(textElements.date.y).toFixed(4)},
-        posType:{x:Number(textElements.type.x).toFixed(4), y:Number(textElements.type.y).toFixed(4)},
-        posSerial:{x:Number(textElements.serial.x).toFixed(4), y:Number(textElements.serial.y).toFixed(4)},
-        posLogo:{x:Number(logoElement.x||0).toFixed(4), y:Number(logoElement.y||0).toFixed(4), w:Number(logoElement.width||0).toFixed(4)},
-        fontName:`GreatVibes-${Number(textElements.name.fontSize||0)}px`,
-        fontOther:`Montserrat-${Number(textElements.amount.fontSize||0)}px`,
-        fontSerial:`Montserrat-${Number(textElements.serial.fontSize||0)}px`,
-        qrMode:inputs.qrMode.value, qrPos:{x:Number(qrCodeElement.x||0).toFixed(4), y:Number(qrCodeElement.y||0).toFixed(4)},
-        qrAlpha:Number(qrCodeElement.alpha||0).toFixed(2),
-        canvas:`${canvas.width}x${canvas.height}@${inputs.dpi.value}`,
-        app:'CarbonCert-5.0.0'
-      };
-
-      // Compute original hash from decoded *unwatermarked* image for reference
-      step('Step 2/10: Hashing original (no watermark)…','16%');
-      const origRes = await pngBytesAndDecodedHashes(null);
-      payload.imageHashOriginal = origRes.rgbaHash;
-
-      // Iteratively stabilize watermark+payload hashes and tag
-      step('Step 3/10: Watermark pass 1…','28%');
-      let tag = await generateTag(getCanonicalString({...payload, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:''}));
-      let pass1 = await pngBytesAndDecodedHashes(`TAG:${tag}||CCJSON:pending::END::`);
-      payload.imageHashWatermarked = pass1.rgbaHash;
-      payload.imageHashRGB = pass1.rgbHash;
-      payload.imageHashAttachment = await sha256(pass1.bytes.buffer);
-      tag = await generateTag(getCanonicalString(payload));
-
-      step('Step 4/10: Watermark pass 2 (embed final JSON)…','40%');
-      let jsonB64 = u8ToBase64(new TextEncoder().encode(JSON.stringify({...payload, tag_b64:tag})));
-      let pass2 = await pngBytesAndDecodedHashes(`TAG:${tag}||CCJSON:${jsonB64}::END::`);
-      // Recompute final because embedding JSON changed pixels
-      payload.imageHashWatermarked = pass2.rgbaHash;
-      payload.imageHashRGB = pass2.rgbHash;
-      payload.imageHashAttachment = await sha256(pass2.bytes.buffer);
-      let tag2 = await generateTag(getCanonicalString(payload));
-
-      // If tag changed due to new hashes, embed once more to stabilize
-      let finalBytes = pass2.bytes, finalDataURL = pass2.dataURL, finalTag = tag2;
-      step('Step 5/10: Stabilization pass…','52%');
-      if(tag2 !== tag){
-        const finalB64 = u8ToBase64(new TextEncoder().encode(JSON.stringify({...payload, tag_b64:tag2})));
-        const pass3 = await pngBytesAndDecodedHashes(`TAG:${tag2}||CCJSON:${finalB64}::END::`);
-        payload.imageHashWatermarked = pass3.rgbaHash;
-        payload.imageHashRGB = pass3.rgbHash;
-        payload.imageHashAttachment = await sha256(pass3.bytes.buffer);
-        finalTag = await generateTag(getCanonicalString(payload));
-        finalBytes = pass3.bytes;
-        finalDataURL = pass3.dataURL;
-      }
-
-      // Build final payload object (synchronized with actual embedded bitmap)
-      const finalPayload = {...payload, tag_b64: finalTag};
-
-      step('Step 6/10: Building PDF…','64%');
-      const { PDFDocument } = window.PDFLib;
-      const pdfDoc = await PDFDocument.create();
-      const page = pdfDoc.addPage([canvas.width, canvas.height]);
-
-      const pngImg = await pdfDoc.embedPng(finalBytes);
-      page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
-
-      step('Step 7/10: Embedding attachments…','72%');
-      // Attach PNG raster
-      try{
-        await pdfDoc.attach(finalBytes, `CarbonAra-${payload.serial}.png`, {
-          mimeType:'image/png', description:'Raster used to compose this document', createDate:new Date(), modificationDate:new Date()
-        });
-      }catch(e){ console.warn('Attachment PNG failed:', e); }
-      // Attach JSON
-      const finalJsonBytes = new TextEncoder().encode(JSON.stringify(finalPayload));
-      try{
-        await pdfDoc.attach(finalJsonBytes, `carboncert-${payload.serial}.json`, {
-          mimeType:'application/json', description:'CarbonAra certificate payload', createDate:new Date(), modificationDate:new Date()
-        });
-      }catch(e){ console.warn('Attachment JSON failed:', e); }
-
-      // Metadata (multiple fallbacks)
-      step('Step 8/10: Writing metadata…','80%');
-      pdfDoc.setProducer('CarbonAra');
-      pdfDoc.setCreator('CarbonAra:PNG@PDF');
-      try{ pdfDoc.setTitle(`CarbonAra ${payload.serial} | carboncert,${u8ToBase64(finalJsonBytes)}`);}catch(e){}
-      try{ pdfDoc.setKeywords(['carboncert', u8ToBase64(finalJsonBytes)]);}catch(eK){
-        try{ pdfDoc.setSubject(`carboncert,${u8ToBase64(finalJsonBytes)}`);}catch(eS){
-          try{ pdfDoc.setAuthor(`carboncert:${u8ToBase64(finalJsonBytes)}`);}catch(eA){}
-        }
-      }
-
-      step('Step 9/10: Finalizing…','90%');
-      const pdfBytes = await pdfDoc.save({useObjectStreams:false});
-
-      step('Step 10/10: Downloading…','100%');
-      download(pdfBytes, `CarbonCert-${payload.serial}.pdf`, 'application/pdf');
-      setTimeout(()=> modal.style.display='none', 600);
-    }catch(e){
-      showError('PDF Generation Failed', e?.stack||e?.message||String(e));
-      id('progress-modal').style.display='none';
-    }
-  }
-
-  function download(data,filename,type){
-    try{
-      const blob=new Blob([data],{type});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click();
-      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); },0);
-    }catch(e){ showError('Download Error', e?.stack||String(e)); }
-  }
-
-  /* ==== Verification (more strategies & LSB/Title/Keywords/Attachments) ==== */
-  async function handleVerifyUpload(ev){
-    const file=ev.target.files?.[0]; if(!file) return;
-
-    const vc=id('verify-container');
-    vc.querySelector('#verify-idle').classList.remove('active');
-    vc.querySelector('#verify-loading').classList.add('active');
-
-    const diag=id('diagnostics'); diag.textContent='';
-    const log=(m)=> diag.textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`;
-
-    try{
-      log('Starting verification...');
-      const { PDFDocument, PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-      const pdfBytes=await file.arrayBuffer();
-      const pdfDoc=await PDFDocument.load(pdfBytes,{ignoreEncryption:true, throwOnInvalidObject:false});
-      log('PDF document loaded successfully.');
-
-      let payload=null, location='none';
-
-      // 1) Keywords -> second token base64(JSON)
-      try{
-        let kws=pdfDoc.getKeywords?.()||null;
-        if(Array.isArray(kws) && kws.length){
-          const hasFlag = kws.find(k => typeof k==='string' && k.toLowerCase()==='carboncert');
-          const b64 = kws.find(k => typeof k==='string' && k!==hasFlag && /^[A-Za-z0-9+/=]+$/.test(k) && k.length>20);
-          if(hasFlag && b64){
-            const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
-            if(obj){ payload=obj; location='keywords'; }
-          }
-        }
-      }catch{}
-
-      // 2) Subject
-      if(!payload){
-        try{
-          const subj=pdfDoc.getSubject?.();
-          if(typeof subj==='string' && subj.startsWith('carboncert,')){
-            const b64=subj.slice('carboncert,'.length);
-            const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
-            if(obj){ payload=obj; location='subject'; }
-          }
-        }catch{}
-      }
-
-      // 3) Author
-      if(!payload){
-        try{
-          const author=pdfDoc.getAuthor?.();
-          if(typeof author==='string' && author.startsWith('carboncert:')){
-            const b64=author.slice('carboncert:'.length);
-            const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
-            if(obj){ payload=obj; location='author'; }
-          }
-        }catch{}
-      }
-
-      // 4) Title (… | carboncert,<b64>)
-      if(!payload){
-        try{
-          const title=pdfDoc.getTitle?.();
-          if(typeof title==='string'){
-            const idx=title.indexOf('carboncert,');
-            if(idx>=0){
-              const b64=title.slice(idx+'carboncert,'.length).trim();
-              if(/^[A-Za-z0-9+/=]+$/.test(b64)&&b64.length>20){
-                const obj=safeJsonParse(new TextDecoder().decode(base64ToU8(b64)));
-                if(obj){ payload=obj; location='title'; }
-              }
-            }
-          }
-        }catch{}
-      }
-
-      // 5) JSON attachment
-      if(!payload){
-        try{
-          const jsonAttach=await tryGetJsonAttachmentBytes(pdfDoc);
-          if(jsonAttach){
-            const obj=safeJsonParse(new TextDecoder().decode(jsonAttach));
-            if(obj){ payload=obj; location='attachment-json'; }
-          }
-        }catch{}
-      }
-
-      // 6) LSB payload recovery (from embedded bitmap)
-      if(!payload){
-        try{
-          log('Attempting LSB payload recovery from page bitmap…');
-          const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
-          if(info && info.kind==='png-dataurl'){
-            const { embeddedJSON } = await hashAndExtractFromDataURL_withJSON(info.dataURL);
-            if(embeddedJSON){ payload=embeddedJSON; location='lsb-payload'; }
-          }else if(info && info.kind==='raw-pixels'){
-            const res = await drawRawPixelsAndAnalyze_withJSON(info);
-            if(res.embeddedJSON){ payload=res.embeddedJSON; location='lsb-payload'; }
-          }
-        }catch(e){ log('LSB recovery failed: '+(e?.message||String(e))); }
-      }
-
-      if(!payload) throw new Error('No embedded CarbonAra payload found in Keywords/Subject/Author/Attachments/LSB.');
-
-      log(`Payload found via: ${location}.`);
-
-      // Crypto check
-      log('Rebuilding canonical string for signature verification…');
-      const expected=await generateTag(getCanonicalString(payload));
-      log(`Expected tag: ${expected.slice(0,16)}…`);
-      const tagFromMeta=payload.tag_b64||'';
-      log(`Metadata tag: ${tagFromMeta.slice(0,16)}…`);
-
-      const result={ crypto:(tagFromMeta===expected)?'OK':'FAIL', water:'SKIPPED', hash:'SKIPPED', status:'LOW' };
-
-      // === Try multiple verification strategies (A,B,C) before skipping ===
-
-      // Strategy A: attachments (PNG/JPEG)
-      try{
-        const attachment = await tryGetEmbeddedAttachmentBytes(pdfDoc);
-        if(attachment && attachment.bytes){
-          const h = await sha256(attachment.bytes.buffer);
-          log(`Attachment hash: ${h.slice(0,16)}… vs payload attachment ${(payload.imageHashAttachment||'').slice(0,16)}…`);
-          if(h === (payload.imageHashAttachment||'')) result.hash='OK';
-          const attAnalysis = await analyzeImageBytes(attachment.bytes);
-          if(attAnalysis){
-            const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = attAnalysis;
-            if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
-            if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
-          }
-        } else {
-          log('No embedded PNG/JPEG attachment found.');
-        }
-      }catch(e0){ log('Attachment-based verification failed: '+(e0?.message||String(e0))); }
-
-      // Strategy B: pdf-lib XObject extraction (raw pixels / PNG)
-      if(result.hash!=='OK' || result.water!=='OK'){
-        try{
-          log('Attempting bitmap extraction (Strategy B: pdf-lib XObject traversal)…');
-          const info = await extractImageLikeWithPdfLib(pdfDoc, { PDFName, PDFDict, PDFRawStream, PDFStream });
-          if(info && info.kind==='png-dataurl'){
-            const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await hashAndExtractFromDataURL(info.dataURL);
-            log(`B(PNG): RGBA calc ${pixelsHashRGBA.slice(0,16)}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
-            log(`B(PNG): RGB  calc ${pixelsHashRGB.slice(0,16)}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
-            if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
-            if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
-          }else if(info && info.kind==='raw-pixels'){
-            const { pixelsHashRGBA, pixelsHashRGB, extractedTag } = await drawRawPixelsAndAnalyze(info);
-            if(pixelsHashRGBA||pixelsHashRGB){
-              log(`B(raw): RGBA calc ${pixelsHashRGBA?.slice(0,16)||'n/a'}… vs payload RGBA ${payload.imageHashWatermarked.slice(0,16)}…`);
-              log(`B(raw): RGB  calc ${pixelsHashRGB?.slice(0,16)||'n/a'}… vs payload RGB  ${payload.imageHashRGB.slice(0,16)}…`);
-            }
-            if(result.hash!=='OK' && (pixelsHashRGBA===payload.imageHashWatermarked || pixelsHashRGB===payload.imageHashRGB)) result.hash='OK';
-            if(extractedTag){ result.water = (extractedTag===tagFromMeta)?'OK':'FAIL'; }
-          }else{
-            log('Strategy B: No direct image stream retrievable.');
-          }
-        }catch(eA){ log('Strategy B failed: '+(eA?.message||String(eA))); }
-      }
-
-      // Strategy C: Rasterize via canvas draw of extracted PNG (if not already) — covered above
-
-      // Final policy:
-      if(result.crypto==='OK' && (result.water==='OK' || result.hash==='OK')) result.status='HIGH';
-      else if(result.crypto==='OK') result.status='MEDIUM';
-      else result.status='LOW';
-
-      log(`Verification complete. Final status: ${result.status}`);
-      displayVerificationResult(result, payload);
-    }catch(e){
-      id('diagnostics').textContent += `CRITICAL ERROR: ${e?.message||String(e)}\n`;
-      displayVerificationResult({ status:'LOW', water:'FAIL', crypto:'FAIL', hash:'FAIL', error:e?.message||String(e) });
-    }finally{
-      id('verify-loading').classList.remove('active');
-    }
-  }
-
-  /* ==== Attachments helpers ==== */
-  async function tryGetJsonAttachmentBytes(pdfDoc){
-    const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-    try{
-      for(const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()){
-        if(obj && obj.dict && obj.dict.get){
-          const type=obj.dict.get(PDFName.of('Type'));
-          if(String(type)==='/Filespec'){
-            const ef=obj.dict.get(PDFName.of('EF'));
-            if(ef){
-              const efDict=pdfDoc.context.lookup(ef, PDFDict);
-              const keys=efDict.keys? efDict.keys(): [];
-              for(const k of keys){
-                const streamRef=efDict.get? efDict.get(k): null;
-                if(!streamRef) continue;
-                const stream=pdfDoc.context.lookup(streamRef);
-                if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                  const contents=stream.getContents? stream.getContents(): stream.contents;
-                  if(contents){
-                    const u8 = contents instanceof Uint8Array? contents: new Uint8Array(contents);
-                    const head=new TextDecoder().decode(u8.slice(0,64));
-                    if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }catch{}
-    try{
-      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-        if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-          const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
-          if(String(subtype)==='/EmbeddedFile'){
-            const contents=obj.getContents? obj.getContents(): obj.contents;
-            if(contents){
-              const u8=contents instanceof Uint8Array? contents: new Uint8Array(contents);
-              const head=new TextDecoder().decode(u8.slice(0,64));
-              if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
-            }
-          }
-        }
-      }
-    }catch{}
-    return null;
-  }
-  async function tryGetEmbeddedAttachmentBytes(pdfDoc){
-    const { PDFName, PDFDict, PDFRawStream, PDFStream } = window.PDFLib;
-    try{
-      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-        if(obj && obj.dict && obj.dict.get){
-          const type=obj.dict.get(PDFName.of('Type'));
-          if(String(type)==='/Filespec'){
-            const ef=obj.dict.get(PDFName.of('EF'));
-            if(ef){
-              const efDict=pdfDoc.context.lookup(ef, PDFDict);
-              const keys=efDict.keys? efDict.keys(): [];
-              for(const k of keys){
-                const streamRef=efDict.get? efDict.get(k): null; if(!streamRef) continue;
-                const stream=pdfDoc.context.lookup(streamRef);
-                if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                  const u8=(stream.getContents? stream.getContents(): stream.contents) || null;
-                  if(u8){
-                    const bytes=u8 instanceof Uint8Array? u8 : new Uint8Array(u8);
-                    if(bytes.length>=8 && bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47) return {bytes}; //PNG
-                    if(bytes.length>=3 && bytes[0]===0xFF && bytes[1]===0xD8 && bytes[2]===0xFF) return {bytes}; //JPEG
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }catch{}
-    try{
-      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-        if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-          const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
-          if(String(subtype)==='/EmbeddedFile'){
-            const u8=(obj.getContents? obj.getContents(): obj.contents) || null;
-            if(u8){
-              const bytes=u8 instanceof Uint8Array? u8 : new Uint8Array(u8);
-              if(bytes.length>=8 && bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47) return {bytes};
-              if(bytes.length>=3 && bytes[0]===0xFF && bytes[1]===0xD8 && bytes[2]===0xFF) return {bytes};
-            }
-          }
-        }
-      }
-    }catch{}
-    return null;
-  }
-
-  /* ==== Image analyze helpers ==== */
-  function loadImageFromURL(url){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=url; }); }
-  function loadImageFromDataURL(dataURL){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=dataURL; }); }
-  async function analyzeImageBytes(u8){
-    // Try PNG then JPEG
-    try{
-      const blob=new Blob([u8],{type:'image/png'}); const url=URL.createObjectURL(blob);
-      const img=await loadImageFromURL(url); URL.revokeObjectURL(url);
-      const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
-      const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
-      const id=cx.getImageData(0,0,c.width,c.height).data;
-      const rgba=await sha256(id.buffer); const rgb=await hashRGBFromRGBAData(id); const tag=extractDataLSB(cx);
-      return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, extractedTag:tag };
-    }catch{
-      try{
-        const blob=new Blob([u8],{type:'image/jpeg'}); const url=URL.createObjectURL(blob);
-        const img=await loadImageFromURL(url); URL.revokeObjectURL(url);
         const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
         const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
-        const id=cx.getImageData(0,0,c.width,c.height).data;
-        const rgba=await sha256(id.buffer); const rgb=await hashRGBFromRGBAData(id); const tag=extractDataLSB(cx);
-        return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, extractedTag:tag };
-      }catch{ return null; }
+        const d=cx.getImageData(0,0,c.width,c.height).data;
+        const pixelsHashRGBA=await sha256(d.buffer);
+        const pixelsHashRGB=await hashRGBFromRGBAData(d);
+        const extractedTag=extractDataLSB(cx);
+        return { pixelsHashRGBA, pixelsHashRGB, extractedTag };
     }
-  }
-
-  /* ==== Strategy: Extract image-like with pdf-lib ==== */
-  async function extractImageLikeWithPdfLib(pdfDoc, types){
-    const { PDFName, PDFDict, PDFRawStream, PDFStream } = types;
-    const pages=pdfDoc.getPages();
-    if(pages.length){
-      const page=pages[0];
-      try{
-        const Resources=page.node.Resources && page.node.Resources();
-        if(Resources){
-          const xobjDict = Resources.lookup && Resources.lookup(PDFName.of('XObject'), PDFDict);
-          if(xobjDict){
-            const keys = xobjDict.keys ? xobjDict.keys() : [];
-            for(const k of keys){
-              let obj = xobjDict.lookup ? xobjDict.lookup(k) : null;
-              if(!obj && xobjDict.get) obj = xobjDict.get(k);
-              if(obj && pdfDoc.context.lookup) obj = pdfDoc.context.lookup(obj);
-              const stream = obj;
-              if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                const subtype = stream.dict.get && stream.dict.get(PDFName.of('Subtype'));
-                if(String(subtype)==='/Image'){
-                  const maybeBytes = stream.getContents ? stream.getContents() : stream.contents;
-                  if(maybeBytes && maybeBytes.byteLength){
-                    const u8 = maybeBytes instanceof Uint8Array ? maybeBytes : new Uint8Array(maybeBytes);
-                    // If this is actually a PNG stream (rare when embedding PNG via pdf-lib; usually raw), return as PNG dataURL
-                    if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
-                      const b64=u8ToBase64(u8);
-                      return { kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}` };
-                    }
-                    const width  = numFromDict(stream.dict, PDFName.of('Width'));
-                    const height = numFromDict(stream.dict, PDFName.of('Height'));
-                    const bpc    = numFromDict(stream.dict, PDFName.of('BitsPerComponent')) || 8;
-                    const cs     = stream.dict.get(PDFName.of('ColorSpace'));
-                    const comps  = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
-                    return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
-                  }
-                }
-              }
-            }
-          }
+    async function hashAndExtractFromDataURL_withJSON(dataURL){
+        const img=await loadImageFromDataURL(dataURL);
+        const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
+        const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
+        const extracted=extractDataLSB(cx)||'';
+        let embeddedJSON=null;
+        const jsonMatch=extracted.match(/CCJSON:([A-Za-z0-9+/=]+)::END::/);
+        if(jsonMatch){
+            try{ embeddedJSON=safeJsonParse(new TextDecoder().decode(base64ToU8(jsonMatch[1]))); }catch{}
         }
-      }catch{}
+        const d=cx.getImageData(0,0,c.width,c.height).data;
+        const pixelsHashRGBA=await sha256(d.buffer);
+        const pixelsHashRGB=await hashRGBFromRGBAData(d);
+        return { pixelsHashRGBA, pixelsHashRGB, embeddedJSON };
     }
-    // Fallback: scan all objects
-    try{
-      for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-        if(obj && (obj instanceof types.PDFRawStream || obj instanceof types.PDFStream)){
-          const subtype=obj.dict.get && obj.dict.get(types.PDFName.of('Subtype'));
-          if(String(subtype)==='/Image'){
-            const maybeBytes=obj.getContents? obj.getContents(): obj.contents;
-            if(maybeBytes && maybeBytes.byteLength){
-              const u8=maybeBytes instanceof Uint8Array? maybeBytes: new Uint8Array(maybeBytes);
-              if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
-                const b64=u8ToBase64(u8);
-                return {kind:'png-dataurl', dataURL:`data:image/png;base64,${b64}`};
-              }
-              const width=numFromDict(obj.dict, types.PDFName.of('Width'));
-              const height=numFromDict(obj.dict, types.PDFName.of('Height'));
-              const bpc=numFromDict(obj.dict, types.PDFName.of('BitsPerComponent'))||8;
-              const cs=obj.dict.get(types.PDFName.of('ColorSpace'));
-              const comps=(/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
-              return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
+    async function drawRawPixelsAndAnalyze(info){
+        const {width,height,comps,bpc,bytes}=info;
+        if(!width||!height||!bytes) return {};
+        if(bpc!==8) return {};
+        const c=document.createElement('canvas'); c.width=width; c.height=height;
+        const cx=c.getContext('2d',{willReadFrequently:true});
+        const imgData=cx.createImageData(width,height); const dst=imgData.data;
+        let si=0, di=0;
+        if(comps===3){ for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; } }
+        else if(comps===1){ for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; } }
+        else if(comps===4){ // CMYK -> RGB approx
+            for(let i=0;i<width*height;i++){
+                const c0=bytes[si++]/255, m=bytes[si++]/255, y=bytes[si++]/255, k=bytes[si++]/255;
+                const r=255*(1-Math.min(1,c0*(1-k)+k));
+                const g=255*(1-Math.min(1,m *(1-k)+k));
+                const b=255*(1-Math.min(1,y *(1-k)+k));
+                dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255;
             }
-          }
-        }
-      }
-    }catch{}
-    return null;
-  }
-  function numFromDict(dict, name){
-    try{
-      const x=dict.get(name); if(!x) return null;
-      const s=String(x).replace(/[^\d.]/g,''); const n=Number(s); return Number.isFinite(n)?n:null;
-    }catch{ return null; }
-  }
-
-  async function hashAndExtractFromDataURL(dataURL){
-    const img=await loadImageFromDataURL(dataURL);
-    const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
-    const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
-    const d=cx.getImageData(0,0,c.width,c.height).data;
-    const pixelsHashRGBA=await sha256(d.buffer);
-    const pixelsHashRGB=await hashRGBFromRGBAData(d);
-    const extractedTag=extractDataLSB(cx);
-    return { pixelsHashRGBA, pixelsHashRGB, extractedTag };
-  }
-  async function hashAndExtractFromDataURL_withJSON(dataURL){
-    const img=await loadImageFromDataURL(dataURL);
-    const c=document.createElement('canvas'); c.width=img.naturalWidth||img.width; c.height=img.naturalHeight||img.height;
-    const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(img,0,0);
-    const extracted=extractDataLSB(cx)||'';
-    let embeddedJSON=null;
-    const jsonMatch=extracted.match(/CCJSON:([A-Za-z0-9+/=]+)::END::/);
-    if(jsonMatch){
-      try{ embeddedJSON=safeJsonParse(new TextDecoder().decode(base64ToU8(jsonMatch[1]))); }catch{}
+        }else{ return {}; }
+        cx.putImageData(imgData,0,0);
+        const rgbaHash=await sha256(imgData.data.buffer);
+        const rgbHash=await hashRGBFromRGBAData(imgData.data);
+        const tag=extractDataLSB(cx);
+        return { pixelsHashRGBA:rgbaHash, pixelsHashRGB:rgbHash, extractedTag:tag };
     }
-    const d=cx.getImageData(0,0,c.width,c.height).data;
-    const pixelsHashRGBA=await sha256(d.buffer);
-    const pixelsHashRGB=await hashRGBFromRGBAData(d);
-    return { pixelsHashRGBA, pixelsHashRGB, embeddedJSON };
-  }
-  async function drawRawPixelsAndAnalyze(info){
-    const {width,height,comps,bpc,bytes}=info;
-    if(!width||!height||!bytes) return {};
-    if(bpc!==8) return {};
-    const c=document.createElement('canvas'); c.width=width; c.height=height;
-    const cx=c.getContext('2d',{willReadFrequently:true});
-    const imgData=cx.createImageData(width,height); const dst=imgData.data;
-    let si=0, di=0;
-    if(comps===3){ for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; } }
-    else if(comps===1){ for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; } }
-    else if(comps===4){ // CMYK -> RGB approx
-      for(let i=0;i<width*height;i++){
-        const c0=bytes[si++]/255, m=bytes[si++]/255, y=bytes[si++]/255, k=bytes[si++]/255;
-        const r=255*(1-Math.min(1,c0*(1-k)+k));
-        const g=255*(1-Math.min(1,m *(1-k)+k));
-        const b=255*(1-Math.min(1,y *(1-k)+k));
-        dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255;
-      }
-    }else{ return {}; }
-    cx.putImageData(imgData,0,0);
-    const rgbaHash=await sha256(imgData.data.buffer);
-    const rgbHash=await hashRGBFromRGBAData(imgData.data);
-    const tag=extractDataLSB(cx);
-    return { pixelsHashRGBA:rgbaHash, pixelsHashRGB:rgbHash, extractedTag:tag };
-  }
-  async function drawRawPixelsAndAnalyze_withJSON(info){
-    const res=await drawRawPixelsAndAnalyze(info);
-    const {width,height}=info;
-    if(!width||!height) return res;
-    // Recreate canvas to read JSON LSB
-    const c=document.createElement('canvas'); c.width=width; c.height=height;
-    const cx=c.getContext('2d',{willReadFrequently:true});
-    // not reusing; drawRawPixelsAndAnalyze already wrote pixels, but we don't have that canvas; recompute quickly
-    return res; // tag extraction already attempted in drawRawPixelsAndAnalyze
-  }
+    async function drawRawPixelsAndAnalyze_withJSON(info){
+        const res=await drawRawPixelsAndAnalyze(info);
+        const {width,height}=info;
+        if(!width||!height) return res;
+        // Recreate canvas to read JSON LSB
+        const c=document.createElement('canvas'); c.width=width; c.height=height;
+        const cx=c.getContext('2d',{willReadFrequently:true});
+        // not reusing; drawRawPixelsAndAnalyze already wrote pixels, but we don't have that canvas; recompute quickly
+        return res; // tag extraction already attempted in drawRawPixelsAndAnalyze
+    }
 
-  /* ==== Display & errors ==== */
-  function displayVerificationResult(result, payload={}){
-    id('verify-loading').classList.remove('active');
-    id('verify-result').classList.add('active');
-    id('auth-prob').textContent=`Authenticity: ${result.status}`;
-    const details=id('result-card-details');
-    details.className=`result-card ${String(result.status||'LOW').toLowerCase()}`;
-    details.innerHTML=`
-      <h4>${result.status==='HIGH'?'✓':(result.status==='MEDIUM'?'⚠️':'✗')} Verification ${result.status}</h4>
-      <ul class="verification-breakdown">
-        <li><span class="icon ${result.crypto==='OK'?'ok':'fail'}">${result.crypto==='OK'?'✓':'✗'}</span> Cryptographic Signature: <strong>${result.crypto==='OK'?'Valid':'Invalid'}</strong></li>
-        <li><span class="icon ${result.water==='OK'?'ok':(result.water==='SKIPPED'?'':'fail')}">${result.water==='OK'?'✓':(result.water==='SKIPPED'?'•':'✗')}</span> Watermark Integrity: <strong>${result.water==='OK'?'Matched':(result.water==='SKIPPED'?'Skipped':'Mismatch/Missing')}</strong></li>
-        <li><span class="icon ${result.hash==='OK'?'ok':(result.hash==='SKIPPED'?'':'fail')}">${result.hash==='OK'?'✓':(result.hash==='SKIPPED'?'•':'✗')}</span> Image Hash Consistency: <strong>${result.hash==='OK'?'Matched':(result.hash==='SKIPPED'?'Skipped':'Mismatch')}</strong></li>
-      </ul>
-      ${payload.serial?`<p><strong>Serial:</strong> ${payload.serial}</p>`:''}
-      ${payload.name?`<p><strong>Name:</strong> ${payload.name}</p>`:''}
-      ${payload.date?`<p><strong>Date:</strong> ${payload.date}</p>`:''}
-      ${result.error?`<p><strong>Error:</strong> ${result.error}</p>`:''}
-    `;
-  }
-  function showError(msg,details){ id('error-message').textContent=msg||'Unknown Error'; id('error-details').textContent=details||''; id('error-modal').style.display='flex'; }
+    /* ==== Display & errors ==== */
+    function displayVerificationResult(result, payload={}){
+        id('verify-loading').classList.remove('active');
+        id('verify-result').classList.add('active');
+        id('auth-prob').textContent=`Authenticity: ${result.status}`;
+        const details=id('result-card-details');
+        details.className=`result-card ${String(result.status||'LOW').toLowerCase()}`;
+        details.innerHTML=`
+            <h4>${result.status==='HIGH'?'✓':(result.status==='MEDIUM'?'⚠️':'✗')} Verification ${result.status}</h4>
+            <ul class="verification-breakdown">
+                <li><span class="icon ${result.crypto==='OK'?'ok':'fail'}">${result.crypto==='OK'?'✓':'✗'}</span> Cryptographic Signature: <strong>${result.crypto==='OK'?'Valid':'Invalid'}</strong></li>
+                <li><span class="icon ${result.water==='OK'?'ok':(result.water==='SKIPPED'?'':'fail')}">${result.water==='OK'?'✓':(result.water==='SKIPPED'?'•':'✗')}</span> Watermark Integrity: <strong>${result.water==='OK'?'Matched':(result.water==='SKIPPED'?'Skipped':'Mismatch/Missing')}</strong></li>
+                <li><span class="icon ${result.hash==='OK'?'ok':(result.hash==='SKIPPED'?'':'fail')}">${result.hash==='OK'?'✓':(result.hash==='SKIPPED'?'•':'✗')}</span> Image Hash Consistency: <strong>${result.hash==='OK'?'Matched':(result.hash==='SKIPPED'?'Skipped':'Mismatch')}</strong></li>
+            </ul>
+            ${payload.serial?`<p><strong>Serial:</strong> ${payload.serial}</p>`:''}
+            ${payload.name?`<p><strong>Name:</strong> ${payload.name}</p>`:''}
+            ${payload.date?`<p><strong>Date:</strong> ${payload.date}</p>`:''}
+            ${result.error?`<p><strong>Error:</strong> ${result.error}</p>`:''}
+        `;
+    }
+    function showError(msg,details){ id('error-message').textContent=msg||'Unknown Error'; id('error-details').textContent=details||''; id('error-modal').style.display='flex'; }
 
-  /* ==== Kickoff ==== */
-  init();
+    /* ==== Kickoff ==== */
+    init();
 });
 </script>
 </body>
