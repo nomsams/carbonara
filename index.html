@@ -363,7 +363,7 @@ async function hashRGBOnly(rgba){
 function loadImageFromURL(url){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=url; }); }
 function loadImageFromDataURL(dataURL){ return loadImageFromURL(dataURL); }
 
-/* ---------- Robust LSB Watermark (v2) with ECC (repetition + stride + CRC) + Legacy v1 ---------- */
+/* ---------- Robust LSB Watermark (v2) with ECC + Legacy v1 ---------- */
 const WM_V2 = { header:"CC2|", footer:"|END2", repeat:7, stride:3 };
 function crc32(str){
   let c = ~0, table = crc32.table;
@@ -469,17 +469,30 @@ document.addEventListener('DOMContentLoaded', () => {
   let textElements={}, logoElement={}, qrCodeElement={};
 
   async function init(){
-    inputs.date.valueAsDate = new Date();
+    // robust date default across browsers
+    ensureDate();
+
     generateNewSerial();
     addEventListeners();
-    await document.fonts.ready;
+    try { await (document.fonts?.ready || Promise.resolve()); } catch {}
 
-    const tmp = inputs.name.value; inputs.name.value='Rendering…'; requestRedraw(); await delay(60); inputs.name.value=tmp;
-
-    bgImage.crossOrigin='anonymous';
-    bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent='✅ image.png loaded'; setupCanvas(bgImage.naturalWidth,bgImage.naturalHeight); };
-    bgImage.onerror=()=>{ id('bg-image-status').textContent='⚠️ No image.png'; setupCanvas(1414,2000); };
-    bgImage.src='image.png';
+    // robust image.png bootstrap (no CORS), with graceful fallback
+    try {
+      const res = await fetch('image.png', { cache: 'no-store' });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent='✅ image.png loaded'; setupCanvas(bgImage.naturalWidth,bgImage.naturalHeight); URL.revokeObjectURL(url); };
+        bgImage.onerror=()=>{ id('bg-image-status').textContent='⚠️ image.png failed, using blank canvas'; setupCanvas(1414,2000); URL.revokeObjectURL(url); };
+        bgImage.src=url;
+      } else {
+        id('bg-image-status').textContent='ℹ️ No image.png found (upload one)';
+        setupCanvas(1414,2000);
+      }
+    } catch {
+      id('bg-image-status').textContent='ℹ️ image.png unavailable (upload one)';
+      setupCanvas(1414,2000);
+    }
 
     handleUrlParams();
   }
@@ -527,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
       catch{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('Diagnostics copied.'); }
     });
 
-    // drag
+    // drag to move elements on canvas
     let dragging=false, key=null, offset={x:0,y:0};
     canvas.addEventListener('mousedown', e=>{
       const p = getMouse(e);
@@ -553,6 +566,20 @@ document.addEventListener('DOMContentLoaded', () => {
       requestRedraw();
     });
     window.addEventListener('mouseup', ()=>{ dragging=false; key=null; canvas.style.cursor='grab'; });
+
+    // paste / drag-drop background convenience
+    ['dragenter','dragover'].forEach(evt =>
+      window.addEventListener(evt, e => { e.preventDefault(); e.dataTransfer.dropEffect='copy'; })
+    );
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const file = [...(e.dataTransfer?.files || [])].find(f => /^image\/(png|jpe?g)$/i.test(f.type));
+      if (file) acceptBgBlob(file, file.name);
+    });
+    window.addEventListener('paste', (e) => {
+      const item = [...(e.clipboardData?.items || [])].find(x => /^image\//.test(x.type));
+      if (item) acceptBgBlob(item.getAsFile(), 'pasted image');
+    });
   }
 
   function requestRedraw(){
@@ -581,14 +608,25 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.globalAlpha = 1.0;
     }
   }
+  function ensureDate(){
+    try { inputs.date.valueAsDate = new Date(); } catch {}
+    if (!inputs.date.value) {
+      const t = new Date();
+      inputs.date.value = new Date(t.getTime()-t.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    }
+    return inputs.date.value;
+  }
   function updateFromInputs(){
-    const fsOther = num(inputs.fontSizeOther.value);
+    const fsName  = num(inputs.fontSizeName.value)  || 100;
+    const fsOther = num(inputs.fontSizeOther.value) || 33;
+    const fsSerial= num(inputs.fontSizeSerial.value)|| 22;
+
     textElements = {
-      name:{text:(inputs.name.value||'').normalize('NFC'), x:num(inputs.xName.value), y:num(inputs.yName.value), font:'Great Vibes', fontSize:num(inputs.fontSizeName.value), draggable:true},
+      name:{text:(inputs.name.value||'').normalize('NFC'), x:num(inputs.xName.value), y:num(inputs.yName.value), font:'Great Vibes', fontSize:fsName, draggable:true},
       amount:{text:inputs.amount.value||'', x:num(inputs.xAmount.value), y:num(inputs.yAmount.value), font:'Montserrat', fontSize:fsOther, draggable:true},
-      date:{text:inputs.date.value||'', x:num(inputs.xDate.value), y:num(inputs.yDate.value), font:'Montserrat', fontSize:fsOther, draggable:true},
+      date:{text:ensureDate(), x:num(inputs.xDate.value), y:num(inputs.yDate.value), font:'Montserrat', fontSize:fsOther, draggable:true},
       type:{text:(inputs.type.value||'').normalize('NFC'), x:num(inputs.xType.value), y:num(inputs.yType.value), font:'Montserrat', fontSize:fsOther, draggable:true},
-      serial:{text:inputs.serial.value||'', x:num(inputs.xSerial.value), y:num(inputs.ySerial.value), font:'Montserrat', fontSize:num(inputs.fontSizeSerial.value), draggable:true}
+      serial:{text:inputs.serial.value||'', x:num(inputs.xSerial.value), y:num(inputs.ySerial.value), font:'Montserrat', fontSize:fsSerial, draggable:true}
     };
     if(logoImageLoaded){
       const w=num(inputs.wLogo.value);
@@ -598,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
       logoElement = { x:0,y:0,width:0,draggable:false };
     }
     qrCodeElement = {
-      x:num(inputs.xQr.value), y:num(inputs.yQr.value), alpha:clamp01(parseFloat(inputs.alphaQr.value)), size:150, draggable: inputs.qrMode.value==='with_qr'
+      x:num(inputs.xQr.value), y:num(inputs.yQr.value), alpha:clamp01(parseFloat(inputs.alphaQr.value||'0.8')), size:150, draggable: inputs.qrMode.value==='with_qr'
     };
     buildQR();
   }
@@ -628,13 +666,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function onBgUpload(ev){
     const f=ev.target.files?.[0]; if(!f) return;
     if(!/^image\/(png|jpeg)$/i.test(f.type)){ showError('Invalid Image','Please upload PNG or JPEG.'); return; }
-    const r=new FileReader();
-    r.onload=e=>{
-      bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent=`✅ ${f.name} loaded`; setupCanvas(bgImage.naturalWidth||canvas.width,bgImage.naturalHeight||canvas.height); };
-      bgImage.onerror=()=> showError('Image Load Error','Failed to load selected background.');
-      bgImage.src=e.target.result;
-    };
-    r.readAsDataURL(f);
+    acceptBgBlob(f, f.name);
+  }
+  function acceptBgBlob(blob, label='image'){
+    const url = URL.createObjectURL(blob);
+    bgImage.onload=()=>{ bgImageLoaded=true; id('bg-image-status').textContent=`✅ ${label} loaded`; setupCanvas(bgImage.naturalWidth||canvas.width,bgImage.naturalHeight||canvas.height); URL.revokeObjectURL(url); };
+    bgImage.onerror=()=>{ showError('Image Load Error',`Failed to load ${label}.`); URL.revokeObjectURL(url); };
+    bgImage.src=url;
   }
   function onLogoUpload(ev){
     const f=ev.target.files?.[0]; if(!f) return;
@@ -679,7 +717,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function buildQR(){
     try{
       if(inputs.qrMode.value!=='with_qr'){ qrImage.src=''; return; }
-      const qrData={ s:inputs.serial.value, n:inputs.name.value, a:inputs.amount.value, d:inputs.date.value, t:inputs.type.value };
+      const d = ensureDate();
+      const qrData={ s:inputs.serial.value, n:inputs.name.value, a:inputs.amount.value, d, t:inputs.type.value };
       const b64=btoa(JSON.stringify(qrData)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
       const url=`https://nomsams.github.io/carbonara/?verify=${b64}`;
       const qri=new QRious({ value:url, size:512 });
@@ -756,7 +795,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
       }
 
+      // ensure date populated
+      ensureDate();
       updateFromInputs();
+
       let payload = {
         v:1,
         serial:inputs.serial.value,
@@ -824,7 +866,6 @@ document.addEventListener('DOMContentLoaded', () => {
       page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
 
       step('Step 6/12: Embedding attachments (name tree)…','54%');
-      // High level
       try{
         await pdfDoc.attach(finalPngBytes, `CarbonAra-${payload.serial}.png`, {
           mimeType:'image/png', description:'Raster used to compose this document', createDate:new Date(), modificationDate:new Date()
@@ -1019,16 +1060,14 @@ document.addEventListener('DOMContentLoaded', () => {
       log(`Metadata tag: ${(payload.tag_b64||'').slice(0,16)}…`);
       const cryptoOK = (payload.tag_b64 === expected);
 
-      // 3) Attachment-first verification (NEW: pixels + watermark from attachment)
+      // 3) Attachment-first verification (pixels + watermark from attachment)
       let attachOK=false, pixelOK=false, watermarkOK=false;
       try{
         const att = await findImageAttachmentAny(pdfDoc);
         if(att){
-          // attachment hash
           const attHash = await sha256(att.buffer);
           if(attHash === (payload.imageHashAttachment||'')) attachOK = true;
 
-          // decode to pixels; compute pixel-hashes to compare to payload
           const { rgbaHash, rgbHash, v2OK } = await pixelsAndWmFromImageBytes(att);
           if(rgbaHash===payload.imageHashWatermarked || rgbHash===payload.imageHashRGB) pixelOK=true;
           if(v2OK) watermarkOK=true;
@@ -1095,7 +1134,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for(const [_r,obj] of pdfDoc.context.enumerateIndirectObjects()){
       if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
         const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
-        if(String(subtype)==='/EmbeddedFile')){
+        if (String(subtype) === '/EmbeddedFile') {
           const bytes = obj.getContents? obj.getContents(): obj.contents;
           if(bytes){
             const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
@@ -1165,7 +1204,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for(const [_r,obj] of pdfDoc.context.enumerateIndirectObjects()){
       if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
         const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
-        if(String(subtype)==='/EmbeddedFile')){
+        if (String(subtype) === '/EmbeddedFile') {
           const bytes = obj.getContents? obj.getContents(): obj.contents;
           if(bytes){
             const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
@@ -1226,7 +1265,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     }catch{}
-    // Page annotations (FileAttachment) -> fetch FS->EF->F
+    // Page annotations (FileAttachment)
     try{
       const pages=pdfDoc.getPages();
       if(pages.length){
@@ -1424,4 +1463,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-```
