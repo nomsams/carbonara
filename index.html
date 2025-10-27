@@ -41,9 +41,9 @@
     .logo h1{margin:0;font-size:22px;font-weight:700}
     .controls{display:flex;align-items:center;gap:20px}
     #theme-toggle{
-      cursor:pointer;background:none;border:1px solid var(--border-color);border-radius:20px;padding:6px;display:flex;align-items:center;font-size:18px;line-height:1;transition:transform .2s,background-color .2s;
+      cursor:pointer;background:none;border:1px solid var(--border-color);border-radius:20px;padding:6px;display:flex;align-items:center;font-size:18px;line-height:1;transition:transform .2s,background-color .2s, box-shadow .2s;
     }
-    #theme-toggle:hover{transform:scale(1.1);background:var(--bg-color)}
+    #theme-toggle:hover{transform:scale(1.1);background:var(--bg-color); box-shadow: 0 0 8px var(--shadow-color);}
     .main-container{display:flex;height:calc(100vh - 65px)}
     .sidebar{width:400px;min-width:400px;padding:20px;background:var(--fg-color);border-right:1px solid var(--border-color);overflow-y:auto}
     .preview-area{flex-grow:1;padding:30px;display:flex;justify-content:center;align-items:center;overflow:auto;background:var(--bg-color)}
@@ -54,32 +54,32 @@
     .zoom-controls{display:flex;align-items:center;gap:10px}
     .zoom-controls button{all:unset;cursor:pointer;padding:5px;font-weight:bold;font-size:18px}
     .tabs{display:flex;margin-bottom:20px;border-bottom:1px solid var(--border-color)}
-    .tab-button{padding:12px 18px;cursor:pointer;border:none;background:none;font-size:16px;color:var(--text-light-color);border-bottom:3px solid transparent;font-weight:500}
+    .tab-button{padding:12px 18px;cursor:pointer;border:none;background:none;font-size:16px;color:var(--text-light-color);border-bottom:3px solid transparent;font-weight:500; transition: color .2s, border-bottom-color .2s;}
     .tab-button.active{color:var(--primary-color);border-bottom-color:var(--primary-color)}
     .tab-content{display:none}
     .tab-content.active{display:block}
     details{margin-bottom:10px;border:1px solid var(--border-color);border-radius:5px;transition:background-color .2s}
-    details:hover{background:rgba(128,128,128,.03)}
-    summary{cursor:pointer;padding:12px;font-weight:bold;background:rgba(128,128,128,.05);list-style:revert}
+    details:hover{background:color-mix(in srgb, var(--border-color) 20%, transparent)}
+    summary{cursor:pointer;padding:12px;font-weight:bold;background:color-mix(in srgb, var(--border-color) 30%, transparent);list-style:revert}
     details[open]>summary{border-bottom:1px solid var(--border-color)}
     .details-content{padding:15px}
     .form-group{margin-bottom:18px}
     label{display:block;margin-bottom:6px;font-weight:bold;font-size:12px;text-transform:uppercase;color:var(--text-light-color)}
     .label-group{display:flex;justify-content:space-between;align-items:center}
     .label-group small{font-size:11px;font-weight:normal;text-transform:none}
-    input,select{width:100%;padding:10px;box-sizing:border-box;background:var(--bg-color);border:1px solid var(--border-color);border-radius:4px;color:var(--text-color)}
-    input:focus{border-color:var(--primary-color);outline:none;box-shadow:0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent)}
+    input,select{width:100%;padding:10px;box-sizing:border-box;background:var(--bg-color);border:1px solid var(--border-color);border-radius:4px;color:var(--text-color); transition: border-color .2s, box-shadow .2s;}
+    input:focus{border-color:var(--primary-color);outline:none;box-shadow:0 0 0 3px color-mix(in srgb, var(--primary-color) 20%, transparent)}
     .coord-group{display:flex;gap:10px;align-items:center}
     .input-group{display:flex;gap:10px;align-items:center}
     .input-group input{flex-grow:1}
     .input-group button{width:auto;padding:8px;font-size:16px}
     button{
-      display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;background:var(--primary-color);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:16px;font-weight:bold;transition:background-color .2s,transform .1s;width:100%;
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;background:var(--primary-color);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:16px;font-weight:bold;transition:background-color .2s,transform .1s, box-shadow .2s;width:100%;
     }
-    button:hover{background:var(--primary-hover-color)}
+    button:hover{background:var(--primary-hover-color); box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 30%, transparent);}
     button:active{transform:scale(.98)}
     .secondary-button{background:#6c757d}
-    .secondary-button:hover{background:#5a6268}
+    .secondary-button:hover{background:#5a6268; box-shadow: 0 4px 12px color-mix(in srgb, var(--text-light-color) 30%, transparent);}
 
     #verify-container{text-align:center}
     #verify-idle,#verify-loading,#verify-result{display:none}
@@ -87,9 +87,9 @@
     .verification-icon{font-size:60px;margin-bottom:20px}
     .result-card{padding:20px;border-radius:8px;margin-top:20px;text-align:left}
     .result-card h4{margin-top:0}
-    .result-card.high{border:1px solid var(--success-color);background:rgba(25,135,84,.1)}
-    .result-card.medium{border:1px solid var(--warning-color);background:rgba(255,193,7,.1)}
-    .result-card.low{border:1px solid var(--danger-color);background:rgba(220,53,69,.1)}
+    .result-card.high{border:1px solid var(--success-color);background:color-mix(in srgb, var(--success-color) 10%, transparent)}
+    .result-card.medium{border:1px solid var(--warning-color);background:color-mix(in srgb, var(--warning-color) 10%, transparent)}
+    .result-card.low{border:1px solid var(--danger-color);background:color-mix(in srgb, var(--danger-color) 10%, transparent)}
     .verification-breakdown{list-style:none;padding:0}
     .verification-breakdown li{display:flex;align-items:center;gap:10px;margin-bottom:8px}
     .verification-breakdown .icon{font-size:20px}
@@ -106,15 +106,20 @@
     #progress-modal,#error-modal{
       display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center;
     }
-    .modal-content{background:var(--fg-color);padding:30px;border-radius:8px;text-align:center;width:90%;max-width:480px}
+    .modal-content{background:var(--fg-color);padding:30px;border-radius:8px;text-align:center;width:90%;max-width:480px; box-shadow: 0 10px 30px rgba(0,0,0,.2);}
     #progress-bar,#verify-progress-bar{width:100%;height:10px;background:var(--border-color);border-radius:5px;overflow:hidden;margin-top:15px}
     #progress-bar-inner,#verify-progress-bar-inner{width:0%;height:100%;background:var(--primary-color);transition:width .25s ease}
 
     #verify-substeps{margin-top:12px;text-align:left;font-size:13px;color:var(--text-light-color)}
     #verify-substeps li{display:flex;align-items:center;gap:8px;margin:6px 0}
-    #verify-substeps .dot{width:8px;height:8px;border-radius:50%;background:var(--border-color)}
+    #verify-substeps .dot{width:8px;height:8px;border-radius:50%;background:var(--border-color); position: relative; transition: background-color .3s;}
     #verify-substeps .done{background:var(--success-color)}
     #verify-substeps .active{background:var(--primary-color)}
+    #verify-substeps .active::before {
+        content: ''; position: absolute; display: block; width: 100%; height: 100%; border-radius: 50%;
+        background-color: var(--primary-color); animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.75); opacity: 0; } 100% { transform: scale(1); opacity: 0; } }
 
     #verify-hint{margin-top:10px;color:var(--text-light-color);font-size:12px}
     #verify-elapsed{margin-top:6px;color:var(--text-light-color);font-size:12px}
@@ -128,6 +133,7 @@
       .preview-frame{padding:10px}
       .header h1{font-size:18px}
       .logo svg{width:24px;height:24px}
+      .tab-button{padding: 10px 12px; font-size: 15px;}
     }
   </style>
 </head>
@@ -314,10 +320,10 @@
           <div id="verify-progress-bar"><div id="verify-progress-bar-inner"></div></div>
           <ul id="verify-substeps">
             <li><span class="dot" id="vstep-load"></span> Load PDF</li>
-            <li><span class="dot" id="vstep-locate"></span> Locate embedded payload (metadata/attachments/watermark)</li>
+            <li><span class="dot" id="vstep-locate"></span> Locate embedded payload</li>
             <li><span class="dot" id="vstep-sign"></span> Validate cryptographic signature</li>
             <li><span class="dot" id="vstep-attach"></span> Check image attachment & hashes</li>
-            <li><span class="dot" id="vstep-pixels"></span> Scan page image / raw pixels & watermark</li>
+            <li><span class="dot" id="vstep-pixels"></span> Scan page image & watermark</li>
             <li><span class="dot" id="vstep-final"></span> Finalize report</li>
           </ul>
           <p id="verify-hint">This performs cryptographic + pixel checks and <strong>can take some time</strong> on large files.</p>
@@ -328,7 +334,6 @@
         </div>
 
         <div id="verify-result">
-          <div id="auth-animation"></div>
           <h3 id="auth-prob"></h3>
           <div id="result-card-details" class="result-card"></div>
         </div>
@@ -650,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   function ensureDate(){
-    try { inputs.date.valueAsDate = new Date(); } catch {}
+    try { if(!inputs.date.value) inputs.date.valueAsDate = new Date(); } catch {}
     if (!inputs.date.value) {
       const t = new Date();
       inputs.date.value = new Date(t.getTime()-t.getTimezoneOffset()*60000).toISOString().slice(0,10);
@@ -1000,15 +1005,6 @@ document.addEventListener('DOMContentLoaded', () => {
     verifyStartTs = performance.now();
     startElapsedTimer();
 
-    // Heartbeat: UI keeps moving even during heavy parse
-    const hb = setInterval(()=>{
-      if(!verifyWorker){ clearInterval(hb); return; }
-      const bar = id('verify-progress-bar-inner');
-      const cur = parseFloat(bar.style.width||'0');
-      const bump = Math.min(cur + 0.3, 90); // never exceed 90% before real updates
-      bar.style.width = bump + '%';
-    }, 500);
-
     const reader = new FileReader();
     reader.onload = () => {
       verifyWorker.postMessage({ type:'start', pdfBytes: reader.result }, [reader.result]);
@@ -1067,6 +1063,7 @@ document.addEventListener('DOMContentLoaded', () => {
     vc.querySelector('#verify-idle').classList.remove('active');
     vc.querySelector('#verify-result').classList.remove('active');
     vc.querySelector('#verify-loading').classList.add('active');
+    id('diagnostics').textContent = 'Starting verification...\n';
     setVerifyProgress('Initializing…','0%','vstep-load');
     resetSubsteps();
     setSubstep('vstep-load','active');
@@ -1081,15 +1078,18 @@ document.addEventListener('DOMContentLoaded', () => {
     id('verify-progress-status').textContent = msg || '';
     if(pct){ id('verify-progress-bar-inner').style.width = pct; }
     if(stepKey){
+      setSubstep(stepKey, 'active');
+    }
+  }
+  function setSubstep(key, state) {
       const order=['vstep-load','vstep-locate','vstep-sign','vstep-attach','vstep-pixels','vstep-final'];
-      const idx = order.indexOf(stepKey);
+      const idx = order.indexOf(key);
       order.forEach((k,i)=>{
         const el=id(k);
-        el.classList.remove('active');
+        el.classList.remove('active', 'done');
         if(i < idx) el.classList.add('done');
-        else if(i === idx) el.classList.add('active');
+        else if(i === idx && state === 'active') el.classList.add('active');
       });
-    }
   }
   function resetSubsteps(){
     ['vstep-load','vstep-locate','vstep-sign','vstep-attach','vstep-pixels','vstep-final'].forEach(k=>{
@@ -1109,8 +1109,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function createVerifierWorker(){
     const code = `
-      // Classic worker (NOT module). importScripts works here.
-      self.importScripts('https://unpkg.com/pdf-lib/dist/pdf-lib.min.js');
+      // --- Verification Worker ---
+      // This code runs in a separate thread to avoid freezing the UI.
+
+      // **FIX**: Wrap critical dependency loading in a try-catch block.
+      // If this fails, the worker would previously terminate silently.
+      try {
+        self.importScripts('https://unpkg.com/pdf-lib/dist/pdf-lib.min.js');
+      } catch (e) {
+        // Immediately notify the main thread of the critical failure.
+        self.postMessage({ type: 'error', message: 'Failed to load critical library (pdf-lib). Please check your network connection and try again.' });
+        // It's important to throw the error to halt further execution in the worker.
+        throw e;
+      }
+
       const delay = ms => new Promise(r => setTimeout(r, ms));
       const textDec = new TextDecoder();
 
@@ -1295,35 +1307,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for(const [_r,obj] of pdfDoc.context.enumerateIndirectObjects()){
           if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-            const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+            const subtype=obj?.dict?.get?.(PDFName.of('Subtype'));
             if (String(subtype) === '/EmbeddedFile') {
-              const bytes = obj.getContents? obj.getContents(): obj.contents;
+              const bytes = obj.getContents?.() || obj.contents;
               if(bytes){
                 const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
                 const head = textDec.decode(u8.slice(0,64));
-                if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
+                if(head.trim().startsWith('{') || /"serial"|"tag_b64"/.test(head)) return u8;
               }
             }
           }
         }
         for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-          if(obj && obj.dict && obj.dict.get){
+          if(obj?.dict?.get){
             const type = obj.dict.get(PDFName.of('Type'));
             if(String(type)==='/Filespec'){
               const ef = obj.dict.get(PDFName.of('EF'));
               if(ef){
                 const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const keys = efDict.keys? efDict.keys(): [];
+                const keys = efDict?.keys?.() || [];
                 for(const k of keys){
-                  const streamRef=efDict.get? efDict.get(k): null;
+                  const streamRef=efDict?.get?.(k);
                   if(!streamRef) continue;
                   const stream=pdfDoc.context.lookup(streamRef);
                   if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                    const contents = stream.getContents? stream.getContents(): stream.contents;
+                    const contents = stream.getContents?.() || stream.contents;
                     if(contents){
                       const u8 = contents instanceof Uint8Array? contents : new Uint8Array(contents);
                       const head = textDec.decode(u8.slice(0,64));
-                      if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return u8;
+                      if(head.trim().startsWith('{') || /"serial"|"tag_b64"/.test(head)) return u8;
                     }
                   }
                 }
@@ -1335,20 +1347,20 @@ document.addEventListener('DOMContentLoaded', () => {
           const af = pdfDoc.catalog.get(PDFLib.PDFName.of('AF'));
           if(af){
             const afArr = pdfDoc.context.lookup(af);
-            const arr = afArr.array || [];
+            const arr = afArr?.array || [];
             for(const fs of arr){
               const fsDict = pdfDoc.context.lookup(fs, PDFDict);
-              const ef = fsDict.get && fsDict.get(PDFLib.PDFName.of('EF'));
+              const ef = fsDict?.get?.(PDFLib.PDFName.of('EF'));
               if(ef){
                 const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const streamRef=efDict.get && efDict.get(PDFLib.PDFName.of('F'));
+                const streamRef=efDict?.get?.(PDFLib.PDFName.of('F'));
                 const stream=pdfDoc.context.lookup(streamRef);
                 if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                  const u8 = stream.getContents? stream.getContents(): stream.contents;
+                  const u8 = stream.getContents?.() || stream.contents;
                   if(u8){
                     const U8 = u8 instanceof Uint8Array? u8 : new Uint8Array(u8);
                     const head = textDec.decode(U8.slice(0,64));
-                    if(head.trim().startsWith('{') || /"serial"|\"tag_b64\"/.test(head)) return U8;
+                    if(head.trim().startsWith('{') || /"serial"|"tag_b64"/.test(head)) return U8;
                   }
                 }
               }
@@ -1362,9 +1374,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const { PDFName, PDFDict, PDFRawStream, PDFStream } = PDFLib;
         for(const [_r,obj] of pdfDoc.context.enumerateIndirectObjects()){
           if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-            const subtype=obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+            const subtype=obj?.dict?.get?.(PDFName.of('Subtype'));
             if (String(subtype) === '/EmbeddedFile') {
-              const bytes = obj.getContents? obj.getContents(): obj.contents;
+              const bytes = obj.getContents?.() || obj.contents;
               if(bytes){
                 const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
                 if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
@@ -1374,19 +1386,19 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
         for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-          if(obj && obj.dict && obj.dict.get){
+          if(obj?.dict?.get){
             const type = obj.dict.get(PDFName.of('Type'));
             if(String(type)==='/Filespec'){
               const ef = obj.dict.get(PDFName.of('EF'));
               if(ef){
                 const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const keys=efDict.keys? efDict.keys(): [];
+                const keys=efDict?.keys?.() || [];
                 for(const k of keys){
-                  const streamRef=efDict.get? efDict.get(k): null;
+                  const streamRef=efDict?.get?.(k);
                   if(!streamRef) continue;
                   const stream=pdfDoc.context.lookup(streamRef);
                   if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                    const contents = stream.getContents? stream.getContents(): stream.contents;
+                    const contents = stream.getContents?.() || stream.contents;
                     if(contents){
                       const u8 = contents instanceof Uint8Array? contents : new Uint8Array(contents);
                       if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
@@ -1402,16 +1414,16 @@ document.addEventListener('DOMContentLoaded', () => {
           const af = pdfDoc.catalog.get(PDFLib.PDFName.of('AF'));
           if(af){
             const afArr = pdfDoc.context.lookup(af);
-            const arr = afArr.array || [];
+            const arr = afArr?.array || [];
             for(const fs of arr){
               const fsDict = pdfDoc.context.lookup(fs, PDFDict);
-              const ef = fsDict.get && fsDict.get(PDFLib.PDFName.of('EF'));
+              const ef = fsDict?.get?.(PDFLib.PDFName.of('EF'));
               if(ef){
                 const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const streamRef=efDict.get && efDict.get(PDFLib.PDFName.of('F'));
+                const streamRef=efDict?.get?.(PDFLib.PDFName.of('F'));
                 const stream=pdfDoc.context.lookup(streamRef);
                 if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                  const bytes = stream.getContents? stream.getContents(): stream.contents;
+                  const bytes = stream.getContents?.() || stream.contents;
                   if(bytes){
                     const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
                     if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
@@ -1426,20 +1438,20 @@ document.addEventListener('DOMContentLoaded', () => {
           const pages=pdfDoc.getPages();
           if(pages.length){
             const p = pages[0];
-            const annots = p.node.Annots && p.node.Annots();
+            const annots = p.node.Annots?.();
             const arr = annots?.array || [];
             for(const a of arr){
               const ad = pdfDoc.context.lookup(a, PDFDict);
-              const fs = ad.get && ad.get(PDFLib.PDFName.of('FS'));
+              const fs = ad?.get?.(PDFLib.PDFName.of('FS'));
               if(fs){
                 const fsD = pdfDoc.context.lookup(fs, PDFDict);
-                const ef = fsD.get && fsD.get(PDFLib.PDFName.of('EF'));
+                const ef = fsD?.get?.(PDFLib.PDFName.of('EF'));
                 if(ef){
                   const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                  const streamRef=efDict.get && efDict.get(PDFLib.PDFName.of('F'));
+                  const streamRef=efDict?.get?.(PDFLib.PDFName.of('F'));
                   const stream=pdfDoc.context.lookup(streamRef);
                   if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                    const bytes = stream.getContents? stream.getContents(): stream.contents;
+                    const bytes = stream.getContents?.() || stream.contents;
                     if(bytes){
                       const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
                       if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
@@ -1460,18 +1472,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if(pages.length){
           const page=pages[0];
           try{
-            const res = page.node.Resources && page.node.Resources();
+            const res = page.node.Resources?.();
             if(res){
-              const xobj = res.lookup && res.lookup(PDFName.of('XObject'), PDFDict);
+              const xobj = res.lookup?.(PDFName.of('XObject'), PDFDict);
               if(xobj){
-                const keys = xobj.keys? xobj.keys(): [];
+                const keys = xobj.keys?.() || [];
                 for(const k of keys){
-                  let obj = xobj.lookup ? xobj.lookup(k) : (xobj.get ? xobj.get(k) : null);
+                  let obj = xobj.lookup?.(k) || xobj.get?.(k);
                   if(obj && pdfDoc.context.lookup) obj = pdfDoc.context.lookup(obj);
                   if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-                    const st = obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+                    const st = obj?.dict?.get?.(PDFName.of('Subtype'));
                     if(String(st)==='/Image'){
-                      const bytes = obj.getContents? obj.getContents(): obj.contents;
+                      const bytes = obj.getContents?.() || obj.contents;
                       if(bytes){
                         const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
                         if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
@@ -1493,9 +1505,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
           if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-            const st = obj.dict.get && obj.dict.get(PDFName.of('Subtype'));
+            const st = obj?.dict?.get?.(PDFName.of('Subtype'));
             if(String(st)==='/Image'){
-              const bytes = obj.getContents? obj.getContents(): obj.contents;
+              const bytes = obj.getContents?.() || obj.contents;
               if(bytes){
                 const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
                 if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
@@ -1540,9 +1552,10 @@ document.addEventListener('DOMContentLoaded', () => {
           if(!payload){
             try{
               let kws = pdfDoc.getKeywords?.() || null;
+              if(typeof kws === 'string') kws = kws.split(',').map(k => k.trim());
               if(Array.isArray(kws) && kws.length){
                 const token = kws.find(k=> typeof k==='string' && k.toLowerCase()==='carboncert');
-                const b64 = kws.find(k=> typeof k==='string' && k!==token && /^[A-Za-z0-9+/=]+$/.test(k) && k.length>20);
+                const b64 = kws.find(k=> typeof k==='string' && k!==token && /^[A-Za-z0-9+/=]{20,}/.test(k));
                 if(token && b64){
                   const obj = safeJson(textDec.decode(b64ToU8(b64)));
                   if(obj){ payload=obj; foundVia='keywords'; }
@@ -1604,12 +1617,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                   }
                 }
-              } else if(info?.kind==='raw-pixels'){
-                // JSON can't be read without decoding watermark text; keep fallback paths below.
               }
             }catch{}
           }
-          if(!payload) throw new Error('No embedded CarbonAra payload found.');
+          if(!payload) throw new Error('No embedded CarbonAra payload found. This PDF is not a valid certificate or has been tampered with.');
           log(\`Payload found via: \${foundVia}.\`);
 
           // Signature
@@ -1697,8 +1708,7 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     const blob = new Blob([code], { type:'application/javascript' });
     const url = URL.createObjectURL(blob);
-    const w = new Worker(url); // classic worker (not module)
-    // revoke later
+    const w = new Worker(url);
     setTimeout(()=> URL.revokeObjectURL(url), 5000);
     return w;
   }
@@ -1724,7 +1734,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ${payload.date?`<p><strong>Date:</strong> ${payload.date}</p>`:''}
       ${payload.type?`<p><strong>Type:</strong> ${payload.type}</p>`:''}
       ${payload.amount?`<p><strong>Amount:</strong> ${payload.amount}</p>`:''}
-      ${result.error?`<p><strong>Error:</strong> ${result.error}</p>`:''}
+      ${result.error?`<p style="margin-top:1rem; color: var(--danger-color);"><strong>Error:</strong> ${result.error}</p>`:''}
     `;
   }
 
