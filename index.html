@@ -442,7 +442,7 @@
 
 <script>
 // Increment for each new version
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 
 /* ---------- Small Utils ---------- */
 const id = x => document.getElementById(x);
@@ -453,11 +453,18 @@ const b64ToU8 = b64 => { const bin = atob(b64); const u8 = new Uint8Array(bin.le
 const dataURLtoU8 = dataURL => { const base64=(dataURL.split(',')[1]||''); return b64ToU8(base64); };
 const clamp01 = x => Math.max(0, Math.min(1, x));
 const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
-async function sha256(buf){ const b = buf instanceof ArrayBuffer ? buf : (buf?.buffer || buf); const h=await crypto.subtle.digest('SHA-256', b); return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+async function sha256(input){
+  let ab;
+  if (input instanceof ArrayBuffer) { ab = input; }
+  else if (input && input.buffer instanceof ArrayBuffer) { ab = input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength); }
+  else { throw new Error('sha256: unsupported input type'); }
+  const h = await crypto.subtle.digest('SHA-256', ab);
+  return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
 async function hashRGBOnly(rgba){
   const rgb=new Uint8Array(Math.floor(rgba.length/4)*3);
   for(let s=0,d=0;s<rgba.length;s+=4){ rgb[d++]=rgba[s]; rgb[d++]=rgba[s+1]; rgb[d++]=rgba[s+2]; }
-  return sha256(rgb.buffer);
+  return sha256(rgb);
 }
 function loadImageFromURL(url){ return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.crossOrigin='anonymous'; img.src=url; }); }
 function loadImageFromDataURL(dataURL){ return loadImageFromURL(dataURL); }
@@ -906,7 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const pixels = tx.getImageData(0,0,t.width,t.height).data;
         return {
           bytes: u8,
-          dataURL, rgbaHash: await sha256(pixels.buffer), rgbHash: await hashRGBOnly(pixels)
+          dataURL, rgbaHash: await sha256(pixels), rgbHash: await hashRGBOnly(pixels)
         };
       }
 
@@ -948,7 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const B = await pngAndHashes(placeholderMsg, true);
       payload.imageHashWatermarked = B.rgbaHash;
       payload.imageHashRGB = B.rgbHash;
-      payload.imageHashAttachment = await sha256(B.bytes.buffer);
+      payload.imageHashAttachment = await sha256(B.bytes);
 
       canon = canonicalString(payload);
       tag = await tagFor(canon);
@@ -961,7 +968,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       payload.imageHashWatermarked = C.rgbaHash;
       payload.imageHashRGB = C.rgbHash;
-      payload.imageHashAttachment = await sha256(C.bytes.buffer);
+      payload.imageHashAttachment = await sha256(C.bytes);
       const finalTag = await tagFor(canonicalString(payload));
       const finalPayload = {...payload, tag_b64: finalTag};
       const finalJsonBytes = new TextEncoder().encode(JSON.stringify(finalPayload));
@@ -1069,7 +1076,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     reader.readAsArrayBuffer(file);
 
-    verifyWorker.onmessage = (e) => {
+    verifyWorker.onmessage = async (e) => {
       const msg = e.data || {};
       if(msg.type === 'progress'){
         setVerifyProgress(msg.msg, msg.pct, msg.stepKey);
@@ -1086,6 +1093,26 @@ document.addEventListener('DOMContentLoaded', () => {
         showVerifyResult({status:'LOW',crypto:'FAIL',attachment:'FAIL',water:'FAIL',pixel:'FAIL',error:msg.message||'Unknown error'},{});
         hideVerifyLoadingUI();
         stopExistingWorker();
+      } else if(msg.type === 'need-pixel-scan'){
+        // Main thread fallback for pixel scanning
+        try {
+          const blob = new Blob([msg.bytes], {type: msg.mime});
+          const bmp = await createImageBitmap(blob);
+          const c = document.createElement('canvas');
+          c.width = bmp.width; c.height = bmp.height;
+          const cx = c.getContext('2d', {willReadFrequently:true});
+          cx.drawImage(bmp,0,0);
+          const d = cx.getImageData(0,0,c.width,c.height).data;
+          const rgbaHash = await sha256(d);
+          const rgbHash = await hashRGBOnly(d);
+          let v2OK = false;
+          const v2 = extractLSBv2(cx);
+          if(v2.ok && /CCJSON:/.test(v2.message)) v2OK = true;
+          else { const v1 = extractLSBv1(cx); if(v1 && /CCJSON:/.test(v1)) v2OK = true; }
+          verifyWorker.postMessage({ type:'pixel-scan-result', id:msg.id, rgbaHash, rgbHash, v2OK });
+        } catch(err) {
+          verifyWorker.postMessage({ type:'pixel-scan-result', id:msg.id, error: err.message });
+        }
       }
     };
 
@@ -1180,7 +1207,14 @@ document.addEventListener('DOMContentLoaded', () => {
       function postProgress(msg,pct,stepKey){ self.postMessage({type:'progress', msg, pct, stepKey}); }
       function log(line){ self.postMessage({type:'log', line}); }
 
-      async function sha256(buf){ const h=await crypto.subtle.digest('SHA-256', buf); return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+      async function sha256(input){
+        let ab;
+        if (input instanceof ArrayBuffer) { ab = input; }
+        else if (input && input.buffer instanceof ArrayBuffer) { ab = input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength); }
+        else { throw new Error('sha256: unsupported input type'); }
+        const h = await crypto.subtle.digest('SHA-256', ab);
+        return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      }
       async function hashRGBOnly(rgba){
         const rgb=new Uint8Array(Math.floor(rgba.length/4)*3);
         for(let s=0,d=0;s<rgba.length;s+=4){ rgb[d++]=rgba[s]; rgb[d++]=rgba[s+1]; rgb[d++]=rgba[s+2]; }
@@ -1274,236 +1308,108 @@ document.addEventListener('DOMContentLoaded', () => {
         }catch{ return null; }
       }
 
-      const CAN_PIX = (typeof OffscreenCanvas!=='undefined');
+      const CAN_PIX = (typeof OffscreenCanvas!=='undefined' && typeof createImageBitmap !== 'undefined');
+      let pixelScanReqId = 0;
+      const pixelScanResolvers = {};
 
-      async function pixelsAndWmFromImageBytes(u8){
-        if(!CAN_PIX || !self.createImageBitmap){ return { skipped:true }; }
+      function requestMainThreadPixelScan(u8, mime){
+        return new Promise((resolve, reject) => {
+          const id = ++pixelScanReqId;
+          pixelScanResolvers[id] = { resolve, reject };
+          self.postMessage({ type:'need-pixel-scan', id, bytes:u8, mime }, [u8.buffer]);
+        });
+      }
+
+      async function pixelsAndWmFromImageBytes(u8, mime='image/png'){
+        if(!CAN_PIX){
+           try {
+             return await requestMainThreadPixelScan(u8, mime);
+           } catch(e) { return { skipped:true, error:e.message }; }
+        }
         try{
-          const blob=new Blob([u8],{type:'image/png'});
+          const blob=new Blob([u8],{type:mime});
           const bmp=await createImageBitmap(blob);
           const c=new OffscreenCanvas(bmp.width, bmp.height);
           const cx=c.getContext('2d',{willReadFrequently:true});
           cx.drawImage(bmp,0,0);
           const d=cx.getImageData(0,0,c.width,c.height).data;
-          const rgbaHash=await sha256(d.buffer);
+          const rgbaHash=await sha256(d);
           const rgbHash =await hashRGBOnly(d);
           let v2OK=false;
           const v2=extractLSBv2FromCtx(cx);
           if(v2.ok && /CCJSON:/.test(v2.message)) v2OK=true; else { const v1=extractLSBv1FromCtx(cx); if(v1&&/CCJSON:/.test(v1)) v2OK=true; }
           bmp.close();
           return { rgbaHash, rgbHash, v2OK };
-        }catch{
-          try{
-            const blob=new Blob([u8],{type:'image/jpeg'});
-            const bmp=await createImageBitmap(blob);
-            const c=new OffscreenCanvas(bmp.width, bmp.height);
-            const cx=c.getContext('2d',{willReadFrequently:true});
-            cx.drawImage(bmp,0,0);
-            const d=cx.getImageData(0,0,c.width,c.height).data;
-            const rgbaHash=await sha256(d.buffer);
-            const rgbHash =await hashRGBOnly(d);
-            let v2OK=false;
-            const v2=extractLSBv2FromCtx(cx);
-            if(v2.ok && /CCJSON:/.test(v2.message)) v2OK=true; else { const v1=extractLSBv1FromCtx(cx); if(v1&&/CCJSON:/.test(v1)) v2OK=true; }
-            bmp.close();
-            return { rgbaHash, rgbHash, v2OK };
-          }catch{ return { skipped:true }; }
-        }
+        }catch(e){ return { skipped:true, error:e.message }; }
       }
 
-      async function hashAndTryECCFromPNGBytes(u8){
-        if(!CAN_PIX || !self.createImageBitmap){ return { skipped:true }; }
-        const blob = new Blob([u8],{type:'image/png'});
-        const bmp = await createImageBitmap(blob);
-        const c=new OffscreenCanvas(bmp.width,bmp.height);
-        const cx=c.getContext('2d',{willReadFrequently:true});
-        cx.drawImage(bmp,0,0);
-        const d=cx.getImageData(0,0,c.width,c.height).data;
-        const rgba=await sha256(d.buffer);
-        const rgb=await hashRGBOnly(d);
-        let v2OK=false;
-        const v2 = extractLSBv2FromCtx(cx);
-        if(v2.ok && /CCJSON:/.test(v2.message)) v2OK = true;
-        else { const v1 = extractLSBv1FromCtx(cx); if(v1 && /CCJSON:/.test(v1)) v2OK=true; }
-        bmp.close();
-        return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, v2OK };
-      }
-
-      async function drawRawAndTryECC(info){
-        if(!CAN_PIX){ return { skipped:true }; }
-        const {width,height,comps,bpc,bytes}=info;
-        if(!width||!height||!bytes||bpc!==8) return { skipped:true };
-        const c=new OffscreenCanvas(width,height);
-        const cx=c.getContext('2d',{willReadFrequently:true});
-        const imgData=cx.createImageData(width,height);
-        const dst=imgData.data; let si=0, di=0;
-        if(comps===3){ for(let i=0;i<width*height;i++){ dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=bytes[si++]; dst[di++]=255; } }
-        else if(comps===1){ for(let i=0;i<width*height;i++){ const g=bytes[si++]; dst[di++]=g; dst[di++]=g; dst[di++]=g; dst[di++]=255; } }
-        else if(comps===4){ for(let i=0;i<width*height;i++){ const c0=bytes[si++]/255,m=bytes[si++]/255,y=bytes[si++]/255,k=bytes[si++]/255; const r=255*(1-Math.min(1,c0*(1-k)+k)); const g=255*(1-Math.min(1,m*(1-k)+k)); const b=255*(1-Math.min(1,y*(1-k)+k)); dst[di++]=r|0; dst[di++]=g|0; dst[di++]=b|0; dst[di++]=255; } }
-        else { return { skipped:true }; }
-        cx.putImageData(imgData,0,0);
-        const rgba=await sha256(imgData.data.buffer);
-        const rgb=await hashRGBOnly(imgData.data);
-        let v2OK=false;
-        const v2 = extractLSBv2FromCtx(cx);
-        if(v2.ok && /CCJSON:/.test(v2.message)) v2OK=true;
-        else { const v1=extractLSBv1FromCtx(cx); if(v1&&/CCJSON:/.test(v1)) v2OK=true; }
-        return { pixelsHashRGBA:rgba, pixelsHashRGB:rgb, v2OK };
-      }
-
-      async function findJsonAttachmentAny(pdfDoc){
+      async function findJsonAttachmentAny(pdfDoc, serial){
         const { PDFName, PDFDict, PDFRawStream, PDFStream } = PDFLib;
-        for(const [_r,obj] of pdfDoc.context.enumerateIndirectObjects()){
-          if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-            const subtype=obj?.dict?.get?.(PDFName.of('Subtype'));
-            if (String(subtype) === '/EmbeddedFile') {
-              const bytes = obj.getContents?.() || obj.contents;
-              if(bytes){
-                const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
-                const head = textDec.decode(u8.slice(0,64));
-                if(head.trim().startsWith('{') || /"serial"|"tag_b64"/.test(head)) return u8;
-              }
-            }
-          }
-        }
-        for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-          if(obj?.dict?.get){
-            const type = obj.dict.get(PDFName.of('Type'));
-            if(String(type)==='/Filespec'){
-              const ef = obj.dict.get(PDFName.of('EF'));
-              if(ef){
-                const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const keys = efDict?.keys?.() || [];
-                for(const k of keys){
-                  const streamRef=efDict?.get?.(k);
-                  if(!streamRef) continue;
-                  const stream=pdfDoc.context.lookup(streamRef);
-                  if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                    const contents = stream.getContents?.() || stream.contents;
-                    if(contents){
-                      const u8 = contents instanceof Uint8Array? contents : new Uint8Array(contents);
-                      const head = textDec.decode(u8.slice(0,64));
-                      if(head.trim().startsWith('{') || /"serial"|"tag_b64"/.test(head)) return u8;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        const target = serial ? \`carboncert-\${serial}.json\` : null;
+
+        const check = (filename, bytes) => {
+          if(!bytes) return null;
+          const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+          if(target && filename === target) return { match:true, u8 };
+          const head = textDec.decode(u8.slice(0,64));
+          if(head.trim().startsWith('{') || /"serial"|"tag_b64"/.test(head)) return { match:false, u8 };
+          return null;
+        };
+
+        let fallback = null;
+
         try{
-          const af = pdfDoc.catalog.get(PDFLib.PDFName.of('AF'));
+          const af = pdfDoc.catalog.get(PDFName.of('AF'));
           if(af){
             const afArr = pdfDoc.context.lookup(af);
             const arr = afArr?.array || [];
             for(const fs of arr){
               const fsDict = pdfDoc.context.lookup(fs, PDFDict);
-              const ef = fsDict?.get?.(PDFLib.PDFName.of('EF'));
+              const fn = fsDict?.get?.(PDFName.of('UF'))?.decodeText() || fsDict?.get?.(PDFName.of('F'))?.decodeText();
+              const ef = fsDict?.get?.(PDFName.of('EF'));
               if(ef){
                 const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const streamRef=efDict?.get?.(PDFLib.PDFName.of('F'));
+                const streamRef=efDict?.get?.(PDFName.of('F'));
                 const stream=pdfDoc.context.lookup(streamRef);
                 if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                  const u8 = stream.getContents?.() || stream.contents;
-                  if(u8){
-                    const U8 = u8 instanceof Uint8Array? u8 : new Uint8Array(u8);
-                    const head = textDec.decode(U8.slice(0,64));
-                    if(head.trim().startsWith('{') || /"serial"|"tag_b64"/.test(head)) return U8;
-                  }
+                  const res = check(fn, stream.getContents?.() || stream.contents);
+                  if(res?.match) return res.u8;
+                  if(res && !fallback) fallback = res.u8;
                 }
               }
             }
           }
         }catch{}
-        return null;
+
+        return fallback;
       }
 
-      async function findImageAttachmentAny(pdfDoc){
+      async function findImageAttachmentAny(pdfDoc, serial){
         const { PDFName, PDFDict, PDFRawStream, PDFStream } = PDFLib;
-        for(const [_r,obj] of pdfDoc.context.enumerateIndirectObjects()){
-          if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-            const subtype=obj?.dict?.get?.(PDFName.of('Subtype'));
-            if (String(subtype) === '/EmbeddedFile') {
-              const bytes = obj.getContents?.() || obj.contents;
-              if(bytes){
-                const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
-                if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
-                if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8;
-              }
-            }
-          }
-        }
-        for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-          if(obj?.dict?.get){
-            const type = obj.dict.get(PDFName.of('Type'));
-            if(String(type)==='/Filespec'){
-              const ef = obj.dict.get(PDFName.of('EF'));
-              if(ef){
-                const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const keys=efDict?.keys?.() || [];
-                for(const k of keys){
-                  const streamRef=efDict?.get?.(k);
-                  if(!streamRef) continue;
-                  const stream=pdfDoc.context.lookup(streamRef);
-                  if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                    const contents = stream.getContents?.() || stream.contents;
-                    if(contents){
-                      const u8 = contents instanceof Uint8Array? contents : new Uint8Array(contents);
-                      if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
-                      if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8;
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        const target = serial ? \`CarbonAra-\${serial}.png\` : null;
+        if (!target) return null;
+
+        const isImg = (u8) => (u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) || (u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF);
+
         try{
-          const af = pdfDoc.catalog.get(PDFLib.PDFName.of('AF'));
+          const af = pdfDoc.catalog.get(PDFName.of('AF'));
           if(af){
             const afArr = pdfDoc.context.lookup(af);
             const arr = afArr?.array || [];
             for(const fs of arr){
               const fsDict = pdfDoc.context.lookup(fs, PDFDict);
-              const ef = fsDict?.get?.(PDFLib.PDFName.of('EF'));
-              if(ef){
-                const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                const streamRef=efDict?.get?.(PDFLib.PDFName.of('F'));
-                const stream=pdfDoc.context.lookup(streamRef);
-                if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
-                  const bytes = stream.getContents?.() || stream.contents;
-                  if(bytes){
-                    const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
-                    if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
-                    if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8;
-                  }
-                }
-              }
-            }
-          }
-        }catch{}
-        try{
-          const pages=pdfDoc.getPages();
-          if(pages.length){
-            const p = pages[0];
-            const annots = p.node.Annots?.();
-            const arr = annots?.array || [];
-            for(const a of arr){
-              const ad = pdfDoc.context.lookup(a, PDFDict);
-              const fs = ad?.get?.(PDFLib.PDFName.of('FS'));
-              if(fs){
-                const fsD = pdfDoc.context.lookup(fs, PDFDict);
-                const ef = fsD?.get?.(PDFLib.PDFName.of('EF'));
+              const fn = fsDict?.get?.(PDFName.of('UF'))?.decodeText() || fsDict?.get?.(PDFName.of('F'))?.decodeText();
+              if(fn === target){
+                const ef = fsDict?.get?.(PDFName.of('EF'));
                 if(ef){
                   const efDict=pdfDoc.context.lookup(ef, PDFDict);
-                  const streamRef=efDict?.get?.(PDFLib.PDFName.of('F'));
+                  const streamRef=efDict?.get?.(PDFName.of('F'));
                   const stream=pdfDoc.context.lookup(streamRef);
                   if(stream && (stream instanceof PDFRawStream || stream instanceof PDFStream)){
                     const bytes = stream.getContents?.() || stream.contents;
                     if(bytes){
-                      const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
-                      if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47) return u8;
-                      if(u8.length>=3 && u8[0]===0xFF && u8[1]===0xD8 && u8[2]===0xFF) return u8;
+                      const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+                      if(isImg(u8)) return u8;
                     }
                   }
                 }
@@ -1516,66 +1422,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
       async function extractFirstImageWithPdfLib(pdfDoc){
         const { PDFName, PDFDict, PDFRawStream, PDFStream } = PDFLib;
-        const pages=pdfDoc.getPages();
-        if(pages.length){
-          const page=pages[0];
-          try{
-            const res = page.node.Resources?.();
-            if(res){
-              const xobj = res.lookup?.(PDFName.of('XObject'), PDFDict);
-              if(xobj){
-                const keys = xobj.keys?.() || [];
-                for(const k of keys){
-                  let obj = xobj.lookup?.(k) || xobj.get?.(k);
-                  if(obj && pdfDoc.context.lookup) obj = pdfDoc.context.lookup(obj);
-                  if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-                    const st = obj?.dict?.get?.(PDFName.of('Subtype'));
-                    if(String(st)==='/Image'){
-                      const bytes = obj.getContents?.() || obj.contents;
-                      if(bytes){
-                        const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
-                        if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
-                          return { kind:'png-bytes', bytes:u8 };
+        const pages = pdfDoc.getPages();
+        if (!pages.length) return null;
+
+        const page = pages[0];
+        try {
+            const resources = page.node.Resources?.();
+            if (resources) {
+                const xobjects = resources.lookup(PDFName.of('XObject'), PDFDict);
+                if (xobjects) {
+                    const keys = xobjects.keys();
+                    for (const key of keys) {
+                        let stream = xobjects.lookup(key);
+                        if (stream.tag) { // Handle indirect objects
+                            stream = pdfDoc.context.lookup(stream);
                         }
-                        const width = getNum(obj.dict, PDFName.of('Width'));
-                        const height= getNum(obj.dict, PDFName.of('Height'));
-                        const bpc   = getNum(obj.dict, PDFName.of('BitsPerComponent')) || 8;
-                        const cs    = obj.dict.get(PDFName.of('ColorSpace'));
-                        const comps = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
-                        return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
-                      }
+                        
+                        if (stream instanceof PDFRawStream || stream instanceof PDFStream) {
+                            if (stream.dict.get(PDFName.of('Subtype')) === PDFName.of('Image')) {
+                                const bytes = stream.getContents?.() || stream.contents;
+                                const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+
+                                if (u8.length > 8 && u8[0] === 0x89 && u8[1] === 0x50 && u8[2] === 0x4E && u8[3] === 0x47) {
+                                    return { kind: 'png-bytes', bytes: u8 };
+                                }
+
+                                const width = getNum(stream.dict, PDFName.of('Width'));
+                                const height = getNum(stream.dict, PDFName.of('Height'));
+                                const bpc = getNum(stream.dict, PDFName.of('BitsPerComponent')) || 8;
+                                const cs = stream.dict.get(PDFName.of('ColorSpace'));
+                                let comps = 3;
+                                if (cs === PDFName.of('DeviceGray')) comps = 1;
+                                else if (cs === PDFName.of('DeviceCMYK')) comps = 4;
+                                
+                                return { kind: 'raw-pixels', width, height, bpc, comps, bytes: u8 };
+                            }
+                        }
                     }
-                  }
                 }
-              }
             }
-          }catch{}
-        }
-        for(const [_ref,obj] of pdfDoc.context.enumerateIndirectObjects()){
-          if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
-            const st = obj?.dict?.get?.(PDFName.of('Subtype'));
-            if(String(st)==='/Image'){
-              const bytes = obj.getContents?.() || obj.contents;
-              if(bytes){
-                const u8 = bytes instanceof Uint8Array? bytes : new Uint8Array(bytes);
-                if(u8.length>=8 && u8[0]===0x89 && u8[1]===0x50 && u8[2]===0x4E && u8[3]===0x47){
-                  return { kind:'png-bytes', bytes:u8 };
-                }
-                const width = getNum(obj.dict, PDFName.of('Width'));
-                const height= getNum(obj.dict, PDFName.of('Height'));
-                const bpc   = getNum(obj.dict, PDFName.of('BitsPerComponent')) || 8;
-                const cs    = obj.dict.get(PDFName.of('ColorSpace'));
-                const comps = (/DeviceCMYK/.test(String(cs)))?4 : (/DeviceGray/.test(String(cs)))?1 : 3;
-                return { kind:'raw-pixels', width, height, bpc, comps, bytes:u8 };
-              }
-            }
-          }
+        } catch (e) {
+            log('Error scanning page XObjects: ' + (e.message || e));
         }
         return null;
       }
 
       self.onmessage = async (e)=>{
-        if((e.data||{}).type !== 'start') return;
+        const msg = e.data || {};
+        if(msg.type === 'pixel-scan-result'){
+           if(pixelScanResolvers[msg.id]){
+             if(msg.error) pixelScanResolvers[msg.id].reject(new Error(msg.error));
+             else pixelScanResolvers[msg.id].resolve(msg);
+             delete pixelScanResolvers[msg.id];
+           }
+           return;
+        }
+        if(msg.type !== 'start') return;
+
         try{
           postProgress('Loading PDF…','8%','vstep-load'); await delay(0);
           const pdfBytes = e.data.pdfBytes;
@@ -1585,151 +1488,88 @@ document.addEventListener('DOMContentLoaded', () => {
           postProgress('Locating embedded payload…','18%','vstep-locate'); await delay(0);
           let payload=null, foundVia='none';
 
+          // Priority 1: JSON Attachment
           try{
-            const title = pdfDoc.getTitle?.();
-            if(typeof title==='string'){
-              const idx = title.indexOf('carboncert,');
-              if(idx>=0){
-                const b64 = title.slice(idx + 'carboncert,'.length).trim();
-                const obj = safeJson(textDec.decode(b64ToU8(b64)));
-                if(obj){ payload=obj; foundVia='title'; }
-              }
+            const jsonBytes = await findJsonAttachmentAny(pdfDoc, null);
+            if(jsonBytes){
+              const obj = safeJson(textDec.decode(jsonBytes));
+              if(obj){ payload=obj; foundVia='attachment-json'; }
             }
           }catch{}
+
+          // Priority 2: LSB Watermark (requires a preliminary image scan)
           if(!payload){
-            try{
-              let kws = pdfDoc.getKeywords?.() || null;
-              if(typeof kws === 'string') kws = kws.split(',').map(k => k.trim());
-              if(Array.isArray(kws) && kws.length){
-                const token = kws.find(k=> typeof k==='string' && k.toLowerCase()==='carboncert');
-                const b64 = kws.find(k=> typeof k==='string' && k!==token && /^[A-Za-z0-9+/=]{20,}/.test(k));
-                if(token && b64){
+            const preliminaryImage = await extractFirstImageWithPdfLib(pdfDoc);
+            if(preliminaryImage?.kind === 'png-bytes'){
+              const R = await pixelsAndWmFromImageBytes(preliminaryImage.bytes, 'image/png');
+              if(R.v2OK){
+                const m = R.message;
+                const b64 = (m.match(/CCJSON:([A-Za-z0-9+/=]+)/)||[])[1];
+                if(b64){
                   const obj = safeJson(textDec.decode(b64ToU8(b64)));
-                  if(obj){ payload=obj; foundVia='keywords'; }
+                  if(obj){ payload=obj; foundVia='lsb-watermark'; }
                 }
               }
-            }catch{}
+            }
           }
+
+          // Priority 3: Info Dictionary (as hint)
           if(!payload){
-            try{
-              const subj = pdfDoc.getSubject?.();
-              if(typeof subj==='string' && subj.startsWith('carboncert,')){
-                const b64 = subj.slice('carboncert,'.length);
+             try{
+              const title = pdfDoc.getTitle?.();
+              if(typeof title==='string' && title.includes('carboncert,')){
+                const b64 = title.slice(title.indexOf('carboncert,') + 'carboncert,'.length).trim();
                 const obj = safeJson(textDec.decode(b64ToU8(b64)));
-                if(obj){ payload=obj; foundVia='subject'; }
+                if(obj){ payload=obj; foundVia='title-hint'; }
               }
             }catch{}
           }
-          if(!payload){
-            try{
-              const author = pdfDoc.getAuthor?.();
-              if(typeof author==='string' && author.startsWith('carboncert:')){
-                const b64 = author.slice('carboncert:'.length);
-                const obj = safeJson(textDec.decode(b64ToU8(b64)));
-                if(obj){ payload=obj; foundVia='author'; }
-              }
-            }catch{}
-          }
-          if(!payload){
-            try{
-              const jsonBytes = await findJsonAttachmentAny(pdfDoc);
-              if(jsonBytes){
-                const obj = safeJson(textDec.decode(jsonBytes));
-                if(obj){ payload=obj; foundVia='attachment-json'; }
-              }
-            }catch{}
-          }
-          if(!payload){
-            try{
-              const info = await extractFirstImageWithPdfLib(pdfDoc);
-              if(info?.kind==='png-bytes' && CAN_PIX && self.createImageBitmap){
-                const bmp=await createImageBitmap(new Blob([info.bytes],{type:'image/png'}));
-                const c=new OffscreenCanvas(bmp.width,bmp.height);
-                const cx=c.getContext('2d',{willReadFrequently:true}); cx.drawImage(bmp,0,0); bmp.close();
-                const v2 = extractLSBv2FromCtx(cx);
-                if(v2.ok){
-                  const m = v2.message;
-                  const b64 = (m.match(/CCJSON:([A-Za-z0-9+/=]+)/)||[])[1];
-                  if(b64){
-                    const obj = safeJson(textDec.decode(b64ToU8(b64)));
-                    if(obj){ payload=obj; foundVia='lsb-ecc'; }
-                  }
-                } else {
-                  const v1 = extractLSBv1FromCtx(cx);
-                  if(v1 && /CCJSON:/.test(v1)){
-                    const b64 = (v1.match(/CCJSON:([A-Za-z0-9+/=]+)/)||[])[1];
-                    if(b64){
-                      const obj = safeJson(textDec.decode(b64ToU8(b64)));
-                      if(obj){ payload=obj; foundVia='lsb-v1'; }
-                    }
-                  }
-                }
-              }
-            }catch{}
-          }
-          if(!payload) throw new Error('No embedded CarbonAra payload found. This PDF is not a valid certificate or has been tampered with.');
-          log(\`Payload found via: \${foundVia}.\`);
+
+          if(!payload) throw new Error('No reliable CarbonAra payload found.');
+          log(\`Payload found via: \${foundVia} (Serial: \${payload.serial})\`);
 
           postProgress('Validating cryptographic signature…','58%','vstep-sign'); await delay(0);
           const expected = await tagFor(canonicalString(payload));
-          log(\`Expected tag: \${expected.slice(0,16)}…\`);
-          log(\`Metadata tag: \${(payload.tag_b64||'').slice(0,16)}…\`);
           const cryptoOK = (payload.tag_b64 === expected);
+          log(\`Crypto check: \${cryptoOK?'PASS':'FAIL'}\`);
 
           postProgress('Cross-checking embedded image & watermark…','70%','vstep-attach'); await delay(0);
           let attachOK=false, pixelOK=false, watermarkOK=false;
-          try{
-            const att = await findImageAttachmentAny(pdfDoc);
-            if(att){
-              const attHash = await sha256(att.buffer);
-              if(attHash === (payload.imageHashAttachment||'')) attachOK = true;
 
-              const R = await pixelsAndWmFromImageBytes(att);
-              if(!R.skipped){
+          let pngBytes = await findImageAttachmentAny(pdfDoc, payload.serial);
+          if(pngBytes){
+             log('Found exact matching PNG attachment.');
+             const attHash = await sha256(pngBytes);
+             if(attHash === (payload.imageHashAttachment||'')) {
+                attachOK = true;
+                log('Attachment hash: PASS');
+             } else {
+                log(\`Attachment hash: FAIL (got \${attHash.slice(0,16)}...)\`);
+             }
+
+             const R = await pixelsAndWmFromImageBytes(pngBytes, 'image/png');
+             if(!R.skipped && !R.error){
                 if(R.rgbaHash===payload.imageHashWatermarked || R.rgbHash===payload.imageHashRGB) pixelOK=true;
                 if(R.v2OK) watermarkOK=true;
-                log(\`Attachment RGBA \${(R.rgbaHash||'').slice(0,16)} vs payload \${(payload.imageHashWatermarked||'').slice(0,16)}\`);
-                log(\`Attachment  RGB \${(R.rgbHash||'').slice(0,16)} vs payload \${(payload.imageHashRGB||'').slice(0,16)}\`);
-              } else {
-                log('Attachment pixel scan skipped (no OffscreenCanvas/ImageBitmap).');
-              }
-            } else {
-              log('No PNG/JPEG attachment present.');
-            }
-          }catch(e){ log('Attachment decode failed: '+(e?.message||String(e))); }
+                log(\`Attachment pixel/watermark check: pixel=\${pixelOK}, water=\${watermarkOK}\`);
+             } else if(R.error) {
+                log('Pixel scan error on attachment: ' + R.error);
+             }
+          } else {
+             log('No exact matching PNG attachment found. Relying on page image fallback.');
+          }
 
           if(!(pixelOK && watermarkOK)){
-            postProgress('Analyzing page XObject/raw pixels…','82%','vstep-pixels'); await delay(0);
-            try{
-              const info = await extractFirstImageWithPdfLib(pdfDoc);
-              if(info){
-                if(info.kind==='png-bytes'){
-                  const R = await hashAndTryECCFromPNGBytes(info.bytes);
-                  if(!R.skipped){
-                    if(!pixelOK && (R.pixelsHashRGBA===payload.imageHashWatermarked || R.pixelsHashRGB===payload.imageHashRGB)) pixelOK = true;
-                    if(!watermarkOK && R.v2OK) watermarkOK = true;
-                    if(!pixelOK){
-                      log(\`B(PNG): RGBA \${(R.pixelsHashRGBA||'').slice(0,16)} vs \${(payload.imageHashWatermarked||'').slice(0,16)}\`);
-                      log(\`B(PNG): RGB  \${(R.pixelsHashRGB||'').slice(0,16)} vs \${(payload.imageHashRGB||'').slice(0,16)}\`);
-                    }
-                  } else {
-                    log('PNG pixel scan skipped (no OffscreenCanvas/ImageBitmap).');
-                  }
-                } else if(info.kind==='raw-pixels'){
-                  const R = await drawRawAndTryECC(info);
-                  if(!R.skipped){
-                    if(!pixelOK && (R.pixelsHashRGBA===payload.imageHashWatermarked || R.pixelsHashRGB===payload.imageHashRGB)) pixelOK=true;
-                    if(!watermarkOK && R.v2OK) watermarkOK=true;
-                    if(!pixelOK){
-                      log(\`B(raw): RGBA \${(R.pixelsHashRGBA||'').slice(0,16)} vs \${(payload.imageHashWatermarked||'').slice(0,16)}\`);
-                      log(\`B(raw): RGB  \${(R.pixelsHashRGB||'').slice(0,16)} vs \${(payload.imageHashRGB||'').slice(0,16)}\`);
-                    }
-                  } else {
-                    log('Raw pixel scan skipped (no OffscreenCanvas).');
-                  }
-                }
-              }
-            }catch(e){ log('Bitmap analysis failed: '+(e?.message||String(e))); }
+            postProgress('Scanning page pixels (fallback)…','85%','vstep-pixels'); await delay(0);
+            const info = await extractFirstImageWithPdfLib(pdfDoc);
+            if(info && info.kind === 'png-bytes'){
+               const R = await pixelsAndWmFromImageBytes(info.bytes, 'image/png');
+               if(!R.skipped && !R.error){
+                  if(!pixelOK && (R.rgbaHash===payload.imageHashWatermarked || R.rgbHash===payload.imageHashRGB)) pixelOK=true;
+                  if(!watermarkOK && R.v2OK) watermarkOK=true;
+                  log(\`XObject fallback pixel/watermark check: pixel=\${pixelOK}, water=\${watermarkOK}\`);
+               }
+            }
           }
 
           const result = {
@@ -1741,10 +1581,8 @@ document.addEventListener('DOMContentLoaded', () => {
           };
           if(cryptoOK && (attachOK || (pixelOK && watermarkOK))) result.status='HIGH';
           else if(cryptoOK) result.status='MEDIUM';
-          else result.status='LOW';
 
-          postProgress('Finalizing report…','96%','vstep-final'); await delay(0);
-          log(\`Verification complete. Final status: \${result.status}\`);
+          postProgress('Finalizing report…','100%','vstep-final'); await delay(0);
           self.postMessage({ type:'result', result, payload });
         }catch(e){
           self.postMessage({ type:'error', message: e?.message || String(e) });
@@ -1754,7 +1592,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const blob = new Blob([code], { type:'application/javascript' });
     const url = URL.createObjectURL(blob);
     const w = new Worker(url);
-    setTimeout(()=> URL.revokeObjectURL(url), 5000);
+    setTimeout(()=> URL.revokeObjectURL(url), 10000);
     return w;
   }
 
