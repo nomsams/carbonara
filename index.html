@@ -21,6 +21,7 @@
       --primary-hover-color:#0b5ed7; --header-bg:#fff; --shadow-color:rgba(0,0,0,.05);
       --success-color:#198754; --warning-color:#ffc107; --danger-color:#dc3545;
       --font-main:'Montserrat',sans-serif; --font-display:'Great Vibes',cursive;
+      --sidebar-width: 400px;
     }
     [data-theme="dark"]{
       --bg-color:#121212; --fg-color:#1e1e1e; --text-color:#e0e0e0;
@@ -40,12 +41,13 @@
     .logo svg{width:32px;height:32px;fill:var(--primary-color)}
     .logo h1{margin:0;font-size:22px;font-weight:700}
     .controls{display:flex;align-items:center;gap:20px}
-    #theme-toggle{
+    #theme-toggle, #sidebar-toggle{
       cursor:pointer;background:none;border:1px solid var(--border-color);border-radius:20px;padding:6px;display:flex;align-items:center;font-size:18px;line-height:1;transition:transform .2s,background-color .2s, box-shadow .2s;
     }
-    #theme-toggle:hover{transform:scale(1.1);background:var(--bg-color); box-shadow: 0 0 8px var(--shadow-color);}
-    .main-container{display:flex;height:calc(100vh - 65px)}
-    .sidebar{width:400px;min-width:400px;padding:20px;background:var(--fg-color);border-right:1px solid var(--border-color);overflow-y:auto}
+    #theme-toggle:hover, #sidebar-toggle:hover{transform:scale(1.1);background:var(--bg-color); box-shadow: 0 0 8px var(--shadow-color);}
+    .main-container{display:flex;height:calc(100vh - 65px); transition: grid-template-columns .3s ease;}
+    .sidebar{width:var(--sidebar-width);min-width:var(--sidebar-width);padding:20px;background:var(--fg-color);border-right:1px solid var(--border-color);overflow-y:auto; transition: min-width .3s ease, width .3s ease, padding .3s ease, transform .3s ease; position: relative;}
+    .sidebar-footer { padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-light-color); font-size: 12px; }
     .preview-area{flex-grow:1;padding:30px;display:flex;justify-content:center;align-items:center;overflow:auto;background:var(--bg-color)}
     .preview-frame{padding:20px;background:var(--fg-color);border-radius:8px;box-shadow:0 10px 30px var(--shadow-color);transform-origin:center center}
     #previewCanvas{border:1px solid var(--border-color);object-fit:contain;cursor:grab}
@@ -58,6 +60,8 @@
     .tab-button.active{color:var(--primary-color);border-bottom-color:var(--primary-color)}
     .tab-content{display:none}
     .tab-content.active{display:block}
+    .about-content h4 { margin-top: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: 5px; }
+    .about-content ul { list-style-position: inside; padding-left: 10px; }
     details{margin-bottom:10px;border:1px solid var(--border-color);border-radius:5px;transition:background-color .2s}
     details:hover{background:color-mix(in srgb, var(--border-color) 20%, transparent)}
     summary{cursor:pointer;padding:12px;font-weight:bold;background:color-mix(in srgb, var(--border-color) 30%, transparent);list-style:revert}
@@ -93,8 +97,7 @@
     .verification-breakdown{list-style:none;padding:0}
     .verification-breakdown li{display:flex;align-items:center;gap:10px;margin-bottom:8px}
     .verification-breakdown .icon{font-size:20px}
-    .verification-breakdown .icon.ok{color:var(--success-color)}
-    .verification-breakdown .icon.fail{color:var(--danger-color)}
+    .verification-disclaimer { font-size: 11px; color: var(--text-light-color); margin-top: 20px; text-align: center; }
     #quick-scan-info{border:1px dashed var(--primary-color);padding:15px;margin-bottom:20px;border-radius:5px;text-align:left}
     #quick-scan-info p{margin:5px 0}
     #diagnostics{
@@ -102,7 +105,6 @@
     }
     hr{border:none;border-top:1px solid var(--border-color);margin:20px 0}
 
-    /* Generation & verification modals / bars */
     #progress-modal,#error-modal{
       display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.5);justify-content:center;align-items:center;
     }
@@ -125,15 +127,27 @@
     #verify-elapsed{margin-top:6px;color:var(--text-light-color);font-size:12px}
 
     #error-details{max-height:200px;overflow-y:auto;background:var(--bg-color);border:1px solid var(--border-color);padding:10px;margin-top:15px;text-align:left;font-family:monospace;font-size:12px}
+    
+    body.sidebar-collapsed .sidebar {
+      width: 0;
+      min-width: 0;
+      padding-left: 0;
+      padding-right: 0;
+      transform: translateX(calc(-1 * var(--sidebar-width)));
+    }
+
     @media (max-width:900px){
       body{overflow:auto}
       .main-container{flex-direction:column;height:auto}
-      .sidebar{width:100%;min-width:unset;border-right:none;border-bottom:1px solid var(--border-color)}
+      .sidebar{width:100%;min-width:unset;border-right:none;border-bottom:1px solid var(--border-color); transform: none !important;}
       .preview-area{padding:15px}
       .preview-frame{padding:10px}
       .header h1{font-size:18px}
       .logo svg{width:24px;height:24px}
       .tab-button{padding: 10px 12px; font-size: 15px;}
+      body.sidebar-collapsed .sidebar {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -144,6 +158,7 @@
     <h1>CarbonAra</h1>
   </div>
   <div class="controls">
+    <button id="sidebar-toggle" title="Toggle Sidebar" aria-label="Toggle sidebar">☰</button>
     <button id="theme-toggle" title="Växla mörkt/ljust läge" aria-label="Toggle theme">🌙</button>
   </div>
 </header>
@@ -153,28 +168,12 @@
     <div class="tabs">
       <button class="tab-button active" onclick="showTab('generate')">Generate</button>
       <button class="tab-button" onclick="showTab('verify')">Verify</button>
+      <button class="tab-button" onclick="showTab('about')">About</button>
     </div>
 
     <div id="pane-generate" class="tab-content active">
       <details open>
-        <summary><strong>1. Setup & Branding</strong></summary>
-        <div class="details-content">
-          <div class="form-group">
-            <div class="label-group">
-              <label for="image-upload">Background Image</label>
-              <small id="bg-image-status"></small>
-            </div>
-            <input type="file" id="image-upload" accept="image/png, image/jpeg"/>
-          </div>
-          <div class="form-group">
-            <label for="logo-upload">Branding Logo (Optional)</label>
-            <input type="file" id="logo-upload" accept="image/png, image/jpeg"/>
-          </div>
-        </div>
-      </details>
-
-      <details open>
-        <summary><strong>2. Certificate Data</strong></summary>
+        <summary><strong>1. Certificate Data</strong></summary>
         <div class="details-content">
           <div class="form-group"><label for="input-name">Name</label><input id="input-name" type="text" value="John Doe"/></div>
           <div class="form-group"><label for="input-amount">Amount</label><input id="input-amount" type="text" value="100"/></div>
@@ -190,109 +189,130 @@
         </div>
       </details>
 
-      <details>
-        <summary><strong>3. Layout & Style</strong></summary>
+      <details open>
+        <summary><strong>2. Layout & Style</strong></summary>
         <div class="details-content">
-          <div class="form-group"><label for="input-fontsize-name">Name Font Size (px)</label><input id="input-fontsize-name" type="number" min="1"/></div>
-          <div class="form-group">
-            <label>Name Position (X, Y)</label>
-            <div class="coord-group">
-              <input id="input-x-name" type="number" step="1"/>
-              <input id="input-y-name" type="number" step="1"/>
-              <button type="button" onclick="centerElement('name')" title="Centrera namnet horisontellt">🎯</button>
+          <details open>
+            <summary><strong>Setup & Branding</strong></summary>
+            <div class="details-content">
+              <div class="form-group">
+                <div class="label-group">
+                  <label for="image-upload">Background Image</label>
+                  <small id="bg-image-status"></small>
+                </div>
+                <input type="file" id="image-upload" accept="image/png, image/jpeg"/>
+              </div>
+              <div class="form-group">
+                <label for="logo-upload">Branding Logo (Optional)</label>
+                <input type="file" id="logo-upload" accept="image/png, image/jpeg"/>
+              </div>
+              <div class="form-group">
+                <label>Logo Position & Size (X, Y, Width)</label>
+                <div class="coord-group">
+                  <input id="input-x-logo" type="number" step="1"/>
+                  <input id="input-y-logo" type="number" step="1"/>
+                  <input id="input-w-logo" type="number" step="1"/>
+                </div>
+              </div>
             </div>
-          </div>
+          </details>
 
-          <hr/>
-
-          <div class="form-group"><label for="input-fontsize-other">Data Font Size (px)</label><input id="input-fontsize-other" type="number" min="1"/></div>
-          <div class="form-group">
-            <label>Amount Position (X, Y)</label>
-            <div class="coord-group">
-              <input id="input-x-amount" type="number" step="1"/>
-              <input id="input-y-amount" type="number" step="1"/>
-              <button type="button" onclick="centerElement('amount')" title="Centrera horisontellt">🎯</button>
+          <details open>
+            <summary><strong>Text Elements</strong></summary>
+            <div class="details-content">
+              <div class="form-group"><label for="input-fontsize-name">Name Font Size (px)</label><input id="input-fontsize-name" type="number" min="1"/></div>
+              <div class="form-group">
+                <label>Name Position (X, Y)</label>
+                <div class="coord-group">
+                  <input id="input-x-name" type="number" step="1"/>
+                  <input id="input-y-name" type="number" step="1"/>
+                  <button type="button" onclick="centerElement('name')" title="Centrera namnet horisontellt">🎯</button>
+                </div>
+              </div>
+              <hr/>
+              <div class="form-group"><label for="input-fontsize-other">Data Font Size (px)</label><input id="input-fontsize-other" type="number" min="1"/></div>
+              <div class="form-group">
+                <label>Amount Position (X, Y)</label>
+                <div class="coord-group">
+                  <input id="input-x-amount" type="number" step="1"/>
+                  <input id="input-y-amount" type="number" step="1"/>
+                  <button type="button" onclick="centerElement('amount')" title="Centrera horisontellt">🎯</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Date Position (X, Y)</label>
+                <div class="coord-group">
+                  <input id="input-x-date" type="number" step="1"/>
+                  <input id="input-y-date" type="number" step="1"/>
+                  <button type="button" onclick="centerElement('date')" title="Centrera horisontellt">🎯</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Type Position (X, Y)</label>
+                <div class="coord-group">
+                  <input id="input-x-type" type="number" step="1"/>
+                  <input id="input-y-type" type="number" step="1"/>
+                  <button type="button" onclick="centerElement('type')" title="Centrera horisontellt">🎯</button>
+                </div>
+              </div>
+              <button id="btn-align-x" class="secondary-button" type="button" style="margin-bottom:1rem;">Align X for Amount & Type</button>
+              <hr/>
+              <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input id="input-fontsize-serial" type="number" min="1"/></div>
+              <div class="form-group">
+                <label>Serial Nr. Position (X, Y)</label>
+                <div class="coord-group">
+                  <input id="input-x-serial" type="number" step="1"/>
+                  <input id="input-y-serial" type="number" step="1"/>
+                  <button type="button" onclick="centerElement('serial')" title="Centrera horisontellt">🎯</button>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="form-group">
-            <label>Date Position (X, Y)</label>
-            <div class="coord-group">
-              <input id="input-x-date" type="number" step="1"/>
-              <input id="input-y-date" type="number" step="1"/>
-              <button type="button" onclick="centerElement('date')" title="Centrera horisontellt">🎯</button>
+          </details>
+
+          <details>
+            <summary><strong>QR Code</strong></summary>
+            <div class="details-content">
+              <div class="form-group">
+                <label for="qr-mode">Display QR Code</label>
+                <select id="qr-mode">
+                  <option value="with_qr">With QR Code</option>
+                  <option value="no_qr">No QR Code</option>
+                </select>
+              </div>
+              <div id="qr-controls">
+                <div class="form-group">
+                  <label>QR Position (X, Y)</label>
+                  <div class="coord-group">
+                    <input id="input-x-qr" type="number" step="1"/>
+                    <input id="input-y-qr" type="number" step="1"/>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>QR Transparency</label>
+                  <input id="input-alpha-qr" type="range" min="0" max="1" step="0.05"/>
+                </div>
+                <button id="btn-reset-qr" class="secondary-button" type="button">Reset QR Position</button>
+              </div>
             </div>
-          </div>
-          <div class="form-group">
-            <label>Type Position (X, Y)</label>
-            <div class="coord-group">
-              <input id="input-x-type" type="number" step="1"/>
-              <input id="input-y-type" type="number" step="1"/>
-              <button type="button" onclick="centerElement('type')" title="Centrera horisontellt">🎯</button>
-            </div>
-          </div>
-          <button id="btn-align-x" class="secondary-button" type="button" style="margin-bottom:1rem;">Align X for Amount & Type</button>
+          </details>
 
-          <hr/>
-
-          <div class="form-group"><label for="input-fontsize-serial">Serial Nr. Font Size (px)</label><input id="input-fontsize-serial" type="number" min="1"/></div>
-          <div class="form-group">
-            <label>Serial Nr. Position (X, Y)</label>
-            <div class="coord-group">
-              <input id="input-x-serial" type="number" step="1"/>
-              <input id="input-y-serial" type="number" step="1"/>
-              <button type="button" onclick="centerElement('serial')" title="Centrera horisontellt">🎯</button>
-            </div>
-          </div>
-
-          <hr/>
-
-          <div class="form-group">
-            <label>Logo Position & Size (X, Y, Width)</label>
-            <div class="coord-group">
-              <input id="input-x-logo" type="number" step="1"/>
-              <input id="input-y-logo" type="number" step="1"/>
-              <input id="input-w-logo" type="number" step="1"/>
-            </div>
-          </div>
-
-          <div class="input-group" style="margin-top:10px">
+          <div class="input-group" style="margin-top:20px">
             <button id="btn-reset-all" class="secondary-button" type="button">Reset All Positions</button>
           </div>
         </div>
       </details>
 
       <details>
-        <summary><strong>4. Export Options</strong></summary>
+        <summary><strong>3. Export Options</strong></summary>
         <div class="details-content">
           <div class="form-group">
             <label for="input-dpi">DPI</label>
             <select id="input-dpi">
               <option value="150">150</option>
               <option value="300" selected>300</option>
+              <option value="600">600</option>
             </select>
           </div>
-          <div class="form-group">
-            <label for="qr-mode">QR Code</label>
-            <select id="qr-mode">
-              <option value="with_qr">With QR Code</option>
-              <option value="no_qr">No QR Code</option>
-            </select>
-          </div>
-          <div id="qr-controls">
-            <div class="form-group">
-              <label>QR Position (X, Y)</label>
-              <div class="coord-group">
-                <input id="input-x-qr" type="number" step="1"/>
-                <input id="input-y-qr" type="number" step="1"/>
-              </div>
-            </div>
-            <div class="form-group">
-              <label>QR Transparency</label>
-              <input id="input-alpha-qr" type="range" min="0" max="1" step="0.05"/>
-            </div>
-            <button id="btn-reset-qr" class="secondary-button" type="button">Reset QR Position</button>
-          </div>
-
           <hr/>
           <button id="btn-export-pdf" type="button">🔒 Generate Single PDF</button>
         </div>
@@ -312,7 +332,6 @@
           </div>
         </div>
 
-        <!-- Loading pane -->
         <div id="verify-loading">
           <div class="verification-icon" aria-hidden="true">⏳</div>
           <h3>Analyzing Certificate...</h3>
@@ -347,6 +366,45 @@
         </div>
       </details>
     </div>
+
+    <div id="pane-about" class="tab-content">
+        <h3>About CarbonAra</h3>
+        <div class="about-content">
+            <p>CarbonAra is a tool to create and check special PDF certificates. It's designed to be secure, making it hard for someone to fake a certificate.</p>
+
+            <h4>How to Use (ELI5)</h4>
+            <ol>
+                <li><strong>Add Your Info:</strong> Go to the "Generate" tab and fill in the "Certificate Data" like name and date.</li>
+                <li><strong>Design It:</strong> In "Layout & Style", change the background, add a logo, and move text around until it looks perfect.</li>
+                <li><strong>Export:</strong> Click "Generate Single PDF" to download your secure certificate.</li>
+            </ol>
+
+            <h4>How Does Verification Work?</h4>
+            <p>When you create a PDF, the app hides a secret code and a digital signature inside it. This signature is based on all the data (name, date, image, text positions).</p>
+            <p>When you upload a PDF to the "Verify" tab, the app looks for that secret code and signature. It then performs several checks:</p>
+            <ul>
+                <li>It recalculates the signature based on the data it finds and checks if it matches the one stored inside.</li>
+                <li>It checks image hashes and a hidden watermark in the pixels to be extra sure.</li>
+            </ul>
+            <p>
+                <strong>🟢 High Trust:</strong> Means the signature and all the hidden checks match perfectly. It's very likely authentic.
+                <br>
+                <strong>🟡 Medium/Low Trust:</strong> Means something doesn't match. The signature might be wrong, or the image might have been changed. You should be careful with this certificate.
+            </p>
+
+            <h4>Cool Features</h4>
+            <ul>
+                <li><strong>Secure by Design:</strong> Uses modern cryptography (HMAC-SHA256) to sign every certificate.</li>
+                <li><strong>Pixel Watermarking:</strong> Hides data directly in the image pixels, making it resistant to simple edits.</li>
+                <li><strong>All-in-One:</strong> No server needed! Everything happens securely in your browser. Your data never leaves your computer.</li>
+                <li><strong>Customizable:</strong> Drag and drop text, change fonts, and use your own branding to make certificates your own.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <span id="app-version"></span>
+    </div>
   </aside>
 
   <section class="preview-area" id="preview-area">
@@ -364,7 +422,7 @@
   </section>
 </main>
 
-<!-- Generation progress modal -->
+<!-- Modals -->
 <div id="progress-modal" role="dialog" aria-modal="true" aria-labelledby="progress-title">
   <div class="modal-content">
     <h3 id="progress-title">Generating PDF...</h3>
@@ -383,6 +441,9 @@
 </div>
 
 <script>
+// Increment for each new version
+const APP_VERSION = "1.0";
+
 /* ---------- Small Utils ---------- */
 const id = x => document.getElementById(x);
 const delay = ms => new Promise(r => setTimeout(r, ms));
@@ -506,12 +567,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let textElements={}, logoElement={}, qrCodeElement={};
   let autoGenParam = false;
 
-  // Worker references
   let verifyWorker = null;
   let verifyTimer = null;
   let verifyStartTs = 0;
 
   async function init(){
+    id('app-version').textContent = `v${APP_VERSION}`;
     ensureDate();
     generateNewSerial();
     addEventListeners();
@@ -561,6 +622,10 @@ document.addEventListener('DOMContentLoaded', () => {
     requestRedraw();
   });
 
+  id('sidebar-toggle').addEventListener('click', () => {
+    document.body.classList.toggle('sidebar-collapsed');
+  });
+
   function addEventListeners(){
     const debounced = (fn => { let t; return ()=>{ clearTimeout(t); t=setTimeout(fn,30); } })(requestRedraw);
     Object.values(inputs).forEach(el=> el.addEventListener('input', debounced));
@@ -585,7 +650,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     id('verify-cancel-btn').addEventListener('click', cancelVerification);
 
-    // drag to move elements on canvas
     let dragging=false, key=null, offset={x:0,y:0};
     canvas.addEventListener('mousedown', e=>{
       const p = getMouse(e);
@@ -612,7 +676,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     window.addEventListener('mouseup', ()=>{ dragging=false; key=null; canvas.style.cursor='grab'; });
 
-    // paste / drag-drop background convenience
     ['dragenter','dragover'].forEach(evt =>
       window.addEventListener(evt, e => { e.preventDefault(); e.dataTransfer.dropEffect='copy'; })
     );
@@ -873,16 +936,13 @@ document.addEventListener('DOMContentLoaded', () => {
         app:'CarbonCert-5.0.0'
       };
 
-      // Pass A (no watermark)
       step('Step 2/12: Hashing original…','14%');
       const A = await pngAndHashes(null, true);
       payload.imageHashOriginal = A.rgbaHash;
 
-      // Provisional tag
       let canon = canonicalString({...payload, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:''});
       let tag = await tagFor(canon);
 
-      // Pass B with ECC watermark placeholder
       step('Step 3/12: Embedding ECC watermark…','24%');
       const placeholderMsg = `TAG:${tag}||CCJSON:pending`;
       const B = await pngAndHashes(placeholderMsg, true);
@@ -890,11 +950,9 @@ document.addEventListener('DOMContentLoaded', () => {
       payload.imageHashRGB = B.rgbHash;
       payload.imageHashAttachment = await sha256(B.bytes.buffer);
 
-      // Recompute tag with hashes
       canon = canonicalString(payload);
       tag = await tagFor(canon);
 
-      // Pass C final JSON in watermark
       step('Step 4/12: Finalizing watermark…','34%');
       const fullJson = JSON.stringify({...payload, tag_b64:tag});
       const fullB64 = u8ToB64(new TextEncoder().encode(fullJson));
@@ -916,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const pngImg = await pdfDoc.embedPng(finalPngBytes);
       page.drawImage(pngImg,{x:0,y:0,width:canvas.width,height:canvas.height});
 
-      step('Step 6/12: Embedding attachments (name tree)…','54%');
+      step('Step 6/12: Embedding attachments…','54%');
       try{
         await pdfDoc.attach(finalPngBytes, `CarbonAra-${payload.serial}.png`, {
           mimeType:'image/png', description:'Raster used to compose this document', createDate:new Date(), modificationDate:new Date()
@@ -928,7 +986,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }catch(e){ console.warn('attach(json) failed', e); }
 
-      step('Step 7/12: Embedding FileAttachment annotation + AF…','64%');
+      step('Step 7/12: Embedding FileAttachment annotation…','64%');
       try{
         const ctx = pdfDoc.context;
         const efPng = ctx.stream(finalPngBytes, { Type: PDFLib.PDFName.of('EmbeddedFile'), Subtype: PDFLib.PDFName.of('image#2Fpng') });
@@ -994,7 +1052,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(e){ showError('Download Error', e?.stack||String(e)); }
   }
 
-  /* ---------- VERIFICATION: Classic Web Worker (non-blocking) ---------- */
+  /* ---------- VERIFICATION ---------- */
 
   function startVerification(ev){
     const file=ev.target.files?.[0]; if(!file) return;
@@ -1109,17 +1167,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function createVerifierWorker(){
     const code = `
-      // --- Verification Worker ---
-      // This code runs in a separate thread to avoid freezing the UI.
-
-      // **FIX**: Wrap critical dependency loading in a try-catch block.
-      // If this fails, the worker would previously terminate silently.
       try {
         self.importScripts('https://unpkg.com/pdf-lib/dist/pdf-lib.min.js');
       } catch (e) {
-        // Immediately notify the main thread of the critical failure.
         self.postMessage({ type: 'error', message: 'Failed to load critical library (pdf-lib). Please check your network connection and try again.' });
-        // It's important to throw the error to halt further execution in the worker.
         throw e;
       }
 
@@ -1139,7 +1190,6 @@ document.addEventListener('DOMContentLoaded', () => {
       function b64ToU8(b64){ const bin = atob(b64); const u8 = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
       function safeJson(s){ try{ return JSON.parse(s); }catch{ return null; } }
 
-      // Watermark helpers
       const WM_V2 = { header:"CC2|", footer:"|END2", repeat:7, stride:3 };
       function crc32(str){
         let c = ~0, table = crc32.table;
@@ -1188,7 +1238,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
       }
 
-      // Canonical & HMAC
       const masterKeySalt="CarbonCertSaltV1", pbkdf2Iterations=100000;
       async function reconstructMasterKey(){
         const fragments=['fragA','fragB','fragC','fragD'];
@@ -1304,7 +1353,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       async function findJsonAttachmentAny(pdfDoc){
         const { PDFName, PDFDict, PDFRawStream, PDFStream } = PDFLib;
-
         for(const [_r,obj] of pdfDoc.context.enumerateIndirectObjects()){
           if(obj && (obj instanceof PDFRawStream || obj instanceof PDFStream)){
             const subtype=obj?.dict?.get?.(PDFName.of('Subtype'));
@@ -1534,7 +1582,6 @@ document.addEventListener('DOMContentLoaded', () => {
           const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes,{ ignoreEncryption:true, throwOnInvalidObject:false });
           log('PDF document loaded successfully.');
 
-          // Locate payload
           postProgress('Locating embedded payload…','18%','vstep-locate'); await delay(0);
           let payload=null, foundVia='none';
 
@@ -1623,14 +1670,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if(!payload) throw new Error('No embedded CarbonAra payload found. This PDF is not a valid certificate or has been tampered with.');
           log(\`Payload found via: \${foundVia}.\`);
 
-          // Signature
           postProgress('Validating cryptographic signature…','58%','vstep-sign'); await delay(0);
           const expected = await tagFor(canonicalString(payload));
           log(\`Expected tag: \${expected.slice(0,16)}…\`);
           log(\`Metadata tag: \${(payload.tag_b64||'').slice(0,16)}…\`);
           const cryptoOK = (payload.tag_b64 === expected);
 
-          // Attachment + pixels
           postProgress('Cross-checking embedded image & watermark…','70%','vstep-attach'); await delay(0);
           let attachOK=false, pixelOK=false, watermarkOK=false;
           try{
@@ -1719,15 +1764,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const cls = result.status==='HIGH'?'high':(result.status==='MEDIUM'?'medium':'low');
     const details = id('result-card-details');
     details.className = `result-card ${cls}`;
-    const icon = result.status==='HIGH'?'✓':(result.status==='MEDIUM'?'⚠️':'✗');
+    const icon = result.status==='HIGH'?'🟢': '🟡';
+
+    const getStatus = (key) => result[key] === 'OK' ? '🟢' : '🟡';
 
     details.innerHTML = `
       <h4>${icon} Verification ${result.status}</h4>
       <ul class="verification-breakdown">
-        <li><span class="icon ${result.crypto==='OK'?'ok':'fail'}">${result.crypto==='OK'?'✓':'✗'}</span> Cryptographic Signature: <strong>${result.crypto==='OK'?'Valid':'Invalid'}</strong></li>
-        <li><span class="icon ${result.attachment==='OK'?'ok':(result.attachment==='SKIPPED'?'':'fail')}">${result.attachment==='OK'?'✓':(result.attachment==='SKIPPED'?'•':'✗')}</span> Image Hash (Attachment): <strong>${result.attachment==='OK'?'Matched':(result.attachment==='SKIPPED'?'Skipped':'Mismatch')}</strong></li>
-        <li><span class="icon ${result.water==='OK'?'ok':(result.water==='SKIPPED'?'':'fail')}">${result.water==='OK'?'✓':(result.water==='SKIPPED'?'•':'✗')}</span> Watermark Integrity: <strong>${result.water==='OK'?'Matched':'Mismatch/Absent'}</strong></li>
-        <li><span class="icon ${result.pixel==='OK'?'ok':(result.pixel==='SKIPPED'?'':'fail')}">${result.pixel==='OK'?'✓':(result.pixel==='SKIPPED'?'•':'✗')}</span> Pixel Hash Consistency: <strong>${result.pixel==='OK'?'Matched':'Mismatch/Skipped'}</strong></li>
+        <li><span class="icon">${getStatus('crypto')}</span> Cryptographic Signature: <strong>${result.crypto==='OK'?'Valid':'Invalid'}</strong></li>
+        <li><span class="icon">${getStatus('attachment')}</span> Image Hash (Attachment): <strong>${result.attachment==='OK'?'Matched':'Mismatch'}</strong></li>
+        <li><span class="icon">${getStatus('water')}</span> Watermark Integrity: <strong>${result.water==='OK'?'Matched':'Mismatch/Absent'}</strong></li>
+        <li><span class="icon">${getStatus('pixel')}</span> Pixel Hash Consistency: <strong>${result.pixel==='OK'?'Matched':'Mismatch/Skipped'}</strong></li>
       </ul>
       ${payload.serial?`<p><strong>Serial:</strong> ${payload.serial}</p>`:''}
       ${payload.name?`<p><strong>Name:</strong> ${payload.name}</p>`:''}
@@ -1735,6 +1782,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ${payload.type?`<p><strong>Type:</strong> ${payload.type}</p>`:''}
       ${payload.amount?`<p><strong>Amount:</strong> ${payload.amount}</p>`:''}
       ${result.error?`<p style="margin-top:1rem; color: var(--danger-color);"><strong>Error:</strong> ${result.error}</p>`:''}
+      <p class="verification-disclaimer">Just like with banknotes and other certificates - verification is not completely immune to tampering so trust with caution.</p>
     `;
   }
 
@@ -1744,7 +1792,6 @@ document.addEventListener('DOMContentLoaded', () => {
     id('error-modal').style.display='flex';
   }
 
-  /* start */
   init();
 });
 </script>
