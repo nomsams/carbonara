@@ -442,7 +442,7 @@
 
 <script>
 // Increment for each new version
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3-decoded-hash";
 
 /* ---------- Small Utils ---------- */
 const id = x => document.getElementById(x);
@@ -551,7 +551,8 @@ function extractLSBv1(ctx2d){
 /* ---------- App ---------- */
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = id('previewCanvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently:true, alpha: false, colorSpace: 'srgb' });
+  // FIX: Prefer opaque sRGB context for deterministic pixels (fallback to defaults if unsupported)
+  const ctx = canvas.getContext('2d', { willReadFrequently:true, alpha:false, colorSpace:'srgb' }) || canvas.getContext('2d', { willReadFrequently:true });
   const bgImage = new Image();
   const logoImage = new Image();
   let qrImage = new Image();
@@ -704,9 +705,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function draw(){
     const dark = (document.documentElement.getAttribute('data-theme')==='dark');
-    ctx.fillStyle = dark ? '#121212' : '#FFFFFF';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.textBaseline='top';
+    // Ensure an opaque base for deterministic pixels
+    ctx.fillStyle = dark ? '#1e1e1e' : '#ffffff';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
     if(bgImageLoaded) ctx.drawImage(bgImage,0,0,canvas.width,canvas.height);
     if(logoImageLoaded && logoElement.width>0) ctx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
 
@@ -853,9 +855,9 @@ document.addEventListener('DOMContentLoaded', () => {
   async function reconstructMasterKey(){
     const fragments=['fragA','fragB','fragC','fragD'];
     const concatenated=fragments.join('')+'a-very-secret-pepper';
-    const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(concatenated), {name:'PBDF2'}, false, ['deriveKey']);
+    const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(concatenated), {name:'PBKDF2'}, false, ['deriveKey']);
     return await crypto.subtle.deriveKey(
-      {name:'PBDF2',salt:new TextEncoder().encode(masterKeySalt),iterations:pbkdf2Iterations,hash:'SHA-256'},
+      {name:'PBKDF2',salt:new TextEncoder().encode(masterKeySalt),iterations:pbkdf2Iterations,hash:'SHA-256'},
       base, {name:'HMAC',hash:'SHA-256',length:256}, true, ['sign','verify']
     );
   }
@@ -882,57 +884,73 @@ document.addEventListener('DOMContentLoaded', () => {
     try{
       step('Step 1/12: Drawing base…','6%'); await delay(5);
 
-      async function decodeAndHashPngBytes(u8){
-        const blob = new Blob([u8], { type:'image/png' });
-        const bmp = await createImageBitmap(blob);
-        const oc = new OffscreenCanvas(bmp.width, bmp.height);
-        const ox = oc.getContext('2d', { willReadFrequently:true, alpha:false, colorSpace:'srgb' });
-        ox.drawImage(bmp, 0, 0);
-        const d = ox.getImageData(0,0,oc.width,oc.height).data;
-        const decRGBA = await sha256(d);
-        const decRGB  = await hashRGBOnly(d);
-        bmp.close();
-        return { decRGBA, decRGB };
+      // Helper: decode a PNG/bytes back to pixels and hash those (to match verifier pipeline)
+      async function decodeAndHashPngBytes(u8, mime='image/png'){
+        try{
+          const blob = new Blob([u8], { type: mime });
+          const bmp = await createImageBitmap(blob);
+          // Use OffscreenCanvas if available, else a temp canvas
+          const useOff = (typeof OffscreenCanvas !== 'undefined');
+          const c = useOff ? new OffscreenCanvas(bmp.width, bmp.height) : document.createElement('canvas');
+          if(!useOff){ c.width=bmp.width; c.height=bmp.height; }
+          const cx = c.getContext('2d', { willReadFrequently:true, alpha:false, colorSpace:'srgb' }) || c.getContext('2d', { willReadFrequently:true });
+          // Opaque base to avoid premul/alpha ambiguities
+          cx.fillStyle = '#ffffff';
+          cx.fillRect(0,0,bmp.width,bmp.height);
+          cx.drawImage(bmp,0,0);
+          const d = cx.getImageData(0,0,bmp.width,bmp.height).data;
+          const decRGBA = await sha256(d);
+          const decRGB  = await hashRGBOnly(d);
+          bmp.close();
+          return { decRGBA, decRGB };
+        }catch(e){
+          // Fallback: if decode failed, return empty to avoid breaking
+          return { decRGBA:null, decRGB:null };
+        }
       }
 
-      async function generateFinalImageAndHashes(embedStr, useV2){
-        const c = document.createElement('canvas');
-        c.width = canvas.width; c.height = canvas.height;
-        const cx = c.getContext('2d', { willReadFrequently: true, alpha: false, colorSpace: 'srgb' });
-
-        cx.fillStyle = '#FFFFFF';
-        cx.fillRect(0, 0, c.width, c.height);
+      async function getHashesAndPng(embedStr, useV2){
+        // Create deterministic, opaque sRGB canvas for hashing/export
+        const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
+        const cx=c.getContext('2d',{willReadFrequently:true, alpha:false, colorSpace:'srgb'}) || c.getContext('2d',{willReadFrequently:true});
         
-        cx.textBaseline = 'top';
-        if (bgImageLoaded) cx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
-        if (logoImageLoaded && logoElement.width > 0) cx.drawImage(logoImage, logoElement.x, logoElement.y, logoElement.width, logoElement.height);
-        
-        Object.values(textElements).forEach(el => {
-            const size = Number.isFinite(el.fontSize) ? el.fontSize : 12;
-            cx.font = `${size}px '${el.font || 'Montserrat'}'`;
-            const w = cx.measureText(el.text || '').width;
-            cx.fillStyle = '#000';
-            cx.fillText(el.text || '', el.x - w / 2, el.y);
+        // Draw base (opaque)
+        cx.textBaseline='top';
+        cx.fillStyle='#FFFFFF';
+        cx.fillRect(0,0,c.width,c.height);
+        if(bgImageLoaded) cx.drawImage(bgImage,0,0,c.width,c.height);
+        if(logoImageLoaded && logoElement.width>0) cx.drawImage(logoImage,logoElement.x,logoElement.y,logoElement.width,logoElement.height);
+        Object.values(textElements).forEach(el=>{
+          const size=Number.isFinite(el.fontSize)? el.fontSize:12;
+          cx.font=`${size}px '${el.font||'Montserrat'}'`;
+          const w=cx.measureText(el.text||'').width;
+          cx.fillStyle='#000'; cx.fillText(el.text||'', el.x - w/2, el.y);
         });
-
-        if (inputs.qrMode.value === 'with_qr' && qrImage.src) {
-            cx.globalAlpha = 1.0; 
-            cx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size);
+        if(inputs.qrMode.value==='with_qr' && qrImage.src){
+          // Keep existing alpha for appearance (do not remove functionality)
+          cx.globalAlpha=qrCodeElement.alpha;
+          cx.drawImage(qrImage,qrCodeElement.x,qrCodeElement.y,qrCodeElement.size,qrCodeElement.size);
+          cx.globalAlpha=1.0;
         }
 
-        if (embedStr) {
-            if (useV2) embedLSBv2(cx, embedStr); else embedLSBv1(cx, embedStr);
+        // Embed watermark if needed
+        if(embedStr){
+          if(useV2) embedLSBv2(cx, embedStr); else embedLSBv1(cx, embedStr);
         }
 
-        const preEncodePixels = cx.getImageData(0, 0, c.width, c.height).data;
-        const rgbaHash = await sha256(preEncodePixels);
+        // Get pixel data BEFORE PNG conversion (legacy hashes kept for compatibility)
+        const pixels = cx.getImageData(0,0,c.width,c.height).data;
+        const rgbaHash = await sha256(pixels);
+        const rgbHash = await hashRGBOnly(pixels);
 
+        // Now get the final PNG bytes
         const dataURL = c.toDataURL('image/png');
         const bytes = dataURLtoU8(dataURL);
 
-        const { decRGBA, decRGB } = await decodeAndHashPngBytes(bytes);
+        // NEW: Also compute hashes of the decoded PNG pixels to match verifier
+        const { decRGBA, decRGB } = await decodeAndHashPngBytes(bytes, 'image/png');
 
-        return { bytes, rgbaHash, decRGBA, decRGB };
+        return { bytes, rgbaHash, rgbHash, decRGBA, decRGB };
       }
 
       ensureDate();
@@ -962,17 +980,17 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       step('Step 2/12: Hashing original…','14%');
-      const A = await generateFinalImageAndHashes(null, true);
-      payload.imageHashOriginal = A.rgbaHash;
+      const A = await getHashesAndPng(null, true);
+      payload.imageHashOriginal = A.decRGBA || A.rgbaHash; // Prefer decoded hash for determinism
 
       let canon = canonicalString({...payload, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:''});
       let tag = await tagFor(canon);
 
       step('Step 3/12: Embedding ECC watermark…','24%');
       const placeholderMsg = `TAG:${tag}||CCJSON:pending`;
-      const B = await generateFinalImageAndHashes(placeholderMsg, true);
-      payload.imageHashWatermarked = B.decRGBA;
-      payload.imageHashRGB = B.decRGB;
+      const B = await getHashesAndPng(placeholderMsg, true);
+      payload.imageHashWatermarked = B.decRGBA || B.rgbaHash;
+      payload.imageHashRGB = B.decRGB || B.rgbHash;
       payload.imageHashAttachment = await sha256(B.bytes);
 
       canon = canonicalString(payload);
@@ -982,10 +1000,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const fullJson = JSON.stringify({...payload, tag_b64:tag});
       const fullB64 = u8ToB64(new TextEncoder().encode(fullJson));
       const Cmsg = `TAG:${tag}||CCJSON:${fullB64}`;
-      const C = await generateFinalImageAndHashes(Cmsg, true);
+      const C = await getHashesAndPng(Cmsg, true);
 
-      payload.imageHashWatermarked = C.decRGBA;
-      payload.imageHashRGB = C.decRGB;
+      payload.imageHashWatermarked = C.decRGBA || C.rgbaHash;
+      payload.imageHashRGB = C.decRGB || C.rgbHash;
       payload.imageHashAttachment = await sha256(C.bytes);
       const finalTag = await tagFor(canonicalString(payload));
       const finalPayload = {...payload, tag_b64: finalTag};
@@ -1013,35 +1031,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
       step('Step 7/12: Embedding FileAttachment annotation…','64%');
       try{
-        const ctx = pdfDoc.context;
-        const efPng = ctx.stream(finalPngBytes, { Type: PDFLib.PDFName.of('EmbeddedFile'), Subtype: PDFLib.PDFName.of('image#2Fpng') });
-        const efPngRef = ctx.register(efPng);
-        const fsPng = ctx.obj({ Type: PDFLib.PDFName.of('Filespec'),
+        const ctxp = pdfDoc.context;
+        const efPng = ctxp.stream(finalPngBytes, { Type: PDFLib.PDFName.of('EmbeddedFile'), Subtype: PDFLib.PDFName.of('image#2Fpng') });
+        const efPngRef = ctxp.register(efPng);
+        const fsPng = ctxp.obj({ Type: PDFLib.PDFName.of('Filespec'),
           F: PDFLib.PDFString.of(`CarbonAra-${payload.serial}.png`),
           UF: PDFLib.PDFString.of(`CarbonAra-${payload.serial}.png`),
-          EF: ctx.obj({ F: efPngRef })
+          EF: ctxp.obj({ F: efPngRef })
         });
-        const fsPngRef = ctx.register(fsPng);
+        const fsPngRef = ctxp.register(fsPng);
 
-        const efJson = ctx.stream(finalJsonBytes, { Type: PDFLib.PDFName.of('EmbeddedFile'), Subtype: PDFLib.PDFName.of('application#2Fjson') });
-        const efJsonRef = ctx.register(efJson);
-        const fsJson = ctx.obj({ Type: PDFLib.PDFName.of('Filespec'),
+        const efJson = ctxp.stream(finalJsonBytes, { Type: PDFLib.PDFName.of('EmbeddedFile'), Subtype: PDFLib.PDFName.of('application#2Fjson') });
+        const efJsonRef = ctxp.register(efJson);
+        const fsJson = ctxp.obj({ Type: PDFLib.PDFName.of('Filespec'),
           F: PDFLib.PDFString.of(`carboncert-${payload.serial}.json`),
           UF: PDFLib.PDFString.of(`carboncert-${payload.serial}.json`),
-          EF: ctx.obj({ F: efJsonRef })
+          EF: ctxp.obj({ F: efJsonRef })
         });
-        const fsJsonRef = ctx.register(fsJson);
+        const fsJsonRef = ctxp.register(fsJson);
 
-        pdfDoc.catalog.set(PDFLib.PDFName.of('AF'), ctx.obj([ fsJsonRef, fsPngRef ]));
+        pdfDoc.catalog.set(PDFLib.PDFName.of('AF'), ctxp.obj([ fsJsonRef, fsPngRef ]));
 
         const rect = [10, 10, 22, 22];
-        const annotDict = ctx.obj({
+        const annotDict = ctxp.obj({
           Type: PDFLib.PDFName.of('Annot'), Subtype: PDFLib.PDFName.of('FileAttachment'),
-          Rect: ctx.obj(rect), FS: fsPngRef, Name: PDFLib.PDFName.of('PushPin'), C: ctx.obj([1,1,0])
+          Rect: ctxp.obj(rect), FS: fsPngRef, Name: PDFLib.PDFName.of('PushPin'), C: ctxp.obj([1,1,0])
         });
-        const annotRef = ctx.register(annotDict);
+        const annotRef = ctxp.register(annotDict);
         const annots = page.node.Annots();
-        if (annots) { annots.push(annotRef); } else { page.node.set(PDFLib.PDFName.of('Annots'), ctx.obj([annotRef])); }
+        if (annots) { annots.push(annotRef); } else { page.node.set(PDFLib.PDFName.of('Annots'), ctxp.obj([annotRef])); }
       }catch(e){ console.warn('file attachment annotation failed', e); }
 
       step('Step 8/12: Metadata…','74%');
@@ -1108,7 +1126,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if(msg.type === 'error'){
         stopElapsedTimer();
         appendDiag('CRITICAL ERROR: '+ (msg.message||'Unknown error'));
-        showVerifyResult({status:'LOW',crypto:'FAIL',attachment:'FAIL',water:'FAIL',pixel:'FAIL',error:msg.message||'Unknown error'},{});
+        showVerifyResult({status:'LOW',crypto:'FAIL',attachment:'FAIL',water:'FAIL',pixel:'FAIL',error:msg.message||'Unknown error'}, {});
         hideVerifyLoadingUI();
         stopExistingWorker();
       } else if(msg.type === 'need-pixel-scan'){
@@ -1117,7 +1135,9 @@ document.addEventListener('DOMContentLoaded', () => {
           const bmp = await createImageBitmap(blob);
           const c = document.createElement('canvas');
           c.width = bmp.width; c.height = bmp.height;
-          const cx = c.getContext('2d', {willReadFrequently:true, alpha: false, colorSpace: 'srgb'});
+          const cx = c.getContext('2d', {willReadFrequently:true, alpha:false, colorSpace:'srgb'}) || c.getContext('2d', {willReadFrequently:true});
+          cx.fillStyle = '#ffffff';
+          cx.fillRect(0,0,c.width,c.height);
           cx.drawImage(bmp,0,0);
           const d = cx.getImageData(0,0,c.width,c.height).data;
           const rgbaHash = await sha256(d);
@@ -1136,7 +1156,7 @@ document.addEventListener('DOMContentLoaded', () => {
     verifyWorker.onerror = (err) => {
       stopElapsedTimer();
       appendDiag('WORKER ERROR: ' + (err.message||String(err)));
-      showVerifyResult({status:'LOW',crypto:'FAIL',attachment:'FAIL',water:'FAIL',pixel:'FAIL',error:err.message||String(err)},{});
+      showVerifyResult({status:'LOW',crypto:'FAIL',attachment:'FAIL',water:'FAIL',pixel:'FAIL',error:err.message||String(err)}, {});
       hideVerifyLoadingUI();
       stopExistingWorker();
     };
@@ -1292,9 +1312,9 @@ document.addEventListener('DOMContentLoaded', () => {
       async function reconstructMasterKey(){
         const fragments=['fragA','fragB','fragC','fragD'];
         const concatenated=fragments.join('')+'a-very-secret-pepper';
-        const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(concatenated), {name:'PBDF2'}, false, ['deriveKey']);
+        const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(concatenated), {name:'PBKDF2'}, false, ['deriveKey']);
         return await crypto.subtle.deriveKey(
-          {name:'PBDF2',salt:new TextEncoder().encode(masterKeySalt),iterations:pbkdf2Iterations,hash:'SHA-256'},
+          {name:'PBKDF2',salt:new TextEncoder().encode(masterKeySalt),iterations:pbkdf2Iterations,hash:'SHA-256'},
           base, {name:'HMAC',hash:'SHA-256',length:256}, true, ['sign','verify']
         );
       }
@@ -1346,7 +1366,9 @@ document.addEventListener('DOMContentLoaded', () => {
           const blob=new Blob([u8],{type:mime});
           const bmp=await createImageBitmap(blob);
           const c=new OffscreenCanvas(bmp.width, bmp.height);
-          const cx=c.getContext('2d',{willReadFrequently:true, alpha: false, colorSpace: 'srgb'});
+          const cx=c.getContext('2d',{willReadFrequently:true, alpha:false, colorSpace:'srgb'}) || c.getContext('2d',{willReadFrequently:true});
+          cx.fillStyle = '#ffffff';
+          cx.fillRect(0,0,c.width,c.height);
           cx.drawImage(bmp,0,0);
           const d=cx.getImageData(0,0,c.width,c.height).data;
           const rgbaHash=await sha256(d);
@@ -1518,7 +1540,7 @@ document.addEventListener('DOMContentLoaded', () => {
               const R = await pixelsAndWmFromImageBytes(preliminaryImage.bytes, 'image/png');
               if(R.v2OK){
                 const m = R.message;
-                const b64 = (m.match(/CCJSON:([A-Za-z0-9+/=]+)/)||[])[1];
+                const b64 = (m && (m.match(/CCJSON:([A-Za-z0-9+/=]+)/)||[])[1]) || null;
                 if(b64){
                   const obj = safeJson(textDec.decode(b64ToU8(b64)));
                   if(obj){ payload=obj; foundVia='lsb-watermark'; }
@@ -1559,24 +1581,24 @@ document.addEventListener('DOMContentLoaded', () => {
              log(\`Expected Attachment Hash:  \${(payload.imageHashAttachment||'').slice(0,16)}...\`);
              if(attHash === (payload.imageHashAttachment||'')) {
                 attachOK = true;
-                pixelOK = true;
-                log('Attachment hash: PASS. Assuming pixel integrity is OK.');
+                log('Attachment hash: PASS');
              } else {
                 log('Attachment hash: FAIL');
              }
 
              const R = await pixelsAndWmFromImageBytes(pngBytes, 'image/png');
              if(!R.skipped && !R.error){
-                if(!pixelOK && (R.rgbaHash===payload.imageHashWatermarked || R.rgbHash===payload.imageHashRGB)) {
-                    pixelOK=true;
-                    log('Decoded pixel hash: PASS');
-                }
+                log(\`Computed RGBA Hash:        \${R.rgbaHash.slice(0,16)}...\`);
+                log(\`Expected Watermarked Hash: \${(payload.imageHashWatermarked||'').slice(0,16)}...\`);
+                log(\`Computed RGB-Only Hash:      \${R.rgbHash.slice(0,16)}...\`);
+                log(\`Expected RGB-Only Hash:      \${(payload.imageHashRGB||'').slice(0,16)}...\`);
+                if(R.rgbaHash===payload.imageHashWatermarked || R.rgbHash===payload.imageHashRGB) pixelOK=true;
                 if(R.v2OK) watermarkOK=true;
-                log(\`Attachment watermark check: \${watermarkOK ? 'PASS' : 'FAIL'}\`);
-                if (!pixelOK) {
-                    log(\`Decoded pixel hash: FAIL`);
-                    log(\`Computed RGBA Hash:        \${R.rgbaHash.slice(0,16)}...\`);
-                    log(\`Expected Watermarked Hash: \${(payload.imageHashWatermarked||'').slice(0,16)}...\`);
+                log(\`Attachment pixel/watermark check: pixel=\${pixelOK}, water=\${watermarkOK}\`);
+                // FIX: If attachment bytes matched (attachOK), treat pixelOK true to avoid false negatives from color pipelines
+                if(attachOK && !pixelOK){
+                  pixelOK = true;
+                  log('Pixel hash relaxed to PASS due to exact attachment byte match.');
                 }
              } else if(R.error) {
                 log('Pixel scan error on attachment: ' + R.error);
