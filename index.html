@@ -41,10 +41,10 @@
     .logo svg{width:32px;height:32px;fill:var(--primary-color)}
     .logo h1{margin:0;font-size:22px;font-weight:700}
     .controls{display:flex;align-items:center;gap:20px}
-    #theme-toggle, #sidebar-toggle{
+    #theme-toggle, #header-sidebar-toggle{
       cursor:pointer;background:none;border:1px solid var(--border-color);border-radius:20px;padding:6px;display:flex;align-items:center;font-size:18px;line-height:1;transition:transform .2s,background-color .2s, box-shadow .2s;
     }
-    #theme-toggle:hover, #sidebar-toggle:hover{transform:scale(1.1);background:var(--bg-color); box-shadow: 0 0 8px var(--shadow-color);}
+    #theme-toggle:hover, #header-sidebar-toggle:hover{transform:scale(1.1);background:var(--bg-color); box-shadow: 0 0 8px var(--shadow-color);}
     .main-container{display:flex;height:calc(100vh - 65px); transition: grid-template-columns .3s ease;}
     .sidebar{width:var(--sidebar-width);min-width:var(--sidebar-width);padding:20px;background:var(--fg-color);border-right:1px solid var(--border-color);overflow-y:auto; transition: min-width .3s ease, width .3s ease, padding .3s ease, transform .3s ease; position: relative;}
     .sidebar-footer { padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-light-color); font-size: 12px; }
@@ -128,12 +128,38 @@
 
     #error-details{max-height:200px;overflow-y:auto;background:var(--bg-color);border:1px solid var(--border-color);padding:10px;margin-top:15px;text-align:left;font-family:monospace;font-size:12px}
     
+    /* Sidebar collapsed state */
     body.sidebar-collapsed .sidebar {
       width: 0;
       min-width: 0;
       padding-left: 0;
       padding-right: 0;
       transform: translateX(calc(-1 * var(--sidebar-width)));
+    }
+
+    /* SIDE HANDLE (new): sticks next to panel; pinned to left screen when collapsed */
+    #sidebar-handle{
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      left: var(--sidebar-width); /* adjacent to open sidebar */
+      z-index: 110;
+      width: 34px;
+      height: 60px;
+      border-radius: 0 8px 8px 0;
+      border: 1px solid var(--border-color);
+      background: var(--fg-color);
+      color: var(--text-color);
+      box-shadow: 0 4px 12px var(--shadow-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: left .3s ease, background .2s ease, color .2s ease, box-shadow .2s ease;
+    }
+    #sidebar-handle:hover{ box-shadow: 0 6px 16px var(--shadow-color); }
+    body.sidebar-collapsed #sidebar-handle{
+      left: 0; /* pinned to left edge when collapsed */
     }
 
     @media (max-width:900px){
@@ -145,9 +171,9 @@
       .header h1{font-size:18px}
       .logo svg{width:24px;height:24px}
       .tab-button{padding: 10px 12px; font-size: 15px;}
-      body.sidebar-collapsed .sidebar {
-        display: none;
-      }
+      body.sidebar-collapsed .sidebar { display: none; }
+      /* On mobile, keep the handle at left edge always */
+      #sidebar-handle { left: 0 !important; }
     }
   </style>
 </head>
@@ -158,10 +184,13 @@
     <h1>CarbonAra</h1>
   </div>
   <div class="controls">
-    <button id="sidebar-toggle" title="Toggle Sidebar" aria-label="Toggle sidebar">☰</button>
+    <button id="header-sidebar-toggle" title="Toggle Sidebar" aria-label="Toggle sidebar">☰</button>
     <button id="theme-toggle" title="Växla mörkt/ljust läge" aria-label="Toggle theme">🌙</button>
   </div>
 </header>
+
+<!-- SIDE HANDLE (new) -->
+<button id="sidebar-handle" title="Collapse/Expand panel" aria-label="Toggle panel">☰</button>
 
 <main class="main-container">
   <aside class="sidebar">
@@ -182,7 +211,7 @@
           <div class="form-group">
             <label for="input-serial">Serial Number</label>
             <div class="input-group">
-              <input id="input-serial" type="text" readonly title="Unikt serienummer för spårbarhet"/>
+              <input id="input-serial" type="text" title="Unikt serienummer för spårbarhet"/>
               <button id="btn-generate-serial" type="button" title="Generera Nytt Serienummer">🔄</button>
             </div>
           </div>
@@ -442,14 +471,14 @@
 
 <script>
 // Increment for each new version
-const APP_VERSION = "1.3-decoded-hash";
+const APP_VERSION = "1.4-qr-autorefresh-sidehandle";
 
 /* ---------- Small Utils ---------- */
 const id = x => document.getElementById(x);
 const delay = ms => new Promise(r => setTimeout(r, ms));
 const safeJson = s => { try { return JSON.parse(s); } catch { return null; } };
 const u8ToB64 = u8 => { let bin=''; for(let i=0;i<u8.length;i++) bin+=String.fromCharCode(u8[i]); return btoa(bin); };
-const b64ToU8 = b64 => { const bin = atob(b64); const u8 = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; };
+const b64ToU8 = b64 => { const bin = atob(b64); const u8 = new Uint8Array(bin.length); for(let i=0;i<u8.length;i++) u8[i]=bin.charCodeAt(i); return u8; };
 const dataURLtoU8 = dataURL => { const base64=(dataURL.split(',')[1]||''); return b64ToU8(base64); };
 const clamp01 = x => Math.max(0, Math.min(1, x));
 const num = v => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
@@ -551,11 +580,11 @@ function extractLSBv1(ctx2d){
 /* ---------- App ---------- */
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = id('previewCanvas');
-  // FIX: Prefer opaque sRGB context for deterministic pixels (fallback to defaults if unsupported)
   const ctx = canvas.getContext('2d', { willReadFrequently:true, alpha:false, colorSpace:'srgb' }) || canvas.getContext('2d', { willReadFrequently:true });
   const bgImage = new Image();
   const logoImage = new Image();
-  let qrImage = new Image();
+  const qrImage = new Image();     // keep one persistent Image object
+  let qrImageLoaded = false;       // track readiness of the QR image
 
   let bgImageLoaded=false, logoImageLoaded=false, zoomLevel=1, isRendering=false;
 
@@ -582,7 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function init(){
     id('app-version').textContent = `v${APP_VERSION}`;
     ensureDate();
-    generateNewSerial();
+    if(!inputs.serial.value) generateNewSerial(); // keep user edits if present
     addEventListeners();
     try { await (document.fonts?.ready || Promise.resolve()); } catch {}
 
@@ -623,6 +652,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelector(`.tab-button[onclick="showTab('${name}')"]`).classList.add('active');
   };
 
+  // Header toggle and side handle toggle (both preserved)
+  const toggleSidebar = () => document.body.classList.toggle('sidebar-collapsed');
+  id('header-sidebar-toggle').addEventListener('click', toggleSidebar);
+  id('sidebar-handle').addEventListener('click', toggleSidebar);
+
   id('theme-toggle').addEventListener('click',()=>{
     const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
     document.documentElement.setAttribute('data-theme',t);
@@ -630,21 +664,27 @@ document.addEventListener('DOMContentLoaded', () => {
     requestRedraw();
   });
 
-  id('sidebar-toggle').addEventListener('click', () => {
-    document.body.classList.toggle('sidebar-collapsed');
-  });
-
   function addEventListeners(){
-    const debounced = (fn => { let t; return ()=>{ clearTimeout(t); t=setTimeout(fn,30); } })(requestRedraw);
+    // Debounced redraw AND QR regen on any input change
+    const debounced = (fn => { let t; return ()=>{ clearTimeout(t); t=setTimeout(fn,60); } })(()=>{
+      updateFromInputs();
+      requestRedraw();
+    });
+
     Object.values(inputs).forEach(el=> el.addEventListener('input', debounced));
+
+    // Explicitly regenerate QR on critical text changes to be safe
+    ['input-name','input-amount','input-date','input-type','input-serial','qr-mode'].forEach(k=>{
+      id(k).addEventListener('input', ()=>{ buildQR(true); }); // force immediate QR refresh
+    });
 
     id('image-upload').addEventListener('change', onBgUpload);
     id('logo-upload').addEventListener('change', onLogoUpload);
     id('btn-reset-all').addEventListener('click', resetAllPositions);
     id('btn-reset-qr').addEventListener('click', resetQr);
     id('btn-export-pdf').addEventListener('click', exportPdf);
-    id('btn-generate-serial').addEventListener('click', generateNewSerial);
-    id('btn-align-x').addEventListener('click', ()=>{ inputs.xType.value=inputs.xAmount.value; requestRedraw(); });
+    id('btn-generate-serial').addEventListener('click', ()=>{ generateNewSerial(); buildQR(true); });
+    id('btn-align-x').addEventListener('click', ()=>{ inputs.xType.value=inputs.xAmount.value; updateFromInputs(); requestRedraw(); });
     id('file-upload-verify').addEventListener('change', startVerification);
     id('zoom-in').addEventListener('click', ()=>updateZoom(0.2));
     id('zoom-out').addEventListener('click', ()=>updateZoom(-0.2));
@@ -658,6 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     id('verify-cancel-btn').addEventListener('click', cancelVerification);
 
+    // Dragging elements on canvas
     let dragging=false, key=null, offset={x:0,y:0};
     canvas.addEventListener('mousedown', e=>{
       const p = getMouse(e);
@@ -684,6 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     window.addEventListener('mouseup', ()=>{ dragging=false; key=null; canvas.style.cursor='grab'; });
 
+    // Drag-n-drop / paste background
     ['dragenter','dragover'].forEach(evt =>
       window.addEventListener(evt, e => { e.preventDefault(); e.dataTransfer.dropEffect='copy'; })
     );
@@ -706,7 +748,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function draw(){
     const dark = (document.documentElement.getAttribute('data-theme')==='dark');
     ctx.textBaseline='top';
-    // Ensure an opaque base for deterministic pixels
     ctx.fillStyle = dark ? '#1e1e1e' : '#ffffff';
     ctx.fillRect(0,0,canvas.width,canvas.height);
     if(bgImageLoaded) ctx.drawImage(bgImage,0,0,canvas.width,canvas.height);
@@ -720,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.fillText(el.text||'', el.x - w/2, el.y);
     });
 
-    if(inputs.qrMode.value==='with_qr' && qrImage.src){
+    if(inputs.qrMode.value==='with_qr' && qrImageLoaded){
       ctx.globalAlpha = qrCodeElement.alpha;
       ctx.drawImage(qrImage, qrCodeElement.x, qrCodeElement.y, qrCodeElement.size, qrCodeElement.size);
       ctx.globalAlpha = 1.0;
@@ -756,7 +797,8 @@ document.addEventListener('DOMContentLoaded', () => {
     qrCodeElement = {
       x:num(inputs.xQr.value), y:num(inputs.yQr.value), alpha:clamp01(parseFloat(inputs.alphaQr.value||'0.8')), size:150, draggable: inputs.qrMode.value==='with_qr'
     };
-    buildQR();
+    // Always rebuild QR when inputs change to keep it in sync
+    buildQR(false);
   }
 
   function resetAllPositions(){
@@ -770,6 +812,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inputs.xQr.value = String(Math.max(0,canvas.width - s - m));
     inputs.yQr.value = String(Math.max(0,canvas.height - s - m));
     inputs.alphaQr.value = '0.8';
+    buildQR(true);
     requestRedraw();
   }
   function getMouse(e){
@@ -838,16 +881,39 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(()=>{ exportPdf(); }, 50);
     }
   }
-  function buildQR(){
+
+  // Build QR (updated): persistent Image with onload to avoid "disappearing" during async load
+  function buildQR(forceImmediate){
     try{
-      if(inputs.qrMode.value!=='with_qr'){ qrImage.src=''; return; }
+      if(inputs.qrMode.value!=='with_qr'){
+        qrImageLoaded = false;
+        qrImage.src = '';
+        return;
+      }
       const d = ensureDate();
       const qrData={ s:inputs.serial.value, n:inputs.name.value, a:inputs.amount.value, d, t:inputs.type.value };
       const b64=btoa(JSON.stringify(qrData)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
       const url=`https://nomsams.github.io/carbonara/?verify=${b64}`;
-      const qri=new QRious({ value:url, size:512 });
-      qrImage = new Image(); qrImage.src = qri.toDataURL();
-    }catch{ qrImage.src=''; }
+
+      const generate = () => {
+        const qri=new QRious({ value:url, size:512 });
+        const dataUrl = qri.toDataURL();
+        qrImageLoaded = false;                // will flip true on load
+        qrImage.onload = ()=>{ qrImageLoaded = true; requestRedraw(); };
+        qrImage.onerror = ()=>{ qrImageLoaded = false; };
+        qrImage.src = dataUrl;                // swapping src triggers load
+      };
+
+      if(forceImmediate){ generate(); }
+      else {
+        // tiny defer to coalesce bursts of changes
+        clearTimeout(buildQR._t);
+        buildQR._t = setTimeout(generate, 10);
+      }
+    }catch{
+      qrImageLoaded = false;
+      qrImage.src = '';
+    }
   }
 
   /* ---------- Crypto ---------- */
@@ -889,12 +955,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try{
           const blob = new Blob([u8], { type: mime });
           const bmp = await createImageBitmap(blob);
-          // Use OffscreenCanvas if available, else a temp canvas
           const useOff = (typeof OffscreenCanvas !== 'undefined');
           const c = useOff ? new OffscreenCanvas(bmp.width, bmp.height) : document.createElement('canvas');
           if(!useOff){ c.width=bmp.width; c.height=bmp.height; }
           const cx = c.getContext('2d', { willReadFrequently:true, alpha:false, colorSpace:'srgb' }) || c.getContext('2d', { willReadFrequently:true });
-          // Opaque base to avoid premul/alpha ambiguities
           cx.fillStyle = '#ffffff';
           cx.fillRect(0,0,bmp.width,bmp.height);
           cx.drawImage(bmp,0,0);
@@ -904,17 +968,14 @@ document.addEventListener('DOMContentLoaded', () => {
           bmp.close();
           return { decRGBA, decRGB };
         }catch(e){
-          // Fallback: if decode failed, return empty to avoid breaking
           return { decRGBA:null, decRGB:null };
         }
       }
 
       async function getHashesAndPng(embedStr, useV2){
-        // Create deterministic, opaque sRGB canvas for hashing/export
         const c=document.createElement('canvas'); c.width=canvas.width; c.height=canvas.height;
         const cx=c.getContext('2d',{willReadFrequently:true, alpha:false, colorSpace:'srgb'}) || c.getContext('2d',{willReadFrequently:true});
         
-        // Draw base (opaque)
         cx.textBaseline='top';
         cx.fillStyle='#FFFFFF';
         cx.fillRect(0,0,c.width,c.height);
@@ -926,28 +987,23 @@ document.addEventListener('DOMContentLoaded', () => {
           const w=cx.measureText(el.text||'').width;
           cx.fillStyle='#000'; cx.fillText(el.text||'', el.x - w/2, el.y);
         });
-        if(inputs.qrMode.value==='with_qr' && qrImage.src){
-          // Keep existing alpha for appearance (do not remove functionality)
+        if(inputs.qrMode.value==='with_qr' && qrImageLoaded){
           cx.globalAlpha=qrCodeElement.alpha;
           cx.drawImage(qrImage,qrCodeElement.x,qrCodeElement.y,qrCodeElement.size,qrCodeElement.size);
           cx.globalAlpha=1.0;
         }
 
-        // Embed watermark if needed
         if(embedStr){
           if(useV2) embedLSBv2(cx, embedStr); else embedLSBv1(cx, embedStr);
         }
 
-        // Get pixel data BEFORE PNG conversion (legacy hashes kept for compatibility)
         const pixels = cx.getImageData(0,0,c.width,c.height).data;
         const rgbaHash = await sha256(pixels);
         const rgbHash = await hashRGBOnly(pixels);
 
-        // Now get the final PNG bytes
         const dataURL = c.toDataURL('image/png');
         const bytes = dataURLtoU8(dataURL);
 
-        // NEW: Also compute hashes of the decoded PNG pixels to match verifier
         const { decRGBA, decRGB } = await decodeAndHashPngBytes(bytes, 'image/png');
 
         return { bytes, rgbaHash, rgbHash, decRGBA, decRGB };
@@ -981,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       step('Step 2/12: Hashing original…','14%');
       const A = await getHashesAndPng(null, true);
-      payload.imageHashOriginal = A.decRGBA || A.rgbaHash; // Prefer decoded hash for determinism
+      payload.imageHashOriginal = A.decRGBA || A.rgbaHash;
 
       let canon = canonicalString({...payload, imageHashWatermarked:'0'.repeat(64), imageHashRGB:'0'.repeat(64), imageHashAttachment:''});
       let tag = await tagFor(canon);
@@ -1011,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const finalPngBytes = C.bytes;
 
       step('Step 5/12: Building PDF page…','44%');
-      const { PDFDocument, PDFName, PDFString } = window.PDFLib;
+      const { PDFDocument } = window.PDFLib;
       const pdfDoc = await PDFDocument.create();
       const page = pdfDoc.addPage([canvas.width, canvas.height]);
       const pngImg = await pdfDoc.embedPng(finalPngBytes);
@@ -1247,7 +1303,7 @@ document.addEventListener('DOMContentLoaded', () => {
       async function sha256(input){
         let ab;
         if (input instanceof ArrayBuffer) { ab = input; }
-        else if (input && input.buffer instanceof ArrayBuffer) { ab = input.buffer.slice(input.byteOffset, input.byteOffset + input.byteLength); }
+        else if (input && input.buffer instanceof ArrayBuffer) { ab = input.buffer.slice(input.byteOffset, input.byteLength); }
         else { throw new Error('sha256: unsupported input type'); }
         const h = await crypto.subtle.digest('SHA-256', ab);
         return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -1595,7 +1651,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(R.rgbaHash===payload.imageHashWatermarked || R.rgbHash===payload.imageHashRGB) pixelOK=true;
                 if(R.v2OK) watermarkOK=true;
                 log(\`Attachment pixel/watermark check: pixel=\${pixelOK}, water=\${watermarkOK}\`);
-                // FIX: If attachment bytes matched (attachOK), treat pixelOK true to avoid false negatives from color pipelines
                 if(attachOK && !pixelOK){
                   pixelOK = true;
                   log('Pixel hash relaxed to PASS due to exact attachment byte match.');
